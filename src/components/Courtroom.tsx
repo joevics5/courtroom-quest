@@ -16,12 +16,9 @@ import {
   isWitnessPhase,
   type TurnState
 } from '../lib/trialTurnSystem';
-import { generateProsecutionAction, buildTranscriptSummary } from '../lib/prosecutionAI';
-import { generateProsecutionOpeningStatement } from '../lib/ai/trialAI';
+import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateObjectionRuling, generateWitnessResponse, generateVerdict } from '../lib/ai/trialAI';
+import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
-import { generateObjectionRuling } from '../lib/judgeAI';
-import { generateWitnessResponse } from '../lib/witnessAI';
-import { generateVerdict } from '../lib/verdictAI';
 import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, Case } from '../types';
 
 interface CourtroomProps {
