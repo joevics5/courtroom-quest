@@ -29,7 +29,7 @@ export const db = {
         console.error('Error fetching user profile:', error);
         return null;
       }
-      return data;
+      return data as UserProfile | null;
     },
 
     async isAdmin(userId: string): Promise<boolean> {
@@ -45,13 +45,13 @@ export const db = {
     async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
       const { data, error } = await supabase
         .from('user_profiles')
-        .update(updates)
+        .update(updates as any)
         .eq('user_id', userId)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as UserProfile;
     }
   },
 
@@ -64,7 +64,7 @@ export const db = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as Case[];
     },
 
     async getUserCases(userId: string): Promise<Case[]> {
@@ -76,7 +76,7 @@ export const db = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as Case[];
     },
 
     async getUserCasesWithSessionStatus(userId: string): Promise<(Case & { has_sessions: boolean; has_completed_sessions: boolean; current_phase?: string })[]> {
@@ -138,33 +138,33 @@ export const db = {
       if (witnessesError) throw witnessesError;
 
       return {
-        ...caseData,
-        evidence: evidence || [],
-        witnesses: witnesses || []
+        ...(caseData as any as Case),
+        evidence: (evidence || []) as Evidence[],
+        witnesses: (witnesses || []) as Witness[]
       };
     },
 
     async createCase(caseData: Omit<Case, 'id' | 'created_at' | 'updated_at'>): Promise<Case> {
       const { data, error } = await supabase
         .from('cases')
-        .insert([caseData])
+        .insert([caseData as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Case;
     },
 
     async updateCase(caseId: string, updates: Partial<Case>): Promise<Case> {
       const { data, error } = await supabase
         .from('cases')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({ ...updates, updated_at: new Date().toISOString() } as any)
         .eq('id', caseId)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Case;
     },
 
     async deleteCase(caseId: string): Promise<void> {
@@ -199,30 +199,30 @@ export const db = {
       const { data, error } = await query.order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as Evidence[];
     },
 
     async addEvidence(evidenceData: Omit<Evidence, 'id' | 'created_at'>): Promise<Evidence> {
       const { data, error } = await supabase
         .from('evidence')
-        .insert([evidenceData])
+        .insert([evidenceData as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Evidence;
     },
 
     async updateEvidence(evidenceId: string, updates: Partial<Evidence>): Promise<Evidence> {
       const { data, error } = await supabase
         .from('evidence')
-        .update(updates)
+        .update(updates as any)
         .eq('id', evidenceId)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Evidence;
     },
 
     async discoverEvidence(evidenceId: string): Promise<Evidence> {
@@ -237,7 +237,7 @@ export const db = {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Evidence;
     },
 
     async deleteEvidence(evidenceId: string): Promise<void> {
@@ -259,30 +259,30 @@ export const db = {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as Witness[];
     },
 
     async addWitness(witnessData: Omit<Witness, 'id' | 'created_at'>): Promise<Witness> {
       const { data, error } = await supabase
         .from('witnesses')
-        .insert([witnessData])
+        .insert([witnessData as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Witness;
     },
 
     async updateWitness(witnessId: string, updates: Partial<Witness>): Promise<Witness> {
       const { data, error } = await supabase
         .from('witnesses')
-        .update(updates)
+        .update(updates as any)
         .eq('id', witnessId)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Witness;
     },
 
     async deleteWitness(witnessId: string): Promise<void> {
@@ -311,7 +311,7 @@ export const db = {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as CaseSession;
     },
 
     async getSession(sessionId: string): Promise<CaseSession | null> {
@@ -322,7 +322,7 @@ export const db = {
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data as CaseSession | null;
     },
 
     async getUserSessions(userId: string): Promise<CaseSession[]> {
@@ -333,7 +333,7 @@ export const db = {
         .order('started_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as CaseSession[];
     },
 
     async getOngoingSessions(userId: string): Promise<CaseSession[]> {
@@ -348,9 +348,9 @@ export const db = {
 
       // Filter to only return the most recent session per case
       const caseMap = new Map<string, CaseSession>();
-      (data || []).forEach(session => {
+      ((data || []) as any[]).forEach(session => {
         if (!caseMap.has(session.case_id)) {
-          caseMap.set(session.case_id, session);
+          caseMap.set(session.case_id, session as CaseSession);
         }
       });
 
@@ -369,7 +369,7 @@ export const db = {
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data as CaseSession | null;
     },
 
     async getSessionWithDetails(sessionId: string): Promise<SessionWithDetails | null> {
@@ -415,24 +415,24 @@ export const db = {
       if (verdictError) throw verdictError;
 
       return {
-        ...session,
-        case: caseData,
-        interactions: interactions || [],
-        trial_events: events || [],
-        verdict: verdict || undefined
+        ...(session as any as CaseSession),
+        case: caseData as any as Case,
+        interactions: (interactions || []) as WitnessInteraction[],
+        trial_events: (events || []) as TrialEvent[],
+        verdict: (verdict as any as Verdict) || undefined
       };
     },
 
     async updateSession(sessionId: string, updates: Partial<CaseSession>): Promise<CaseSession> {
       const { data, error } = await supabase
         .from('case_sessions')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({ ...updates, updated_at: new Date().toISOString() } as any)
         .eq('id', sessionId)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as CaseSession;
     }
   },
 
@@ -440,12 +440,12 @@ export const db = {
     async addInteraction(interaction: Omit<WitnessInteraction, 'id' | 'asked_at'>): Promise<WitnessInteraction> {
       const { data, error } = await supabase
         .from('witness_interactions')
-        .insert([interaction])
+        .insert([interaction as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as WitnessInteraction;
     },
 
     async getSessionInteractions(sessionId: string): Promise<WitnessInteraction[]> {
@@ -456,7 +456,7 @@ export const db = {
         .order('asked_at', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as WitnessInteraction[];
     }
   },
 
@@ -464,12 +464,12 @@ export const db = {
     async addEvent(event: Omit<TrialEvent, 'id' | 'timestamp'>): Promise<TrialEvent> {
       const { data, error } = await supabase
         .from('trial_events')
-        .insert([event])
+        .insert([event as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as TrialEvent;
     },
 
     async getSessionEvents(sessionId: string): Promise<TrialEvent[]> {
@@ -480,7 +480,7 @@ export const db = {
         .order('timestamp', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as TrialEvent[];
     },
 
     async deleteSessionEvents(sessionId: string): Promise<void> {
@@ -497,12 +497,12 @@ export const db = {
     async createVerdict(verdict: Omit<Verdict, 'id' | 'delivered_at'>): Promise<Verdict> {
       const { data, error } = await supabase
         .from('verdicts')
-        .insert([verdict])
+        .insert([verdict as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Verdict;
     },
 
     async getSessionVerdict(sessionId: string): Promise<Verdict | null> {
@@ -513,7 +513,7 @@ export const db = {
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data as Verdict | null;
     }
   },
 
@@ -525,7 +525,7 @@ export const db = {
         .order('name', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as Juror[];
     },
 
     async getRandomJurors(count: number): Promise<Juror[]> {
@@ -536,7 +536,7 @@ export const db = {
 
       if (error) throw error;
 
-      const shuffled = (data || []).sort(() => Math.random() - 0.5);
+      const shuffled = ((data || []) as Juror[]).sort(() => Math.random() - 0.5);
       return shuffled.slice(0, count);
     }
   },
@@ -545,12 +545,12 @@ export const db = {
     async addJurySelection(selection: Omit<JurySelection, 'id' | 'created_at'>): Promise<JurySelection> {
       const { data, error } = await supabase
         .from('jury_selections')
-        .insert([selection])
+        .insert([selection as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as JurySelection;
     },
 
     async getSessionJurySelections(sessionId: string): Promise<JurySelection[]> {
@@ -561,7 +561,7 @@ export const db = {
         .order('selection_order', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as JurySelection[];
     },
 
     async removeJurySelection(selectionId: string): Promise<void> {
@@ -587,12 +587,12 @@ export const db = {
     async createInvitation(invitation: Omit<CaseInvitation, 'id' | 'created_at'>): Promise<CaseInvitation> {
       const { data, error } = await supabase
         .from('case_invitations')
-        .insert([invitation])
+        .insert([invitation as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as CaseInvitation;
     },
 
     async getInvitationsByUser(userId: string): Promise<CaseInvitation[]> {
@@ -603,7 +603,7 @@ export const db = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as CaseInvitation[];
     },
 
     async getInvitationsByEmail(email: string): Promise<CaseInvitation[]> {
@@ -615,19 +615,19 @@ export const db = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as CaseInvitation[];
     },
 
     async updateInvitation(invitationId: string, updates: Partial<CaseInvitation>): Promise<CaseInvitation> {
       const { data, error } = await supabase
         .from('case_invitations')
-        .update(updates)
+        .update(updates as any)
         .eq('id', invitationId)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as CaseInvitation;
     }
   },
 
@@ -635,12 +635,12 @@ export const db = {
     async addWinner(winner: Omit<CaseWinner, 'id' | 'won_at'>): Promise<CaseWinner> {
       const { data, error } = await supabase
         .from('case_winners')
-        .insert([winner])
+        .insert([winner as any])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as CaseWinner;
     },
 
     async getCaseWinners(caseId: string): Promise<CaseWinner[]> {
@@ -651,7 +651,7 @@ export const db = {
         .order('won_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as CaseWinner[];
     },
 
     async getLeaderboard(limit: number = 100): Promise<Array<UserProfile & { username: string }>> {
@@ -662,7 +662,7 @@ export const db = {
         .limit(limit);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as any;
     }
   }
 };
