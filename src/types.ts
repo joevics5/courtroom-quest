@@ -6,6 +6,7 @@ export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired';
 export type EvidenceType =
   | 'documents'
   | 'photographs'
+  | 'images'
   | 'video_recordings'
   | 'audio_recordings'
   | 'witness_testimony'
@@ -19,7 +20,7 @@ export type Relevance = 'favorable' | 'neutral' | 'risky';
 export type Phase = 'setup' | 'investigation' | 'trial-type-selection' | 'jury-selection' | 'pre-trial' | 'trial' | 'completed';
 export type InteractionPhase = 'pre_trial' | 'trial';
 export type EventType = 'opening' | 'witness_examination' | 'cross_examination' | 'objection' | 'ruling' | 'closing' | 'verdict' | 'evidence_submission' | 'witness_call';
-export type SpeakerRole = 'judge' | 'counsel' | 'witness' | 'opposing_counsel' | 'prosecution' | 'defense';
+export type SpeakerRole = 'judge' | 'counsel' | 'witness' | 'opposing_counsel' | 'prosecution' | 'defense' | 'jury';
 export type Outcome = 'win' | 'lose' | 'partial';
 
 export interface Case {
@@ -32,6 +33,7 @@ export interface Case {
   is_preset: boolean;
   is_multiplayer?: boolean;
   truth_state?: Record<string, any>;
+  case_summary?: string;
   created_by?: string;
   created_at: string;
   updated_at: string;

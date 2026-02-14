@@ -60,7 +60,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
           defendant_name: caseData.defendant_name || (caseData.truth_state as any)?.defendant_name || '',
           description: caseData.description,
           caseType: caseData.case_type,
-          difficulty: caseData.difficulty || 'medium'
+          difficulty: caseData.difficulty || 'medium' as any
         });
 
         setEvidenceItems(caseData.evidence.map(e => {
