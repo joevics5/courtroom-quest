@@ -49,7 +49,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
 
       setCases(availableCases);
       setOngoingCases(presetOngoingSessions.map(session => ({
-        ...session.cases,
+        ...(session as any).cases,
         current_phase: session.current_phase,
         session_id: session.id
       })));
