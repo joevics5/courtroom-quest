@@ -279,12 +279,14 @@ export interface VerdictResult {
 
 /**
  * Generate verdict based on transcript and evidence
+ * Supports both jury trials and bench (judge-only) trials
  */
 export async function generateVerdict(
   events: TrialEvent[],
   evidence: Evidence[],
   caseTitle: string,
-  defendantName?: string
+  defendantName?: string,
+  trialType: 'judge' | 'jury' = 'judge'
 ): Promise<VerdictResult> {
   const transcript = generateTranscript(events);
   const evidenceCitations = extractEvidenceCitations(events);
@@ -296,10 +298,31 @@ export async function generateVerdict(
     .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}`)
     .join('\n');
 
-  const prompt = `You are a Judge delivering a verdict in a courtroom trial.
+  const isJuryTrial = trialType === 'jury';
+
+  const roleDescription = isJuryTrial
+    ? `You are the JURY FOREPERSON delivering the jury's unanimous verdict after deliberation.
+You represent 12 jurors who have listened to all testimony and reviewed all evidence.
+Your verdict must reflect the collective judgment of ordinary citizens, not legal experts.
+Jurors are swayed by emotional appeals, witness credibility, and clear storytelling — not just legal technicalities.`
+    : `You are a JUDGE delivering a bench trial verdict.
+You are a seasoned legal professional who evaluates cases strictly on legal merit.
+You focus on admissible evidence, legal standards, and procedural correctness.
+You are not swayed by emotional appeals — only facts and law matter.`;
+
+  const standardDescription = isJuryTrial
+    ? `Apply the "beyond a reasonable doubt" standard as an ordinary citizen would understand it.
+Consider: Did the prosecution tell a compelling, believable story? Were the witnesses credible?
+Did the defense raise genuine doubt, or did they fail to challenge the prosecution's case?`
+    : `Apply the "beyond a reasonable doubt" standard with legal precision.
+Consider: Was each element of the charge proven? Was the evidence properly admitted?
+Were there procedural issues that undermine the prosecution's case?`;
+
+  const prompt = `${roleDescription}
 
 CASE: ${caseTitle}
 ${defendantName ? `DEFENDANT: ${defendantName}` : ''}
+TRIAL TYPE: ${isJuryTrial ? 'Jury Trial (12 jurors deliberating)' : 'Bench Trial (Judge decides)'}
 
 COURT TRANSCRIPT:
 ${transcript.substring(0, 8000)}${transcript.length > 8000 ? '\n[... transcript continues ...]' : ''}
@@ -307,19 +330,22 @@ ${transcript.substring(0, 8000)}${transcript.length > 8000 ? '\n[... transcript 
 EVIDENCE SUBMITTED DURING TRIAL:
 ${evidenceList || 'No evidence was formally submitted.'}
 
+DECISION STANDARD:
+${standardDescription}
+
 INSTRUCTIONS:
 1. Review ONLY the court transcript and evidence submitted during trial
 2. Do NOT consider any information outside the transcript
-3. Determine if the prosecution has proven its case beyond a reasonable doubt
+3. ${isJuryTrial ? 'As the jury, determine if the prosecution proved its case beyond a reasonable doubt' : 'As the judge, determine if the prosecution met its burden of proof'}
 4. Provide a clear verdict: "win" (guilty) or "lose" (not guilty) or "partial" (some charges)
-5. Explain your reasoning based on the transcript
-6. Cite specific evidence that influenced your decision
+5. ${isJuryTrial ? 'Explain the jury\'s reasoning — what convinced or failed to convince the jurors' : 'Explain your legal reasoning citing specific evidence and testimony'}
+6. Cite specific evidence that influenced the decision
 7. Assign a score (0-100) based on prosecution's case strength
 
 RESPOND WITH VALID JSON:
 {
   "outcome": "win" or "lose" or "partial",
-  "reasoning": "Detailed explanation of your verdict based on the transcript and evidence",
+  "reasoning": "${isJuryTrial ? 'The jury finds...' : 'The Court finds...'} [Detailed explanation]",
   "evidence_cited": ["Exhibit A", "Exhibit B"],
   "score": 75
 }`;
@@ -327,9 +353,9 @@ RESPOND WITH VALID JSON:
   try {
     const response = await generateAIResponse({
       system: prompt,
-      user: 'Deliver your verdict now.',
+      user: isJuryTrial ? 'Deliver the jury\'s verdict now.' : 'Deliver your verdict now.',
       responseFormat: 'json',
-      temperature: AGENT_TEMPERATURES.verdict,
+      temperature: isJuryTrial ? 0.5 : AGENT_TEMPERATURES.verdict, // Jury slightly more variable
       maxTokens: 2000
     });
 
@@ -338,7 +364,9 @@ RESPOND WITH VALID JSON:
     console.error('[Verdict AI] Error generating verdict:', error);
     return {
       outcome: 'lose',
-      reasoning: 'An error occurred while generating the verdict. The Court makes its ruling based on the available evidence.',
+      reasoning: isJuryTrial
+        ? 'The jury was unable to reach a verdict. A mistrial is declared.'
+        : 'An error occurred while generating the verdict. The Court makes its ruling based on the available evidence.',
       evidence_cited: evidenceCitations,
       score: 50
     };
