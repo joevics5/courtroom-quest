@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { FileText, Users, ChevronRight, ChevronDown, Send, Eye, Scale, ArrowRight, ArrowLeft, Info } from 'lucide-react';
 import { db } from '../lib/database';
 import EvidenceViewer from './EvidenceViewer';
-import { generateWitnessResponse as generateAIWitnessResponse } from '../lib/witnessAI';
+import { generateWitnessResponse as generateAIWitnessResponse } from '../lib/ai/trialAI';
 import type { Evidence, Witness, WitnessInteraction, CaseSession, Case } from '../types';
 
 interface InvestigationProps {

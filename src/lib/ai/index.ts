@@ -12,7 +12,7 @@ export * from './config';
 // Provider factory
 export * from './providerFactory';
 
-// Unified trial AI service
+// Unified trial AI service (all agents: judge, prosecution, witness, verdict)
 export * from './trialAI';
 
 // Provider implementations (for advanced usage)
