@@ -452,31 +452,33 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           setAwaitingUserInput(true);
         }
 
-       // Auto-trigger prosecution AI if it's their turn (only once per phase)
+        // Auto-trigger prosecution AI if it's their turn (only once per phase)
       // NOTE: Opening statements are handled by the dedicated useEffect below
+      // IMPORTANT: Wait for judge instruction to complete before prosecution acts
       const isOpeningPhase = phase?.name.toLowerCase().includes('opening statement - prosecution');
       
       if (newTurnState.current_turn === 'prosecution' && 
           phase?.category === 'trial' && 
           !isOpeningPhase && // Skip opening - handled separately
           !isProsecutionThinking &&
+          !judgeInstructionPending && // Wait for judge instruction first
           prosecutionTurnTriggeredRef.current !== currentPhase) {
         prosecutionTurnTriggeredRef.current = currentPhase;
         
-        console.log('[Courtroom] Triggering prosecution turn for phase', currentPhase);
+        console.log('[Courtroom] Triggering prosecution turn for phase', currentPhase, '(after judge instruction)');
         
-        // Small delay to avoid race conditions
+        // Delay to ensure judge instruction is visible and spoken first
         const timer = setTimeout(() => {
           if (caseData && turnState) {
             handleProsecutionTurn();
           } else {
             console.warn('[Courtroom] Cannot trigger prosecution - data not ready');
           }
-        }, 1500);
+        }, 2500); // Longer delay to let judge instruction complete
         return () => clearTimeout(timer);
       }
     }
-  }, [currentPhase, trialDuration, caseData]);
+  }, [currentPhase, trialDuration, caseData, judgeInstructionPending]);
 
   // Judge Instruction Sub-Phase Handler
   // Before entering any counsel action phase, show judge instruction first
@@ -1262,12 +1264,14 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     try {
       setIsProcessing(true);
       
-      // Generate verdict based on transcript
+      // Generate verdict based on transcript — pass trial type for jury vs bench
+      const trialType = session.trial_type || 'judge';
       const verdictResult = await generateVerdict(
         events,
         evidence.filter(e => turnState?.evidence_submitted.includes(e.id) || false),
         caseData?.title || 'Unknown Case',
-        caseData?.defendant_name
+        caseData?.defendant_name,
+        trialType as 'judge' | 'jury'
       );
 
       const verdict = await db.verdicts.createVerdict({
@@ -1284,9 +1288,11 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         completed_at: new Date().toISOString()
       });
 
-      const announcement = JUDGE_PROMPTS.verdict.replace('{verdict}', 
-        verdictResult.outcome === 'win' ? 'guilty' : 'not guilty'
-      );
+      const isJuryTrial = trialType === 'jury';
+      const verdictText = verdictResult.outcome === 'win' ? 'guilty' : 'not guilty';
+      const announcement = isJuryTrial
+        ? `Members of the jury, have you reached a verdict? We have, Your Honor. We the jury find the defendant ${verdictText}.`
+        : JUDGE_PROMPTS.verdict.replace('{verdict}', verdictText);
       speakText(announcement);
 
       onComplete(verdict);
