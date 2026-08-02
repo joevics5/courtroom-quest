@@ -6,9 +6,6 @@
 // Core types and interfaces
 export * from './types';
 
-// Configuration
-export * from './config';
-
 // Provider factory
 export * from './providerFactory';
 
@@ -16,7 +13,7 @@ export * from './providerFactory';
 export * from './trialAI';
 
 // Provider implementations (for advanced usage)
-export { GeminiProvider } from './providers/gemini';
+export { SupabaseEdgeProvider } from './providers/supabaseEdge';
 export { OpenAIProvider } from './providers/openai';
 export { VoiceProvider } from './providers/voice';
 

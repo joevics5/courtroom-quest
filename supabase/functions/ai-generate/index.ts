@@ -1,4 +1,6 @@
-// Edge function for AI generation
+// Edge function for AI generation.
+// Holds the Gemini API key server-side. The frontend NEVER talks to
+// Google directly — it calls this function via supabase.functions.invoke().
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,77 +12,96 @@ interface AIRequest {
   system: string;
   user: string;
   maxTokens?: number;
+  temperature?: number;
+  responseFormat?: "text" | "json";
 }
+
+const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const { system, user, maxTokens = 300 }: AIRequest = await req.json();
+    const {
+      system,
+      user,
+      maxTokens = 2048,
+      temperature = 0.7,
+      responseFormat,
+    }: AIRequest = await req.json();
 
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
 
-    if (!openaiKey) {
+    if (!geminiKey) {
       return new Response(
         JSON.stringify({
-          error: "AI provider not configured. Set OPENAI_API_KEY in environment variables.",
+          error: "AI provider not configured. Set GEMINI_API_KEY as a Supabase secret.",
         }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user || "Continue" },
-        ],
-        max_tokens: maxTokens,
-        temperature: 0.7,
-      }),
-    });
+    const prompt = system ? `${system}\n\n${user || "Continue"}` : user || "";
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`OpenAI API error: ${error}`);
+    let lastError: string | null = null;
+
+    for (const model of FALLBACK_MODELS) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature,
+                maxOutputTokens: maxTokens,
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text();
+          lastError = `${model}: ${errText}`;
+          continue; // try next fallback model
+        }
+
+        const data = await response.json();
+        let text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+        if (!text) {
+          lastError = `${model}: empty response`;
+          continue;
+        }
+
+        if (responseFormat === "json") {
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) text = jsonMatch[0];
+        }
+
+        return new Response(
+          JSON.stringify({ text: text.trim(), content: text.trim(), metadata: { model } }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (err) {
+        lastError = `${model}: ${err instanceof Error ? err.message : String(err)}`;
+        continue;
+      }
     }
 
-    const data = await response.json();
-    const text = data.choices[0]?.message?.content || "";
-
-    return new Response(
-      JSON.stringify({ text, content: text }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    throw new Error(`All Gemini models failed. Last error: ${lastError}`);
   } catch (error) {
     console.error("AI generation error:", error);
-
     return new Response(
       JSON.stringify({
-        error: error.message || "AI generation failed",
+        error: error instanceof Error ? error.message : "AI generation failed",
         text: "",
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

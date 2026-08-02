@@ -1,58 +1,31 @@
 /**
  * AI Provider Factory
- * Creates and manages AI provider instances
+ * Creates and manages the active AI provider instance.
+ *
+ * Gemini is the only provider in use. It is always routed through the
+ * ai-generate Supabase edge function — the Gemini API key lives server-side
+ * as a Supabase secret and is never present in client (VITE_) env vars or
+ * the browser bundle. See src/lib/ai/README.md and
+ * supabase/functions/ai-generate/index.ts.
  */
 
-import { getAIConfig, getActiveProviderConfig } from './config';
-import { GeminiProvider } from './providers/gemini';
-import { OpenAIProvider } from './providers/openai';
-import { VoiceProvider } from './providers/voice';
+import { SupabaseEdgeProvider } from './providers/supabaseEdge';
 import type { IAIProvider, AIProvider } from './types';
 
 let activeProvider: IAIProvider | null = null;
 
 /**
- * Get or create the active AI provider
+ * Get or create the active AI provider.
  */
 export function getAIProvider(): IAIProvider | null {
-  if (activeProvider && activeProvider.isAvailable()) {
-    return activeProvider;
+  if (!activeProvider) {
+    activeProvider = new SupabaseEdgeProvider({});
   }
-
-  const config = getActiveProviderConfig();
-  if (!config) {
-    return null;
-  }
-
-  // Create provider based on type
-  switch (config.provider) {
-    case 'gemini':
-      activeProvider = new GeminiProvider(config);
-      break;
-    case 'openai':
-      activeProvider = new OpenAIProvider(config);
-      break;
-    case 'voice':
-      activeProvider = new VoiceProvider(config);
-      break;
-    case 'anthropic':
-      // TODO: Implement Anthropic provider
-      console.warn('Anthropic provider not yet implemented');
-      return null;
-    case 'custom':
-      // TODO: Implement custom provider
-      console.warn('Custom provider not yet implemented');
-      return null;
-    default:
-      console.warn(`Unknown provider: ${config.provider}`);
-      return null;
-  }
-
   return activeProvider;
 }
 
 /**
- * Force refresh the provider (useful when config changes)
+ * Force refresh the provider (useful when config changes).
  */
 export function refreshAIProvider(): void {
   activeProvider = null;
@@ -60,29 +33,13 @@ export function refreshAIProvider(): void {
 }
 
 /**
- * Get provider by name (for testing or specific use cases)
+ * Get provider by name. Only 'gemini' is currently implemented; it always
+ * resolves to the Supabase edge provider regardless of name for
+ * backwards-compat with existing call sites.
  */
 export function getProviderByName(providerName: AIProvider): IAIProvider | null {
-  const config = getAIConfig();
-  const providerConfig = config.providers[providerName];
-  
-  if (!providerConfig || !providerConfig.apiKey) {
-    return null;
+  if (providerName === 'gemini') {
+    return new SupabaseEdgeProvider({});
   }
-
-  switch (providerName) {
-    case 'gemini':
-      return new GeminiProvider(providerConfig);
-    case 'openai':
-      return new OpenAIProvider(providerConfig);
-    case 'voice':
-      return new VoiceProvider(providerConfig);
-    default:
-      return null;
-  }
+  return null;
 }
-
-
-
-
-
