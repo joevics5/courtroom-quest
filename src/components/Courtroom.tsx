@@ -576,11 +576,22 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       hasCaseData: !!caseData,
       hasTrialDuration: !!trialDuration,
       isProsecutionThinking,
+      judgeInstructionPending,
       prosecutionTurnTriggeredRef: prosecutionTurnTriggeredRef.current
     });
 
     if (currentPhase !== 7 || !caseData || !trialDuration || isProsecutionThinking) {
       console.log('[Courtroom] 🚫 Opening statement useEffect blocked by conditions');
+      return;
+    }
+    // Wait for the judge's "you may proceed" instruction to finish being
+    // generated and shown before the prosecution starts speaking. Without
+    // this guard, this effect and the judge-instruction effect both fire
+    // as soon as currentPhase becomes 7 and race each other, so the
+    // prosecution's opening statement can appear before or interleaved
+    // with the judge's line instead of after it.
+    if (judgeInstructionPending) {
+      console.log('[Courtroom] 🚫 Opening statement blocked - waiting for judge instruction to finish');
       return;
     }
     if (prosecutionTurnTriggeredRef.current === 7) {
@@ -592,9 +603,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     const phase = config.phases.find(p => p.number === 7);
     if (!phase || phase.name !== 'Opening Statement - Prosecution') return;
 
-    console.log('[Courtroom] 🚀 Phase 7: Generating prosecution opening statement immediately');
+    console.log('[Courtroom] 🚀 Phase 7: Judge instruction complete, generating prosecution opening statement');
 
-    // Generate immediately without delay
     const generateOpening = async () => {
       prosecutionTurnTriggeredRef.current = 7;
       setIsProsecutionThinking(true);
@@ -608,8 +618,20 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       }
     };
 
-    generateOpening();
-  }, [currentPhase, caseData, trialDuration, isProsecutionThinking]);
+    // Same 2500ms deferral the other phases use before triggering prosecution.
+    // The judgeInstructionPending check above can still read a stale value on
+    // the very first render where currentPhase flips to 7 (the judge-instruction
+    // effect's setState hasn't applied yet within the same render pass), so the
+    // check alone isn't airtight. This delay is what actually closes the race:
+    // it gives the judge's instruction (a DB write + state update) real time to
+    // finish and render before the prosecution starts speaking, regardless of
+    // exact same-tick state timing.
+    const timer = setTimeout(() => {
+      generateOpening();
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [currentPhase, caseData, trialDuration, isProsecutionThinking, judgeInstructionPending]);
 
   // Handle prosecution AI turn
   const handleProsecutionTurn = async () => {
