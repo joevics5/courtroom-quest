@@ -16,9 +16,10 @@ interface AIRequest {
   responseFormat?: "text" | "json";
 }
 
-// gemini-2.0-flash was retired by Google in 2026 — removed from this list.
-// gemini-2.5-flash and gemini-2.5-flash-lite are current as of the last check.
-const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
+// gemini-2.0-flash was retired by Google in 2026 — removed.
+// gemini-3.1-flash-lite is current per Google's docs (confirmed July 2026).
+// gemini-2.5-flash kept as a stable fallback rather than another preview ID.
+const FALLBACK_MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash"];
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {

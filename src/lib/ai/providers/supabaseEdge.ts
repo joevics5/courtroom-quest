@@ -34,7 +34,20 @@ export class SupabaseEdgeProvider extends BaseAIProvider {
     });
 
     if (error) {
-      this.handleError(error, 'generate (edge function)');
+      // supabase-js gives a generic "non-2xx status code" message here and
+      // does NOT automatically parse the JSON body we returned. The actual
+      // error detail is on error.context, which is the raw Response object.
+      let detail = error.message || 'Unknown edge function error';
+      try {
+        const context = (error as any).context;
+        if (context && typeof context.json === 'function') {
+          const body = await context.json();
+          if (body?.error) detail = body.error;
+        }
+      } catch {
+        // context wasn't valid JSON or already consumed — fall back to error.message
+      }
+      this.handleError(new Error(detail), 'generate (edge function)');
     }
 
     if (!data || data.error) {
@@ -49,6 +62,6 @@ export class SupabaseEdgeProvider extends BaseAIProvider {
 
   getAvailableModels(): string[] {
     // Fallback chain is handled server-side in the edge function.
-    return ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite'];
+    return ['gemini-3.1-flash-lite', 'gemini-2.5-flash'];
   }
 }
