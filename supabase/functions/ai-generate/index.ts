@@ -17,9 +17,7 @@ interface AIRequest {
 }
 
 // gemini-2.0-flash was retired by Google in 2026 — removed.
-// gemini-3.1-flash-lite is current per Google's docs (confirmed July 2026).
-// gemini-2.5-flash kept as a stable fallback rather than another preview ID.
-const FALLBACK_MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash"];
+const FALLBACK_MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview"];
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {

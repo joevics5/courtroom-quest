@@ -62,6 +62,6 @@ export class SupabaseEdgeProvider extends BaseAIProvider {
 
   getAvailableModels(): string[] {
     // Fallback chain is handled server-side in the edge function.
-    return ['gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+    return ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'];
   }
 }
