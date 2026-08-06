@@ -112,7 +112,8 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
       setQuestion('');
     } catch (error) {
       console.error('Failed to record interaction:', error);
-      alert('Failed to get witness response. Please try again.');
+      const message = error instanceof Error ? error.message : String(error);
+      alert(`Failed to get witness response: ${message}`);
     } finally {
       setIsQuestioningLoading(false);
     }

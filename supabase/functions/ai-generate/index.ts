@@ -16,7 +16,9 @@ interface AIRequest {
   responseFormat?: "text" | "json";
 }
 
-const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+// gemini-2.0-flash was retired by Google in 2026 — removed from this list.
+// gemini-2.5-flash and gemini-2.5-flash-lite are current as of the last check.
+const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -43,12 +45,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log(`[ai-generate] geminiKey present: ${!!geminiKey}, length: ${geminiKey?.length ?? 0}`);
+
     const prompt = system ? `${system}\n\n${user || "Continue"}` : user || "";
 
     let lastError: string | null = null;
 
     for (const model of FALLBACK_MODELS) {
       try {
+        console.log(`[ai-generate] attempting model: ${model}`);
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
           {
@@ -64,9 +69,12 @@ Deno.serve(async (req: Request) => {
           }
         );
 
+        console.log(`[ai-generate] ${model} responded with status ${response.status}`);
+
         if (!response.ok) {
           const errText = await response.text();
-          lastError = `${model}: ${errText}`;
+          console.error(`[ai-generate] ${model} error body: ${errText}`);
+          lastError = `${model} (HTTP ${response.status}): ${errText}`;
           continue; // try next fallback model
         }
 
