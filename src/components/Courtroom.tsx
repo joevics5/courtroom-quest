@@ -1395,49 +1395,49 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
       {/* Fixed Header - Non-scrolling */}
       <div className="fixed top-0 left-0 right-0 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 z-50 w-full">
-        <div className="w-full px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="w-full max-w-[1800px] mx-auto px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <button
                 onClick={onBack}
-                className="flex items-center justify-center w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors"
+                className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 shrink-0 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors"
               >
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
-              <div className="flex items-center justify-center w-10 h-10 bg-red-600 rounded-full">
+              <div className="hidden sm:flex items-center justify-center w-10 h-10 shrink-0 bg-red-600 rounded-full">
                 <Scale className="w-5 h-5 text-white" />
               </div>
-               <div>
-                 <h1 className="text-2xl font-bold text-white">Courtroom Session</h1>
-                 <p className="text-slate-400 text-sm">{phase?.name}</p>
-                 {timerActive && <p className="text-slate-400 text-sm">{formatTime(totalTimeRemaining)} remaining</p>}
+               <div className="min-w-0">
+                 <h1 className="text-base sm:text-2xl font-bold text-white truncate">Courtroom Session</h1>
+                 <p className="text-slate-400 text-xs sm:text-sm truncate">{phase?.name}</p>
+                 {timerActive && <p className="text-slate-400 text-xs sm:text-sm">{formatTime(totalTimeRemaining)} remaining</p>}
                </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                <button
                  onClick={handleEndTrial}
-                 className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                 className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                  title="End Trial"
                >
                  <RotateCcw className="w-4 h-4" />
-                 End Trial
+                 <span className="hidden sm:inline">End Trial</span>
                </button>
               <button
                 onClick={() => setShowVideoDisplay(!showVideoDisplay)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
                 title={showVideoDisplay ? 'Hide Video' : 'Show Video'}
               >
                 {showVideoDisplay ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-                {showVideoDisplay ? 'Hide Video' : 'Show Video'}
+                <span className="hidden sm:inline">{showVideoDisplay ? 'Hide Video' : 'Show Video'}</span>
               </button>
                {timerActive && (
                  <button
                    onClick={togglePause}
-                   className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                   className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
                  >
                    {timerPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                    {timerPaused ? (pausedForDefense ? 'Start' : 'Resume') : 'Pause'}
+                    <span className="hidden sm:inline">{timerPaused ? (pausedForDefense ? 'Start' : 'Resume') : 'Pause'}</span>
                  </button>
                )}
             </div>
@@ -1446,7 +1446,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       </div>
 
       {/* Scrollable Content Area - Padding to account for fixed header (header is ~90px tall) */}
-      <div className="flex-1 pb-48 px-6 overflow-y-auto" style={{ paddingTop: '120px' }}>
+      <div className="flex-1 pb-56 sm:pb-48 px-3 sm:px-6 overflow-y-auto" style={{ paddingTop: '110px' }}>
         <div className="max-w-[1800px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
@@ -1546,9 +1546,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       </div>
 
                {/* Fixed Bottom Input Bar - Static, doesn't scroll - MUST be at bottom */}
-               <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}>
+               <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}>
                  <div className="w-full max-w-[1800px] mx-auto">
-                   <div className="flex gap-2 items-center">
+                   <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                      <input
                        type="text"
                        value={input}
@@ -1560,45 +1560,47 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                            : "Type your statement or question..."
                        }
                        disabled={isProcessing || !awaitingUserInput}
-                       className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base"
+                       className="w-full sm:flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base"
                      />
-                     <button
-                       onClick={handleSubmit}
-                       disabled={!input.trim() || isProcessing || !awaitingUserInput}
-                       className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
-                     >
-                       <Send className="w-5 h-5" />
-                       Submit
-                     </button>
-                      {turnState?.current_turn === 'defense' && (
+                     <div className="flex gap-2 flex-wrap">
+                       <button
+                         onClick={handleSubmit}
+                         disabled={!input.trim() || isProcessing || !awaitingUserInput}
+                         className="flex-1 sm:flex-none justify-center px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
+                       >
+                         <Send className="w-5 h-5" />
+                         Submit
+                       </button>
+                        {turnState?.current_turn === 'defense' && (
+                           <button
+                             onClick={handleRestPhase}
+                             className="flex-1 sm:flex-none justify-center px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                           >
+                             <SkipForward className="w-5 h-5" />
+                             Rest
+                           </button>
+                        )}
+                       {turnState?.current_turn !== 'judge' && (
                          <button
-                           onClick={handleRestPhase}
-                           className="px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                           onClick={() => setShowObjectionSelector(true)}
+                           disabled={isProcessingObjection}
+                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
+                           title="Object"
                          >
-                           <SkipForward className="w-5 h-5" />
-                           Rest
+                           <AlertCircle className="w-5 h-5" />
+                           Object
                          </button>
-                      )}
-                     {turnState?.current_turn !== 'judge' && (
-                       <button
-                         onClick={() => setShowObjectionSelector(true)}
-                         disabled={isProcessingObjection}
-                         className="px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
-                         title="Object"
-                       >
-                         <AlertCircle className="w-5 h-5" />
-                         Object
-                       </button>
-                     )}
-                     {turnState && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect') && !turnState.current_witness_id && (
-                       <button
-                         onClick={() => setShowWitnessSelector(true)}
-                         className="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                       >
-                         <User className="w-4 h-4" />
-                         Call Witness
-                       </button>
-                     )}
+                       )}
+                       {turnState && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect') && !turnState.current_witness_id && (
+                         <button
+                           onClick={() => setShowWitnessSelector(true)}
+                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                         >
+                           <User className="w-4 h-4" />
+                           Call Witness
+                         </button>
+                       )}
+                     </div>
                    </div>
                  </div>
                </div>
