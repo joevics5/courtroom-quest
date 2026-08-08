@@ -127,6 +127,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   }, [session]);
 
   useEffect(() => {
+    if (showPreTrial) return; // don't run trial timers/logic while pre-trial script is still showing
     if (trialDuration) {
       const config = getTrialConfig(trialDuration);
       const phase = config.phases.find(p => p.number === currentPhase);
@@ -138,26 +139,29 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [currentPhase, trialDuration, timerPaused]);
+  }, [currentPhase, trialDuration, timerPaused, showPreTrial]);
 
   // Auto-advance phase when time runs out
   useEffect(() => {
+    if (showPreTrial) return;
     if (trialDuration && timerActive && !timerPaused && phaseTimeRemaining[currentPhase] <= 0 && phaseTimeRemaining[currentPhase] !== undefined) {
       console.log('[Courtroom] Time ran out for phase', currentPhase, '- auto-advancing');
       handleNextPhase();
     }
-  }, [phaseTimeRemaining, currentPhase, timerActive, timerPaused, trialDuration]);
+  }, [phaseTimeRemaining, currentPhase, timerActive, timerPaused, trialDuration, showPreTrial]);
 
   // Force verdict when total time runs out
   useEffect(() => {
+    if (showPreTrial) return;
     if (trialDuration && totalTimeRemaining <= 0 && timerActive && !timerPaused) {
       console.log('[Courtroom] Total trial time ran out - forcing verdict');
       handleVerdict();
     }
-  }, [totalTimeRemaining, timerActive, timerPaused, trialDuration]);
+  }, [totalTimeRemaining, timerActive, timerPaused, trialDuration, showPreTrial]);
 
   // Save progress whenever trial phase changes
   useEffect(() => {
+    if (showPreTrial) return;
     db.sessions.updateSession(session.id, {
       current_phase: 'trial',
       current_trial_phase: currentPhase,
@@ -167,7 +171,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         totalTimeRemaining
       }
     }).catch(err => console.error('Failed to save trial phase progress:', err));
-  }, [currentPhase, session.id, phaseTimeRemaining, totalTimeRemaining]);
+  }, [currentPhase, session.id, phaseTimeRemaining, totalTimeRemaining, showPreTrial]);
 
   const loadTrialData = async () => {
     try {
@@ -448,6 +452,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
   // Initialize turn state when phase changes
   useEffect(() => {
+    if (showPreTrial) return;
     if (trialDuration && caseData) {
       const config = getTrialConfig(trialDuration);
       const phase = config.phases.find(p => p.number === currentPhase);
@@ -506,13 +511,14 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         return () => clearTimeout(timer);
       }
     }
-  }, [currentPhase, trialDuration, caseData, judgeInstructionPending]);
+  }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial]);
 
   // Judge Instruction Sub-Phase Handler
   // Before entering any counsel action phase, show judge instruction first
   const judgeInstructionShownRef = useRef<Set<number>>(new Set());
   
   useEffect(() => {
+    if (showPreTrial) return;
     if (!trialDuration || !caseData || !judgeName) return;
     
     const config = getTrialConfig(trialDuration);
@@ -595,7 +601,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     };
     
     addInstruction();
-  }, [currentPhase, caseData, trialDuration, judgeName, prosecutorName, events.length]);
+  }, [currentPhase, caseData, trialDuration, judgeName, prosecutorName, events.length, showPreTrial]);
 
   // Phase 7: Opening Statement - Prosecution
   useEffect(() => {
@@ -608,7 +614,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       prosecutionTurnTriggeredRef: prosecutionTurnTriggeredRef.current
     });
 
-    if (currentPhase !== 7 || !caseData || !trialDuration || isProsecutionThinking) {
+    if (showPreTrial || currentPhase !== 7 || !caseData || !trialDuration || isProsecutionThinking) {
       console.log('[Courtroom] 🚫 Opening statement useEffect blocked by conditions');
       return;
     }
@@ -659,7 +665,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [currentPhase, caseData, trialDuration, isProsecutionThinking, judgeInstructionPending]);
+  }, [currentPhase, caseData, trialDuration, isProsecutionThinking, judgeInstructionPending, showPreTrial]);
 
   // Handle prosecution AI turn
   const handleProsecutionTurn = async () => {
