@@ -19,7 +19,8 @@ import {
 import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateObjectionRuling, generateWitnessResponse, generateVerdict } from '../lib/ai/trialAI';
 import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
-import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, Case } from '../types';
+import { getDisplayName } from '../lib/userName';
+import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case } from '../types';
 
 interface CourtroomProps {
   session: CaseSession;
@@ -190,6 +191,17 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     setJudgeName(judge);
     setProsecutorName(prosecutor);
 
+    // Persist so a remount (refresh, back/forward navigation) restores the
+    // same judge/prosecutor instead of re-randomizing and drifting out of
+    // sync with what was already said in the pre-trial transcript.
+    await db.sessions.updateSession(session.id, {
+      session_state: {
+        ...session.session_state,
+        judgeName: judge,
+        prosecutorName: prosecutor
+      }
+    });
+
     if (pleaGuilty) {
       // Mark session as completed
       await db.sessions.updateSession(session.id, {
@@ -217,7 +229,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
   };
 
-  const handleTrialDurationSelect = async (duration: TrialDuration) => {
+  const handleTrialDurationSelect = async (type: TrialType, duration: TrialDuration) => {
     setTrialDuration(duration);
     const config = getTrialConfig(duration);
 
@@ -230,12 +242,29 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
     await db.sessions.updateSession(session.id, {
       trial_duration: duration,
+      trial_type: type,
       phase_timings: config.phaseDurations,
       session_state: {
         ...session.session_state,
         phaseTimeRemaining: initialTimes
       }
     });
+
+    if (type === 'judge') {
+      // No jury selection step for a bench trial — let the player know
+      // who's deciding the case instead of silently skipping straight
+      // past it.
+      const assignmentEvent = await db.trialEvents.addEvent({
+        session_id: session.id,
+        event_type: 'announcement',
+        speaker_role: 'judge',
+        speaker_name: 'Court',
+        content: `Judge ${judgeName} has been assigned this case.`,
+        metadata: { phase: currentPhase },
+        event_order: events.length + 1
+      });
+      setEvents(prevEvents => [...prevEvents, assignmentEvent]);
+    }
 
     if (currentPhase === 1) {
       announcePhase(1);
@@ -289,6 +318,14 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     const phase = getPhaseInfo(phaseNumber, trialDuration);
     if (!phase) return;
 
+    // Phases 7+ (opening statement onward) already get a judge line from
+    // getJudgeInstructionForPhase (see the judgeInstructionPending effect
+    // below), correctly spoken as the actual judge's name. This function
+    // used to ALSO add a second, differently-worded line here tagged with
+    // the literal speaker name "Judge" — that was the duplicate/garbled
+    // judge statement bug. Don't duplicate it.
+    if (phaseNumber >= 7) return;
+
     let announcement = '';
 
     switch (phaseNumber) {
@@ -305,27 +342,6 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         break;
       case 6:
         announcement = JUDGE_PROMPTS.plea;
-        speakText(announcement);
-        break;
-      case 7:
-        announcement = `${judgeName}, the prosecution may proceed with their opening statement.`;
-        speakText(announcement);
-        break;
-      case 8:
-        announcement = `${judgeName}, the defense may proceed with their opening statement.`;
-        speakText(announcement);
-        break;
-      case 9:
-        announcement = JUDGE_PROMPTS.callWitness;
-        speakText(announcement);
-        break;
-      case 10:
-      case 11:
-        announcement = JUDGE_PROMPTS.closingArgument;
-        speakText(announcement);
-        break;
-      case 12:
-        announcement = JUDGE_PROMPTS.deliberation;
         speakText(announcement);
         break;
     }
@@ -392,7 +408,19 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
   const handleNextPhase = async () => {
     if (!trialDuration) return;
-    
+
+    // Opening statements are mandatory: don't let the timer (or any other
+    // trigger) advance past phase 7 (prosecution) or 8 (defense) until that
+    // side has actually given their statement.
+    if (currentPhase === 7 && !events.some(e => e.speaker_role === 'prosecution' && (e.metadata as any)?.phase === 7)) {
+      console.log('[Courtroom] Blocked advance from phase 7 — prosecution has not given an opening statement yet');
+      return;
+    }
+    if (currentPhase === 8 && !events.some(e => e.speaker_role === 'defense' && (e.metadata as any)?.phase === 8)) {
+      console.log('[Courtroom] Blocked advance from phase 8 — defense has not given an opening statement yet');
+      return;
+    }
+
     const config = getTrialConfig(trialDuration);
     const verdictPhase = config.phases.find(p => p.name === 'Verdict Delivery');
     const nextPhase = currentPhase + 1;
@@ -1347,7 +1375,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     return (
       <PreTrialScript
         caseTitle={caseData.title}
-        userName={user.email || 'Defense Counsel'}
+        userName={getDisplayName(user.email)}
         onComplete={handlePreTrialComplete}
       />
     );

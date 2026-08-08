@@ -17,6 +17,7 @@ import PreTrialScript from './components/PreTrialScript';
 import SubscriptionGate, { getTrialLimit, canCreateCustomCase } from './components/SubscriptionGate';
 import { db } from './lib/database';
 import { getLevelForWins } from './lib/levels';
+import { getDisplayName } from './lib/userName';
 import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case } from './types';
 
 type AppView =
@@ -563,7 +564,7 @@ function AppContent() {
       {view === 'pre-trial' && currentSession && currentCase && (
         <PreTrialScript
           caseTitle={currentCase.title}
-          userName={userProfile?.current_level || 'Attorney'}
+          userName={getDisplayName(user?.email)}
           onComplete={handlePreTrialComplete}
         />
       )}

@@ -251,16 +251,16 @@ export const JUDGE_NAMES = [
 ];
 
 export const PROSECUTOR_NAMES = [
-  'District Attorney James Harrison',
-  'Prosecutor Emily Rodriguez',
-  'State Attorney Marcus Webb',
-  'District Attorney Lisa Chang',
-  'Prosecutor Thomas Bennett',
-  'State Attorney Karen Foster',
-  'District Attorney Robert Klein',
-  'Prosecutor Jennifer Wallace',
-  'State Attorney David Morgan',
-  'District Attorney Amanda Peters'
+  'District Attorney James Harrison (Violent Crimes Division)',
+  'Prosecutor Emily Rodriguez (Fraud & Financial Crimes)',
+  'State Attorney Marcus Webb (Homicide Division)',
+  'District Attorney Lisa Chang (Narcotics Division)',
+  'Prosecutor Thomas Bennett (Property Crimes)',
+  'State Attorney Karen Foster (Domestic Violence Unit)',
+  'District Attorney Robert Klein (White Collar Crimes)',
+  'Prosecutor Jennifer Wallace (Juvenile Division)',
+  'State Attorney David Morgan (Cybercrime Division)',
+  'District Attorney Amanda Peters (General Felonies)'
 ];
 
 export function getRandomJudgeName(): string {
