@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { FileText, Users, ChevronRight, ChevronDown, Send, Eye, Scale, ArrowRight, ArrowLeft, Info } from 'lucide-react';
+import { FileText, Users, ChevronRight, ChevronDown, Send, Eye, Scale, ArrowRight, ArrowLeft, Info, Mic } from 'lucide-react';
 import { db } from '../lib/database';
 import EvidenceViewer from './EvidenceViewer';
 import { generateWitnessResponse as generateAIWitnessResponse } from '../lib/ai/trialAI';
+import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import type { Evidence, Witness, WitnessInteraction, CaseSession, Case } from '../types';
 
 interface InvestigationProps {
@@ -23,6 +24,14 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
   const [selectedWitness, setSelectedWitness] = useState<Witness | null>(null);
   const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
   const [question, setQuestion] = useState('');
+  const { isListening, isSupported: speechSupported, start: startListening, stop: stopListening } = useSpeechRecognition({
+    onResult: (transcript) => {
+      setQuestion(prev => prev ? `${prev} ${transcript}` : transcript);
+    },
+    onError: (message) => {
+      console.warn('[Investigation] Speech recognition:', message);
+    }
+  });
   const [interactions, setInteractions] = useState<WitnessInteraction[]>([]);
   const [isQuestioningLoading, setIsQuestioningLoading] = useState(false);
   const [showPitchModal, setShowPitchModal] = useState(false);
@@ -480,15 +489,30 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
 
                   <div className="border-t border-slate-700 p-4 flex-shrink-0 bg-slate-800">
                     <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={question}
-                        onChange={(e) => setQuestion(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAskQuestion()}
-                        placeholder={`Ask ${selectedWitness.name} a question...`}
-                        disabled={isQuestioningLoading}
-                        className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={question}
+                          onChange={(e) => setQuestion(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAskQuestion()}
+                          placeholder={`Ask ${selectedWitness.name} a question...`}
+                          disabled={isQuestioningLoading}
+                          className="w-full px-4 py-2 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {speechSupported && (
+                          <button
+                            type="button"
+                            onClick={() => isListening ? stopListening() : startListening()}
+                            disabled={isQuestioningLoading}
+                            title={isListening ? 'Stop recording' : 'Speak your question'}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                              isListening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
+                            }`}
+                          >
+                            <Mic className="w-4 h-4 text-white" />
+                          </button>
+                        )}
+                      </div>
                       <button
                         onClick={handleAskQuestion}
                         disabled={!question.trim() || isQuestioningLoading}

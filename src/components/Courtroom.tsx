@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X } from 'lucide-react';
+import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialConfigSelector from './TrialConfigSelector';
@@ -20,6 +20,7 @@ import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionO
 import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
 import { getDisplayName } from '../lib/userName';
+import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case } from '../types';
 
 interface CourtroomProps {
@@ -59,6 +60,15 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   });
   const [events, setEvents] = useState<TrialEvent[]>([]);
   const [input, setInput] = useState('');
+  const { isListening, isSupported: speechSupported, start: startListening, stop: stopListening } = useSpeechRecognition({
+    onResult: (transcript) => {
+      setInput(prev => prev ? `${prev} ${transcript}` : transcript);
+    },
+    onError: (message) => {
+      // Keep it low-key — a failed/denied mic shouldn't block typing.
+      console.warn('[Courtroom] Speech recognition:', message);
+    }
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
@@ -1549,19 +1559,34 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}>
                  <div className="w-full max-w-[1800px] mx-auto">
                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                     <input
-                       type="text"
-                       value={input}
-                       onChange={(e) => setInput(e.target.value)}
-                       onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-                       placeholder={
-                         turnState?.current_phase_type === 'direct' || turnState?.current_phase_type === 'cross'
-                           ? "Ask a question to the witness..."
-                           : "Type your statement or question..."
-                       }
-                       disabled={isProcessing || !awaitingUserInput}
-                       className="w-full sm:flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base"
-                     />
+                     <div className="relative w-full sm:flex-1">
+                       <input
+                         type="text"
+                         value={input}
+                         onChange={(e) => setInput(e.target.value)}
+                         onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+                         placeholder={
+                           turnState?.current_phase_type === 'direct' || turnState?.current_phase_type === 'cross'
+                             ? "Ask a question to the witness..."
+                             : "Type your statement or question..."
+                         }
+                         disabled={isProcessing || !awaitingUserInput}
+                         className="w-full px-4 py-3 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base"
+                       />
+                       {speechSupported && (
+                         <button
+                           type="button"
+                           onClick={() => isListening ? stopListening() : startListening()}
+                           disabled={isProcessing || !awaitingUserInput}
+                           title={isListening ? 'Stop recording' : 'Speak your statement'}
+                           className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                             isListening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
+                           }`}
+                         >
+                           <Mic className="w-4 h-4 text-white" />
+                         </button>
+                       )}
+                     </div>
                      <div className="flex gap-2 flex-wrap">
                        <button
                          onClick={handleSubmit}
