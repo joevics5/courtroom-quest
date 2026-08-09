@@ -18,6 +18,7 @@ import SubscriptionGate, { getTrialLimit, canCreateCustomCase } from './componen
 import { db } from './lib/database';
 import { getLevelForWins } from './lib/levels';
 import { getDisplayName } from './lib/userName';
+import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case } from './types';
 
 type AppView =
@@ -309,12 +310,24 @@ function AppContent() {
     if (!currentSession) return;
 
     try {
+      // Judge and prosecutor are decided ONCE, here, before the flow
+      // branches into jury-selection or pre-trial. Both PreTrialScript and
+      // Courtroom read these from session_state instead of each rolling
+      // their own — that was the source of the pretrial/trial name mismatch.
+      const judgeName = getRandomJudgeName();
+      const prosecutorName = getRandomProsecutorName();
+
       await db.sessions.updateSession(currentSession.id, {
         trial_type: trialType,
         trial_duration: duration,
         evidence_filed: true,
         witnesses_locked: true,
-        current_phase: trialType === 'jury' ? 'jury-selection' : 'pre-trial'
+        current_phase: trialType === 'jury' ? 'jury-selection' : 'pre-trial',
+        session_state: {
+          ...currentSession.session_state,
+          judgeName,
+          prosecutorName
+        }
       });
 
       const updatedSession = await db.sessions.getSession(currentSession.id);
@@ -565,6 +578,8 @@ function AppContent() {
         <PreTrialScript
           caseTitle={currentCase.title}
           userName={getDisplayName(user?.email)}
+          judgeName={(currentSession.session_state as any)?.judgeName || ''}
+          prosecutorName={(currentSession.session_state as any)?.prosecutorName || ''}
           onComplete={handlePreTrialComplete}
         />
       )}

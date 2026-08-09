@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Scale, Play, Gavel } from 'lucide-react';
-import { getRandomJudgeName, getRandomProsecutorName, BAILIFF_PROMPTS, JUDGE_PROMPTS } from '../lib/trialConfig';
-import { generateJudgeOpeningRequest } from '../lib/ai/trialAI';
+import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName } from '../lib/trialConfig';
 
 interface PreTrialScriptProps {
   caseTitle: string;
   userName: string;
+  judgeName: string;
+  prosecutorName: string;
   onComplete: (pleaGuilty: boolean, judgeName: string, prosecutorName: string) => void;
 }
 
@@ -18,10 +19,12 @@ type PreTrialPhase =
   | 'plea_complete'
   | 'start_trial';
 
-export default function PreTrialScript({ caseTitle, userName, onComplete }: PreTrialScriptProps) {
+export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, onComplete }: PreTrialScriptProps) {
   const [phase, setPhase] = useState<PreTrialPhase>('idle');
-  const [judgeName] = useState(getRandomJudgeName());
-  const [prosecutorName] = useState(getRandomProsecutorName());
+  // Fall back to a fresh random pick only if a caller doesn't supply one
+  // (e.g. an old session created before this was lifted to App.tsx).
+  const [judgeName] = useState(judgeNameProp || getRandomJudgeName());
+  const [prosecutorName] = useState(prosecutorNameProp || getRandomProsecutorName());
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
   const [pleaGuilty, setPleaGuilty] = useState<boolean | null>(null);
   const [isLoadingJudgeRequest, setIsLoadingJudgeRequest] = useState(false);
@@ -81,7 +84,7 @@ export default function PreTrialScript({ caseTitle, userName, onComplete }: PreT
     setPhase('plea_complete');
   };
 
-  const handleStartTrial = async () => {
+  const handleStartTrial = () => {
     if (pleaGuilty === null) return;
 
     // If guilty plea, complete immediately
@@ -90,39 +93,12 @@ export default function PreTrialScript({ caseTitle, userName, onComplete }: PreT
       return;
     }
 
-    // Not guilty - proceed to trial
-    setPhase('start_trial');
-    setIsLoadingJudgeRequest(true);
-
-    try {
-      // Generate judge's opening statement request using AI
-      const judgeRequest = await generateJudgeOpeningRequest({
-        caseTitle,
-        judgeName,
-        prosecutorName,
-        phase: 'opening_request'
-      });
-
-      addTranscript(judgeName, judgeRequest);
-      speakText(judgeRequest);
-
-      // Wait a moment, then complete
-      setTimeout(() => {
-        onComplete(false, judgeName, prosecutorName);
-      }, 3000);
-    } catch (error) {
-      console.error('Failed to generate judge opening request:', error);
-      // Fallback to static prompt
-      const fallbackRequest = `Prosecution, you may proceed with your opening statement.`;
-      addTranscript(judgeName, fallbackRequest);
-      speakText(fallbackRequest);
-      
-      setTimeout(() => {
-        onComplete(false, judgeName, prosecutorName);
-      }, 2000);
-    } finally {
-      setIsLoadingJudgeRequest(false);
-    }
+    // Not guilty — hand off to the trial immediately. The trial's own
+    // phase 7 (Opening Statement - Prosecution) already generates the
+    // judge's "you may proceed with your opening statement" line
+    // correctly. Generating a second version of that line here, in
+    // pre-trial, was duplicating it.
+    onComplete(false, judgeName, prosecutorName);
   };
 
   return (
