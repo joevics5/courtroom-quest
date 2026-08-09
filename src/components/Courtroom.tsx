@@ -1459,7 +1459,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       <div className="flex-1 pb-56 sm:pb-48 px-3 sm:px-6 overflow-y-auto" style={{ paddingTop: '110px' }}>
         <div className="max-w-[1800px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1">
+          <div className="hidden lg:block lg:col-span-1">
             <TrialOutline
               currentPhase={currentPhase}
               trialConfig={trialConfig}
