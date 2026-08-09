@@ -8,6 +8,7 @@ interface AuthProps {
 
 export default function Auth({ onBack }: AuthProps = {}) {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,7 +22,7 @@ export default function Auth({ onBack }: AuthProps = {}) {
 
     try {
       const { error } = isSignUp
-        ? await signUp(email, password)
+        ? await signUp(email, password, fullName)
         : await signIn(email, password);
 
       if (error) {
@@ -79,6 +80,23 @@ export default function Auth({ onBack }: AuthProps = {}) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isSignUp && (
+              <div>
+                <label htmlFor="fullName" className="block text-sm font-medium text-slate-300 mb-2">
+                  Full Name
+                </label>
+                <input
+                  id="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Jane Smith"
+                />
+              </div>
+            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
                 Email

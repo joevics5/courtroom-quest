@@ -421,7 +421,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
           </div>
 
           <div className="lg:col-span-2">
-            <div className="bg-slate-800 rounded-lg border border-slate-700 h-[calc(100vh-150px)] flex flex-col">
+            <div className={`bg-slate-800 rounded-lg border border-slate-700 h-[calc(100vh-150px)] flex-col ${selectedWitness ? 'flex' : 'hidden lg:flex'}`}>
               {selectedWitness ? (
                 <>
                   <div className="border-b border-slate-700 px-6 py-4 flex-shrink-0">
@@ -531,7 +531,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-slate-400">
+                <div className="flex-1 hidden lg:flex items-center justify-center text-slate-400">
                   <div className="text-center">
                     <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Select a witness to begin questioning</p>

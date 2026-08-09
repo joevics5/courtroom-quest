@@ -19,7 +19,7 @@ import {
 import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateObjectionRuling, generateWitnessResponse, generateVerdict } from '../lib/ai/trialAI';
 import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
-import { getDisplayName } from '../lib/userName';
+import { getUserDisplayName } from '../lib/userName';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case } from '../types';
 
@@ -1391,7 +1391,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     return (
       <PreTrialScript
         caseTitle={caseData.title}
-        userName={getDisplayName(user.email)}
+        userName={getUserDisplayName(user)}
         onComplete={handlePreTrialComplete}
       />
     );
