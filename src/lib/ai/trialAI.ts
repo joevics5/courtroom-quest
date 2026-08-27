@@ -8,6 +8,7 @@ import { getAIProvider } from './providerFactory';
 import type { AIRequest, AIResponse } from './types';
 import type { TurnState, AllowedAction } from '../trialTurnSystem';
 import type { Witness, TrialEvent, Evidence } from '../../types';
+import { getJudgeDifficultyModifier, getProsecutionDifficultyModifier } from '../trialConfig';
 import { generateTranscript, extractEvidenceCitations } from '../transcriptGenerator';
 
 // ============================================================================
@@ -31,6 +32,7 @@ export interface JudgeContext {
   judgeName: string;
   prosecutorName: string;
   phase: 'opening_request' | 'objection_ruling' | 'verdict' | 'general' | 'instruction';
+  difficulty?: 'easy' | 'medium' | 'hard';
   nextPhaseName?: string;
   nextPhaseType?: 'prosecution' | 'defense' | 'witness' | 'closing';
   objectionContext?: {
@@ -116,6 +118,7 @@ export async function generateObjectionRuling(
     questioned_statement: string;
     current_phase: string;
     recent_transcript: string;
+    difficulty?: 'easy' | 'medium' | 'hard';
   }
 ): Promise<ObjectionRuling> {
   const judgeContext: JudgeContext = {
@@ -123,6 +126,7 @@ export async function generateObjectionRuling(
     judgeName: 'The Court',
     prosecutorName: 'Prosecution',
     phase: 'objection_ruling',
+    difficulty: context.difficulty,
     objectionContext: {
       objection_by: context.objection_by,
       objection_reason: context.objection_reason,
@@ -140,6 +144,7 @@ export async function generateObjectionRuling(
 export interface ProsecutionContext {
   role: 'prosecution';
   phase: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
   time_remaining_seconds: number;
   current_witness: string | null;
   available_witnesses: Array<{ id: string; name: string }>;
@@ -160,6 +165,7 @@ export interface ProsecutionAction {
 export interface ProsecutionOpeningContext {
   caseTitle: string;
   prosecutorName: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
   defendantName?: string;
   caseDescription: string;
   timeLimitMinutes: number;
@@ -430,6 +436,8 @@ function buildJudgeOpeningPrompt(context: JudgeContext): string {
 
 PERSONALITY: You are authoritative, measured, and impartial. You speak with gravitas and economy of words. You do not tolerate disruption.
 
+${getJudgeDifficultyModifier(context.difficulty)}
+
 CASE: ${context.caseTitle}
 PROSECUTOR: ${context.prosecutorName}
 
@@ -445,7 +453,7 @@ Generate a single sentence requesting the prosecution's opening statement.`;
 }
 
 function buildJudgeInstructionPrompt(context: JudgeContext): string {
-  const { judgeName, caseTitle, nextPhaseName, nextPhaseType, recent_transcript } = context;
+  const { judgeName, caseTitle, nextPhaseName, nextPhaseType, recent_transcript, difficulty } = context;
   
   let instructionGuidance = '';
   if (nextPhaseType === 'prosecution') {
@@ -464,6 +472,8 @@ function buildJudgeInstructionPrompt(context: JudgeContext): string {
 
 PERSONALITY: Authoritative, measured, impartial. You control the courtroom with economy of words.
 
+${getJudgeDifficultyModifier(difficulty)}
+
 CASE: ${caseTitle}
 NEXT PHASE: ${nextPhaseName || 'Next trial phase'}
 
@@ -480,6 +490,8 @@ function buildJudgeObjectionPrompt(context: JudgeContext): string {
   return `You are ${context.judgeName}, a stern and impartial Judge.
 
 PERSONALITY: You rule consistently based on legal standards. You do not explain at length — your rulings are decisive.
+
+${getJudgeDifficultyModifier(context.difficulty)}
 
 An objection has been raised during the trial. You must rule on it.
 
@@ -524,6 +536,8 @@ function buildProsecutionOpeningPrompt(context: ProsecutionOpeningContext): stri
 
 PERSONALITY: You are forceful, persuasive, and relentless. You speak with conviction and build a compelling narrative. You are strategic about which facts to emphasize.
 
+${getProsecutionDifficultyModifier(context.difficulty)}
+
 CASE: ${context.caseTitle}
 ${context.defendantName ? `DEFENDANT: ${context.defendantName}` : ''}
 
@@ -562,6 +576,8 @@ function buildProsecutionPrompt(context: ProsecutionContext): string {
   return `You are the Prosecution in a courtroom trial.
 
 PERSONALITY: You are aggressive, strategic, and thorough. You press advantages relentlessly and use evidence methodically to build your case.
+
+${getProsecutionDifficultyModifier(context.difficulty)}
 
 TRIAL CONFIGURATION:
 - Trial Duration: ${context.trial_duration} minutes

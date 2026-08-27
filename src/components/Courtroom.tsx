@@ -702,6 +702,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const prosecutionContext = {
         role: 'prosecution' as const,
         phase: phase?.name || 'Unknown',
+        difficulty: (session.session_state as any)?.difficulty,
         time_remaining_seconds: turnState.phase_time_remaining,
         current_witness: currentWitness,
         available_witnesses: witnesses.map(w => ({ id: w.id, name: w.name })),
@@ -901,6 +902,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         generateProsecutionOpeningStatement({
           caseTitle: caseData.title,
           prosecutorName: prosecutorName || 'Prosecution',
+          difficulty: (session.session_state as any)?.difficulty,
           defendantName: caseData.defendant_name,
           caseDescription: caseData.description,
           timeLimitMinutes: timeLimit,
@@ -1223,7 +1225,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         objection_reason: objectionReason,
         questioned_statement: lastProsecutionEvent.content,
         current_phase: phase?.name || 'Unknown',
-        recent_transcript: transcriptSummary
+        recent_transcript: transcriptSummary,
+        difficulty: (session.session_state as any)?.difficulty
       });
 
       // Add ruling to transcript

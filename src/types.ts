@@ -17,7 +17,8 @@ export type EvidenceType =
   | 'timeline_logs'
   | 'story';
 export type Relevance = 'favorable' | 'neutral' | 'risky';
-export type Phase = 'setup' | 'investigation' | 'trial-type-selection' | 'jury-selection' | 'pre-trial' | 'trial' | 'completed';
+export type Phase = 'setup' | 'investigation' | 'difficulty-selection' | 'trial-type-selection' | 'jury-selection' | 'pre-trial' | 'trial' | 'completed';
+export type Difficulty = 'easy' | 'medium' | 'hard';
 export type InteractionPhase = 'pre_trial' | 'trial';
 export type EventType = 'opening' | 'witness_examination' | 'cross_examination' | 'objection' | 'ruling' | 'closing' | 'verdict' | 'evidence_submission' | 'witness_call';
 export type SpeakerRole = 'judge' | 'counsel' | 'witness' | 'opposing_counsel' | 'prosecution' | 'defense' | 'jury';

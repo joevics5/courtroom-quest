@@ -19,7 +19,8 @@ import { db } from './lib/database';
 import { getLevelForWins } from './lib/levels';
 import { getUserDisplayName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
-import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case } from './types';
+import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty } from './types';
+import DifficultySelector from './components/DifficultySelector';
 
 type AppView =
   | 'landing'
@@ -27,6 +28,7 @@ type AppView =
   | 'case-selection'
   | 'custom-case-creator'
   | 'investigation'
+  | 'difficulty-selection'
   | 'trial-type-selection'
   | 'jury-selection'
   | 'pre-trial'
@@ -209,6 +211,9 @@ function AppContent() {
         case 'investigation':
           setView('investigation');
           break;
+        case 'difficulty-selection':
+          setView('difficulty-selection');
+          break;
         case 'trial-type-selection':
           setView('trial-type-selection');
           break;
@@ -293,7 +298,7 @@ function AppContent() {
     // Save progress - user has completed investigation and is proceeding to trial
     try {
       await db.sessions.updateSession(currentSession.id, {
-        current_phase: 'trial-type-selection'
+        current_phase: 'difficulty-selection'
       });
       const updatedSession = await db.sessions.getSession(currentSession.id);
       if (updatedSession) {
@@ -301,6 +306,28 @@ function AppContent() {
       }
     } catch (error) {
       console.error('Failed to save progress:', error);
+    }
+
+    setView('difficulty-selection');
+  };
+
+  const handleDifficultySelect = async (difficulty: Difficulty) => {
+    if (!currentSession) return;
+
+    try {
+      await db.sessions.updateSession(currentSession.id, {
+        current_phase: 'trial-type-selection',
+        session_state: {
+          ...currentSession.session_state,
+          difficulty
+        }
+      });
+      const updatedSession = await db.sessions.getSession(currentSession.id);
+      if (updatedSession) {
+        setCurrentSession(updatedSession);
+      }
+    } catch (error) {
+      console.error('Failed to save difficulty:', error);
     }
 
     setView('trial-type-selection');
@@ -555,6 +582,13 @@ function AppContent() {
             setCurrentSession(null);
             setView('case-board');
           }}
+        />
+      )}
+
+      {view === 'difficulty-selection' && currentSession && (
+        <DifficultySelector
+          onSelect={handleDifficultySelect}
+          onCancel={handleBackFromInvestigation}
         />
       )}
 

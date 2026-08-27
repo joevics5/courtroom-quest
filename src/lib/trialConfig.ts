@@ -285,3 +285,55 @@ export const JUDGE_PROMPTS = {
   deliberation: "The Court has heard sufficient argument. I will now render my decision.",
   verdict: "After reviewing the evidence and testimony, the Court finds the defendant {verdict}."
 };
+
+// ---------------------------------------------------------------------------
+// Difficulty
+// ---------------------------------------------------------------------------
+// Difficulty is a session-level setting independent of which case was picked
+// — it changes how the AI judge/prosecution BEHAVE, not the underlying case
+// facts. A beginner can play a complex case on Easy; a veteran can play a
+// simple case on Hard. Each build*Prompt() function in trialAI.ts prepends
+// the relevant modifier below to its system instructions.
+
+export const DIFFICULTY_INFO: Record<
+  'easy' | 'medium' | 'hard',
+  { label: string; tagline: string; description: string }
+> = {
+  easy: {
+    label: 'Easy',
+    tagline: 'Learning the ropes',
+    description: 'The judge explains rulings and gives you room to find your footing. The prosecution argues plainly, without tricks.'
+  },
+  medium: {
+    label: 'Medium',
+    tagline: 'A fair fight',
+    description: 'Standard courtroom conduct. The judge is even-handed, and the prosecution argues competently and pushes back when warranted.'
+  },
+  hard: {
+    label: 'Hard',
+    tagline: 'No mercy',
+    description: 'The judge holds you strictly to procedure and courtroom decorum. The prosecution is sharp, aggressive, and looks for every opening.'
+  }
+};
+
+export function getJudgeDifficultyModifier(difficulty: 'easy' | 'medium' | 'hard' = 'medium'): string {
+  switch (difficulty) {
+    case 'easy':
+      return 'DIFFICULTY: Easy. Be a patient, encouraging judge. Give the benefit of the doubt on procedural missteps, briefly explain the reasoning behind rulings so a newer player can learn from them, and avoid overly technical legal language.';
+    case 'hard':
+      return 'DIFFICULTY: Hard. Be a strict, no-nonsense judge. Hold counsel firmly to courtroom procedure and proper form, rule quickly and tersely without over-explaining, and do not go easy on procedural mistakes.';
+    default:
+      return 'DIFFICULTY: Medium. Be an even-handed, professional judge — standard courtroom conduct, neither lenient nor harsh.';
+  }
+}
+
+export function getProsecutionDifficultyModifier(difficulty: 'easy' | 'medium' | 'hard' = 'medium'): string {
+  switch (difficulty) {
+    case 'easy':
+      return 'DIFFICULTY: Easy. Argue plainly and straightforwardly. Make your strongest obvious points, but do not hunt for subtle technicalities or set traps for the defense.';
+    case 'hard':
+      return 'DIFFICULTY: Hard. Argue aggressively and sharply. Actively look for inconsistencies, procedural openings, and weaknesses in the defense\'s approach, and press your advantage when you find one.';
+    default:
+      return 'DIFFICULTY: Medium. Argue competently and push back on weak defense arguments, but do not go out of your way to find obscure technicalities.';
+  }
+}
