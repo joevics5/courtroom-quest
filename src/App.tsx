@@ -22,12 +22,14 @@ import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import DifficultySelector from './components/DifficultySelector';
 import RoleSelector from './components/RoleSelector';
+import ChallengeBoard from './components/ChallengeBoard';
 
 type AppView =
   | 'landing'
   | 'case-board'
   | 'case-selection'
   | 'custom-case-creator'
+  | 'challenge-board'
   | 'role-selection'
   | 'investigation'
   | 'difficulty-selection'
@@ -316,6 +318,13 @@ function AppContent() {
     setView('difficulty-selection');
   };
 
+  const handleMatched = async (session: CaseSession) => {
+    // A challenge just got matched (either I created it and someone joined,
+    // or I just joined someone else's) — the session already exists at
+    // 'investigation', so this is the same as resuming any other session.
+    await resumeSession(session);
+  };
+
   const handleRoleSelect = async (role: PlayerRole) => {
     if (!currentSession) return;
 
@@ -531,7 +540,16 @@ function AppContent() {
         <LandingPage
           onNavigateToCaseBoard={handleNavigateToCaseBoard}
           onNavigateToCustomCases={handleNavigateToCustomCases}
+          onNavigateToChallengeBoard={() => setView('challenge-board')}
           onOpenAdmin={isAdmin ? handleOpenAdmin : undefined}
+        />
+      )}
+
+      {view === 'challenge-board' && user && (
+        <ChallengeBoard
+          userId={user.id}
+          onBack={() => setView('landing')}
+          onMatched={handleMatched}
         />
       )}
 

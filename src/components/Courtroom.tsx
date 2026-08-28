@@ -48,7 +48,19 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   const [caseData, setCaseData] = useState<Case | null>(null);
   // Which side the human is playing. Defaults to 'defense' for sessions
   // created before role selection existed, so nothing breaks for them.
-  const playerRole: 'defense' | 'prosecution' = (session.session_state as any)?.playerRole || 'defense';
+  // Multiplayer: two real humans, no AI counsel at all. session_state
+  // carries prosecutionUserId/defenseUserId (set once, at match time, by
+  // db.challenges.joinChallenge) so each browser can work out which side
+  // THIS logged-in user is playing.
+  const isMultiplayer: boolean = !!(session.session_state as any)?.isMultiplayer;
+  const playerRole: 'defense' | 'prosecution' = isMultiplayer
+    ? ((session.session_state as any)?.prosecutionUserId === user.id ? 'prosecution' : 'defense')
+    : ((session.session_state as any)?.playerRole || 'defense');
+  // aiRole is meaningless in multiplayer (nothing should ever compare
+  // against it there, since every AI-counsel trigger is gated on
+  // !isMultiplayer below) — kept non-null just so existing comparisons
+  // that already correctly check isMultiplayer first don't need every
+  // single one re-audited for a null case.
   const aiRole: 'defense' | 'prosecution' = playerRole === 'defense' ? 'prosecution' : 'defense';
   const [trialDuration, setTrialDuration] = useState<TrialDuration | null>(
     session.trial_duration as TrialDuration || null
@@ -204,6 +216,42 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       console.error('Failed to load trial data:', error);
     }
   };
+
+  // Multiplayer sync: kept intentionally simple (polling, not a realtime
+  // channel) for a V1 — both players' browsers run the same Courtroom
+  // component independently, so this is what lets each one see the
+  // other's actions and phase advances without a manual refresh.
+  // Known limitation: since phase-advance can be triggered from either
+  // browser (e.g. both timers hitting 0 around the same time), there's a
+  // small chance of a redundant double-advance race. Worth revisiting
+  // with real usage before investing in a stricter single-authority
+  // model.
+  useEffect(() => {
+    if (!isMultiplayer || showPreTrial) return;
+
+    const syncInterval = setInterval(async () => {
+      try {
+        const [freshEvents, freshSession] = await Promise.all([
+          db.trialEvents.getSessionEvents(session.id),
+          db.sessions.getSession(session.id)
+        ]);
+
+        setEvents(prev => {
+          const knownIds = new Set(prev.map(e => e.id));
+          const newOnes = freshEvents.filter(e => !knownIds.has(e.id));
+          return newOnes.length > 0 ? [...prev, ...newOnes] : prev;
+        });
+
+        if (freshSession?.current_trial_phase && freshSession.current_trial_phase !== currentPhase) {
+          setCurrentPhase(freshSession.current_trial_phase);
+        }
+      } catch (error) {
+        console.error('[Courtroom] Multiplayer sync failed:', error);
+      }
+    }, 3000);
+
+    return () => clearInterval(syncInterval);
+  }, [isMultiplayer, showPreTrial, session.id, currentPhase]);
 
   const handlePreTrialComplete = async (pleaGuilty: boolean, judge: string, prosecutor: string) => {
     setJudgeName(judge);
@@ -379,19 +427,30 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   };
 
   const addEvent = async (role: 'judge' | 'counsel' | 'witness', content: string) => {
-    const speakerMap: Record<string, 'judge' | 'prosecution' | 'defense' | 'witness' | 'jury'> = {
-      judge: 'judge',
-      counsel: 'defense',
-      witness: 'witness'
-    };
-    setCurrentSpeaker(speakerMap[role] || 'judge');
+    setCurrentSpeaker(role === 'judge' ? 'judge' : role === 'counsel' ? (turnState?.current_turn as any) || 'defense' : 'witness');
+
+    // 'counsel' means 'whichever side is currently speaking' — this is
+    // only ever called while it's actually that side's turn (gated by
+    // awaitingUserInput), so turnState.current_turn is the correct,
+    // specific side (prosecution or defense), not a generic 'counsel'
+    // label. Tagging it generically here used to mean events could never
+    // match speaker_role === 'defense'/'prosecution' checks elsewhere
+    // (e.g. the mandatory opening-statement gate), and always looked like
+    // 'defense' regardless of who actually spoke.
+    const resolvedRole: 'judge' | 'prosecution' | 'defense' | 'witness' =
+      role === 'judge' ? 'judge' : role === 'witness' ? 'witness' : ((turnState?.current_turn as any) || 'defense');
+    const resolvedName =
+      resolvedRole === 'judge' ? (judgeName || 'Judge')
+      : resolvedRole === 'prosecution' ? (prosecutorName || 'Prosecution')
+      : resolvedRole === 'defense' ? 'Defense Counsel'
+      : 'Witness';
 
     try {
       const event = await db.trialEvents.addEvent({
         session_id: session.id,
         event_type: 'opening',
-        speaker_role: role,
-        speaker_name: role === 'judge' ? 'Judge' : role === 'counsel' ? 'Defense Counsel' : 'Witness',
+        speaker_role: resolvedRole,
+        speaker_name: resolvedName,
         content,
         metadata: { phase: currentPhase },
         event_order: events.length + 1
@@ -504,7 +563,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       // IMPORTANT: Wait for judge instruction to complete before the AI acts
       const isOpeningPhase = phase?.name.toLowerCase().includes('opening statement');
       
-      if (newTurnState.current_turn === aiRole && 
+      if (!isMultiplayer &&
+          newTurnState.current_turn === aiRole && 
           phase?.category === 'trial' && 
           !isOpeningPhase && // Skip opening - handled separately
           !isProsecutionThinking &&
@@ -632,7 +692,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       prosecutionTurnTriggeredRef: prosecutionTurnTriggeredRef.current
     });
 
-    if (showPreTrial || currentPhase !== openingPhaseNumber || !caseData || !trialDuration || isProsecutionThinking) {
+    if (isMultiplayer || showPreTrial || currentPhase !== openingPhaseNumber || !caseData || !trialDuration || isProsecutionThinking) {
       console.log('[Courtroom] 🚫 Opening statement useEffect blocked by conditions');
       return;
     }

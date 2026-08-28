@@ -1,13 +1,14 @@
-import { Scale, Briefcase, FileText } from 'lucide-react';
+import { Scale, Briefcase, FileText, Swords } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LandingPageProps {
   onNavigateToCaseBoard: () => void;
   onNavigateToCustomCases: () => void;
+  onNavigateToChallengeBoard: () => void;
   onOpenAdmin?: () => void;
 }
 
-export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomCases, onOpenAdmin }: LandingPageProps) {
+export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomCases, onNavigateToChallengeBoard, onOpenAdmin }: LandingPageProps) {
   const { signOut } = useAuth();
 
   return (
@@ -63,7 +64,7 @@ export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomC
               </p>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid sm:grid-cols-3 gap-4 sm:gap-6">
               <button
                 onClick={onNavigateToCaseBoard}
                 className="group relative bg-slate-800/60 backdrop-blur-md border-2 border-slate-700 hover:border-blue-500 rounded-2xl p-6 sm:p-8 transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/20"
@@ -104,6 +105,28 @@ export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomC
                   </div>
                   <div className="mt-4 px-6 py-3 bg-purple-600 group-hover:bg-purple-500 text-white font-semibold rounded-lg transition-colors">
                     Proceed to Custom Cases
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={onNavigateToChallengeBoard}
+                className="group relative bg-slate-800/60 backdrop-blur-md border-2 border-slate-700 hover:border-amber-500 rounded-2xl p-6 sm:p-8 transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-amber-500/20"
+              >
+                <div className="flex flex-col items-center text-center space-y-3 sm:space-y-4">
+                  <div className="p-3 sm:p-4 bg-amber-600 rounded-full group-hover:bg-amber-500 transition-colors">
+                    <Swords className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-1 sm:mb-2">
+                      Challenge Another Player
+                    </h3>
+                    <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                      Pick a side, open a challenge, and face a real opponent — no AI counsel.
+                    </p>
+                  </div>
+                  <div className="mt-4 px-6 py-3 bg-amber-600 group-hover:bg-amber-500 text-white font-semibold rounded-lg transition-colors">
+                    Go to Challenge Board
                   </div>
                 </div>
               </button>

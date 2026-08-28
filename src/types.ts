@@ -3,6 +3,22 @@ export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'easy' | 'me
 export type SubscriptionTier = 'free' | 'basic' | 'pro' | 'max' | 'family';
 export type TrialType = 'judge' | 'jury';
 export type PlayerRole = 'defense' | 'prosecution';
+export type ChallengeStatus = 'open' | 'matched' | 'cancelled';
+
+export interface CaseChallenge {
+  id: string;
+  case_id: string;
+  creator_user_id: string;
+  creator_role: PlayerRole;
+  status: ChallengeStatus;
+  opponent_user_id?: string;
+  session_id?: string;
+  created_at: string;
+  matched_at?: string;
+  // Joined fields (not in the DB row itself) for display convenience
+  case_title?: string;
+  creator_name?: string;
+}
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired';
 export type EvidenceType =
   | 'documents'

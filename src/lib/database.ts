@@ -295,6 +295,126 @@ export const db = {
     }
   },
 
+  challenges: {
+    async createChallenge(caseId: string, creatorUserId: string, creatorRole: 'defense' | 'prosecution') {
+      const { data, error } = await supabase
+        .from('case_challenges')
+        .insert([{
+          case_id: caseId,
+          creator_user_id: creatorUserId,
+          creator_role: creatorRole,
+          status: 'open'
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+
+    async listOpenChallenges() {
+      const { data, error } = await supabase
+        .from('case_challenges')
+        .select('*, cases(title)')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        ...row,
+        case_title: row.cases?.title
+      }));
+    },
+
+    async getMyChallenges(userId: string) {
+      const { data, error } = await supabase
+        .from('case_challenges')
+        .select('*, cases(title)')
+        .or(`creator_user_id.eq.${userId},opponent_user_id.eq.${userId}`)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        ...row,
+        case_title: row.cases?.title
+      }));
+    },
+
+    async cancelChallenge(challengeId: string) {
+      const { error } = await supabase
+        .from('case_challenges')
+        .update({ status: 'cancelled' })
+        .eq('id', challengeId)
+        .eq('status', 'open');
+
+      if (error) throw error;
+    },
+
+    // Joins an open challenge: claims it (optimistic concurrency via the
+    // status='open' guard, so two people can't join the same challenge),
+    // creates the shared session with both users and their assigned
+    // roles recorded, and links the session back to the challenge.
+    // Multiplayer sessions skip role/difficulty selection (already
+    // decided by the challenge) and go straight to investigation.
+    async joinChallenge(challengeId: string, joinerUserId: string) {
+      const { data: challenge, error: fetchError } = await supabase
+        .from('case_challenges')
+        .select('*')
+        .eq('id', challengeId)
+        .single();
+      if (fetchError) throw fetchError;
+      if (!challenge || challenge.status !== 'open') {
+        throw new Error('This challenge is no longer open — someone may have already joined it.');
+      }
+      if (challenge.creator_user_id === joinerUserId) {
+        throw new Error("You can't join your own challenge.");
+      }
+
+      const { data: claimed, error: claimError } = await supabase
+        .from('case_challenges')
+        .update({ status: 'matched', opponent_user_id: joinerUserId, matched_at: new Date().toISOString() })
+        .eq('id', challengeId)
+        .eq('status', 'open') // guards against a double-join race
+        .select()
+        .single();
+      if (claimError || !claimed) {
+        throw new Error('This challenge was just taken by someone else. Try another one.');
+      }
+
+      const joinerRole: 'defense' | 'prosecution' = claimed.creator_role === 'defense' ? 'prosecution' : 'defense';
+      const prosecutionUserId = claimed.creator_role === 'prosecution' ? claimed.creator_user_id : joinerUserId;
+      const defenseUserId = claimed.creator_role === 'defense' ? claimed.creator_user_id : joinerUserId;
+
+      const { data: session, error: sessionError } = await supabase
+        .from('case_sessions')
+        .insert([{
+          case_id: claimed.case_id,
+          user_id: claimed.creator_user_id,
+          opposing_counsel_user_id: joinerUserId,
+          current_phase: 'investigation',
+          evidence_filed: false,
+          witnesses_locked: false,
+          session_state: {
+            isMultiplayer: true,
+            prosecutionUserId,
+            defenseUserId
+          }
+        }])
+        .select()
+        .single();
+      if (sessionError) throw sessionError;
+
+      const { error: linkError } = await supabase
+        .from('case_challenges')
+        .update({ session_id: session.id })
+        .eq('id', challengeId);
+      if (linkError) throw linkError;
+
+      return session as CaseSession;
+    }
+  },
+
   sessions: {
     async createSession(caseId: string, userId: string): Promise<CaseSession> {
       const { data, error } = await supabase
