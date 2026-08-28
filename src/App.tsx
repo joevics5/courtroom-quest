@@ -19,14 +19,16 @@ import { db } from './lib/database';
 import { getLevelForWins } from './lib/levels';
 import { getUserDisplayName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
-import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty } from './types';
+import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import DifficultySelector from './components/DifficultySelector';
+import RoleSelector from './components/RoleSelector';
 
 type AppView =
   | 'landing'
   | 'case-board'
   | 'case-selection'
   | 'custom-case-creator'
+  | 'role-selection'
   | 'investigation'
   | 'difficulty-selection'
   | 'trial-type-selection'
@@ -120,10 +122,10 @@ function AppContent() {
         setCurrentSession(session);
 
         await db.sessions.updateSession(session.id, {
-          current_phase: 'investigation'
+          current_phase: 'role-selection'
         });
 
-        setView('investigation');
+        setView('role-selection');
       }
     } catch (error) {
       console.error('Failed to start case:', error);
@@ -208,6 +210,9 @@ function AppContent() {
 
       // Resume from saved phase
       switch (session.current_phase) {
+        case 'role-selection':
+          setView('role-selection');
+          break;
         case 'investigation':
           setView('investigation');
           break;
@@ -309,6 +314,28 @@ function AppContent() {
     }
 
     setView('difficulty-selection');
+  };
+
+  const handleRoleSelect = async (role: PlayerRole) => {
+    if (!currentSession) return;
+
+    try {
+      await db.sessions.updateSession(currentSession.id, {
+        current_phase: 'investigation',
+        session_state: {
+          ...currentSession.session_state,
+          playerRole: role
+        }
+      });
+      const updatedSession = await db.sessions.getSession(currentSession.id);
+      if (updatedSession) {
+        setCurrentSession(updatedSession);
+      }
+    } catch (error) {
+      console.error('Failed to save role:', error);
+    }
+
+    setView('investigation');
   };
 
   const handleDifficultySelect = async (difficulty: Difficulty) => {
@@ -582,6 +609,13 @@ function AppContent() {
             setCurrentSession(null);
             setView('case-board');
           }}
+        />
+      )}
+
+      {view === 'role-selection' && currentSession && (
+        <RoleSelector
+          onSelect={handleRoleSelect}
+          onCancel={handleBackFromInvestigation}
         />
       )}
 

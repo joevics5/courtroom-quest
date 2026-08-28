@@ -143,6 +143,7 @@ export async function generateObjectionRuling(
 
 export interface ProsecutionContext {
   role: 'prosecution';
+  side: 'prosecution' | 'defense';
   phase: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   time_remaining_seconds: number;
@@ -165,6 +166,7 @@ export interface ProsecutionAction {
 export interface ProsecutionOpeningContext {
   caseTitle: string;
   prosecutorName: string;
+  side: 'prosecution' | 'defense';
   difficulty?: 'easy' | 'medium' | 'hard';
   defendantName?: string;
   caseDescription: string;
@@ -525,6 +527,7 @@ RESPOND WITH VALID JSON:
 
 function buildProsecutionOpeningPrompt(context: ProsecutionOpeningContext): string {
   const timeLimit = context.timeLimitMinutes;
+  const isDefense = context.side === 'defense';
   const evidenceList = context.availableEvidence
     .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}`)
     .join('\n');
@@ -532,9 +535,11 @@ function buildProsecutionOpeningPrompt(context: ProsecutionOpeningContext): stri
     .map(w => `- ${w.name} (${w.role})`)
     .join('\n');
 
-  return `You are ${context.prosecutorName}, an aggressive and confident Prosecutor.
+  return `You are ${context.prosecutorName}, ${isDefense ? 'a sharp and confident Defense Attorney' : 'an aggressive and confident Prosecutor'}.
 
-PERSONALITY: You are forceful, persuasive, and relentless. You speak with conviction and build a compelling narrative. You are strategic about which facts to emphasize.
+PERSONALITY: ${isDefense
+    ? 'You are composed, persuasive, and protective of your client. You speak with conviction and build a compelling counter-narrative that raises reasonable doubt. You are strategic about which facts to emphasize.'
+    : 'You are forceful, persuasive, and relentless. You speak with conviction and build a compelling narrative. You are strategic about which facts to emphasize.'}
 
 ${getProsecutionDifficultyModifier(context.difficulty)}
 
@@ -561,21 +566,21 @@ AVAILABLE WITNESSES:
 ${witnessList || 'No witnesses listed yet.'}
 
 MANDATORY REQUIREMENTS:
-- DO NOT use generic statements like "we will show the defendant is guilty"
-- SPECIFICALLY REFERENCE evidence from the INVESTIGATION FINDINGS section
-- MENTION specific witness statements and what they said
-- Begin directly with substantive content (no greetings)
-- Be professional but forceful and persuasive
-- Outline the prosecution's theory of the case using SPECIFIC investigation details
+${isDefense
+    ? '- DO NOT use generic statements like "my client is innocent"\n- SPECIFICALLY REFERENCE evidence from the INVESTIGATION FINDINGS section that supports your client\n- MENTION specific witness statements and what they said\n- Begin directly with substantive content (no greetings)\n- Be professional but composed and persuasive\n- Outline the defense\'s theory of the case using SPECIFIC investigation details, focused on reasonable doubt'
+    : '- DO NOT use generic statements like "we will show the defendant is guilty"\n- SPECIFICALLY REFERENCE evidence from the INVESTIGATION FINDINGS section\n- MENTION specific witness statements and what they said\n- Begin directly with substantive content (no greetings)\n- Be professional but forceful and persuasive\n- Outline the prosecution\'s theory of the case using SPECIFIC investigation details'}
 - Keep it comprehensive but focused — aim for 2-4 paragraphs`;
 }
 
 function buildProsecutionPrompt(context: ProsecutionContext): string {
   const maxWitnesses = context.trial_duration === 15 ? 1 : context.trial_duration === 30 ? 2 : 3;
+  const isDefense = context.side === 'defense';
 
-  return `You are the Prosecution in a courtroom trial.
+  return `You are the ${isDefense ? 'Defense' : 'Prosecution'} in a courtroom trial.
 
-PERSONALITY: You are aggressive, strategic, and thorough. You press advantages relentlessly and use evidence methodically to build your case.
+PERSONALITY: ${isDefense
+    ? 'You are sharp, protective, and methodical. Your goal is to create reasonable doubt and protect your client — you look for weaknesses in the case against them and use evidence to support their innocence.'
+    : 'You are aggressive, strategic, and thorough. You press advantages relentlessly and use evidence methodically to build your case.'}
 
 ${getProsecutionDifficultyModifier(context.difficulty)}
 

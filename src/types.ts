@@ -2,6 +2,7 @@ export type CaseType = 'criminal' | 'civil' | 'burglary' | 'fraud' | 'assault' |
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'easy' | 'medium' | 'hard';
 export type SubscriptionTier = 'free' | 'basic' | 'pro' | 'max' | 'family';
 export type TrialType = 'judge' | 'jury';
+export type PlayerRole = 'defense' | 'prosecution';
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired';
 export type EvidenceType =
   | 'documents'
@@ -17,7 +18,7 @@ export type EvidenceType =
   | 'timeline_logs'
   | 'story';
 export type Relevance = 'favorable' | 'neutral' | 'risky';
-export type Phase = 'setup' | 'investigation' | 'difficulty-selection' | 'trial-type-selection' | 'jury-selection' | 'pre-trial' | 'trial' | 'completed';
+export type Phase = 'setup' | 'role-selection' | 'investigation' | 'difficulty-selection' | 'trial-type-selection' | 'jury-selection' | 'pre-trial' | 'trial' | 'completed';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type InteractionPhase = 'pre_trial' | 'trial';
 export type EventType = 'opening' | 'witness_examination' | 'cross_examination' | 'objection' | 'ruling' | 'closing' | 'verdict' | 'evidence_submission' | 'witness_call';

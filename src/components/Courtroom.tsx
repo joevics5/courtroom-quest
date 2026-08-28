@@ -46,6 +46,10 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     return saved || getRandomProsecutorName();
   });
   const [caseData, setCaseData] = useState<Case | null>(null);
+  // Which side the human is playing. Defaults to 'defense' for sessions
+  // created before role selection existed, so nothing breaks for them.
+  const playerRole: 'defense' | 'prosecution' = (session.session_state as any)?.playerRole || 'defense';
+  const aiRole: 'defense' | 'prosecution' = playerRole === 'defense' ? 'prosecution' : 'defense';
   const [trialDuration, setTrialDuration] = useState<TrialDuration | null>(
     session.trial_duration as TrialDuration || null
   );
@@ -491,16 +495,16 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         }).catch(err => console.error('Failed to save turn state:', err));
 
         // Enable user input for defense turns (after judge instruction)
-        if (newTurnState.current_turn === 'defense' && !judgeInstructionPending) {
+        if (newTurnState.current_turn === playerRole && !judgeInstructionPending) {
           setAwaitingUserInput(true);
         }
 
-        // Auto-trigger prosecution AI if it's their turn (only once per phase)
+        // Auto-trigger the AI's side if it's their turn (only once per phase)
       // NOTE: Opening statements are handled by the dedicated useEffect below
-      // IMPORTANT: Wait for judge instruction to complete before prosecution acts
-      const isOpeningPhase = phase?.name.toLowerCase().includes('opening statement - prosecution');
+      // IMPORTANT: Wait for judge instruction to complete before the AI acts
+      const isOpeningPhase = phase?.name.toLowerCase().includes('opening statement');
       
-      if (newTurnState.current_turn === 'prosecution' && 
+      if (newTurnState.current_turn === aiRole && 
           phase?.category === 'trial' && 
           !isOpeningPhase && // Skip opening - handled separately
           !isProsecutionThinking &&
@@ -613,10 +617,14 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     addInstruction();
   }, [currentPhase, caseData, trialDuration, judgeName, prosecutorName, events.length, showPreTrial]);
 
-  // Phase 7: Opening Statement - Prosecution
+  // Opening Statement - AI's side (phase 7 for prosecution, phase 8 for defense)
   useEffect(() => {
+    const openingPhaseNumber = aiRole === 'prosecution' ? 7 : 8;
+
     console.log('[Courtroom] 🔍 Opening statement useEffect triggered:', {
       currentPhase,
+      openingPhaseNumber,
+      aiRole,
       hasCaseData: !!caseData,
       hasTrialDuration: !!trialDuration,
       isProsecutionThinking,
@@ -624,58 +632,59 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       prosecutionTurnTriggeredRef: prosecutionTurnTriggeredRef.current
     });
 
-    if (showPreTrial || currentPhase !== 7 || !caseData || !trialDuration || isProsecutionThinking) {
+    if (showPreTrial || currentPhase !== openingPhaseNumber || !caseData || !trialDuration || isProsecutionThinking) {
       console.log('[Courtroom] 🚫 Opening statement useEffect blocked by conditions');
       return;
     }
     // Wait for the judge's "you may proceed" instruction to finish being
-    // generated and shown before the prosecution starts speaking. Without
+    // generated and shown before the AI's side starts speaking. Without
     // this guard, this effect and the judge-instruction effect both fire
-    // as soon as currentPhase becomes 7 and race each other, so the
-    // prosecution's opening statement can appear before or interleaved
-    // with the judge's line instead of after it.
+    // as soon as currentPhase becomes the opening phase and race each
+    // other, so the AI's opening statement can appear before or
+    // interleaved with the judge's line instead of after it.
     if (judgeInstructionPending) {
       console.log('[Courtroom] 🚫 Opening statement blocked - waiting for judge instruction to finish');
       return;
     }
-    if (prosecutionTurnTriggeredRef.current === 7) {
-      console.log('[Courtroom] 🚫 Opening statement already triggered for phase 7');
+    if (prosecutionTurnTriggeredRef.current === openingPhaseNumber) {
+      console.log('[Courtroom] 🚫 Opening statement already triggered for this phase');
       return;
     }
 
     const config = getTrialConfig(trialDuration);
-    const phase = config.phases.find(p => p.number === 7);
-    if (!phase || phase.name !== 'Opening Statement - Prosecution') return;
+    const phase = config.phases.find(p => p.number === openingPhaseNumber);
+    const expectedName = aiRole === 'prosecution' ? 'Opening Statement - Prosecution' : 'Opening Statement - Defense';
+    if (!phase || phase.name !== expectedName) return;
 
-    console.log('[Courtroom] 🚀 Phase 7: Judge instruction complete, generating prosecution opening statement');
+    console.log(`[Courtroom] 🚀 Phase ${openingPhaseNumber}: Judge instruction complete, generating ${aiRole} opening statement`);
 
     const generateOpening = async () => {
-      prosecutionTurnTriggeredRef.current = 7;
+      prosecutionTurnTriggeredRef.current = openingPhaseNumber;
       setIsProsecutionThinking(true);
 
       try {
         await handleGenerateOpeningStatement();
-        console.log('[Courtroom] ✅ Prosecution opening statement completed');
+        console.log('[Courtroom] ✅ Opening statement completed');
       } catch (error) {
-        console.error('[Courtroom] ❌ Prosecution opening statement failed:', error);
+        console.error('[Courtroom] ❌ Opening statement failed:', error);
         setIsProsecutionThinking(false);
       }
     };
 
-    // Same 2500ms deferral the other phases use before triggering prosecution.
+    // Same 2500ms deferral the other phases use before triggering the AI.
     // The judgeInstructionPending check above can still read a stale value on
-    // the very first render where currentPhase flips to 7 (the judge-instruction
-    // effect's setState hasn't applied yet within the same render pass), so the
-    // check alone isn't airtight. This delay is what actually closes the race:
-    // it gives the judge's instruction (a DB write + state update) real time to
-    // finish and render before the prosecution starts speaking, regardless of
-    // exact same-tick state timing.
+    // the very first render where currentPhase flips to the opening phase
+    // (the judge-instruction effect's setState hasn't applied yet within the
+    // same render pass), so the check alone isn't airtight. This delay is
+    // what actually closes the race: it gives the judge's instruction (a DB
+    // write + state update) real time to finish and render before the AI
+    // starts speaking, regardless of exact same-tick state timing.
     const timer = setTimeout(() => {
       generateOpening();
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [currentPhase, caseData, trialDuration, isProsecutionThinking, judgeInstructionPending, showPreTrial]);
+  }, [currentPhase, caseData, trialDuration, isProsecutionThinking, judgeInstructionPending, showPreTrial, aiRole]);
 
   // Handle prosecution AI turn
   const handleProsecutionTurn = async () => {
@@ -701,6 +710,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
       const prosecutionContext = {
         role: 'prosecution' as const,
+        side: aiRole,
         phase: phase?.name || 'Unknown',
         difficulty: (session.session_state as any)?.difficulty,
         time_remaining_seconds: turnState.phase_time_remaining,
@@ -800,8 +810,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const event = await db.trialEvents.addEvent({
         session_id: session.id,
         event_type: isOpening ? 'opening' : 'closing',
-        speaker_role: 'prosecution',
-        speaker_name: prosecutorName || 'Prosecution',
+        speaker_role: aiRole,
+        speaker_name: aiRole === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense Counsel',
         content: statement,
         metadata: { 
           phase: currentPhase,
@@ -880,8 +890,10 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     
     try {
       const config = getTrialConfig(trialDuration);
-      // Opening statement is phase 7
-      const phase = config.phases.find(p => p.number === 7);
+      // Opening statement phase: 7 for prosecution, 8 for defense — whichever
+      // phase belongs to the side the AI is playing.
+      const openingPhaseNumber = aiRole === 'prosecution' ? 7 : 8;
+      const phase = config.phases.find(p => p.number === openingPhaseNumber);
       const timeLimit = phase ? (config.phaseDurations[phase.number] || 0) : 0; // in minutes
 
       // Get investigation findings for comprehensive opening statement
@@ -901,7 +913,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const openingStatement = await Promise.race([
         generateProsecutionOpeningStatement({
           caseTitle: caseData.title,
-          prosecutorName: prosecutorName || 'Prosecution',
+          prosecutorName: aiRole === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense Counsel',
+          side: aiRole,
           difficulty: (session.session_state as any)?.difficulty,
           defendantName: caseData.defendant_name,
           caseDescription: caseData.description,
@@ -938,15 +951,17 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     } catch (error) {
       console.error('[Courtroom] ❌ Failed to generate opening statement:', error);
       // Fallback statement - don't wait for DB, just show it
-      const fallback = `Good morning, Your Honor. The prosecution is ready to present its case. We will show that the defendant is guilty beyond a reasonable doubt.`;
+      const fallback = aiRole === 'prosecution'
+        ? `Good morning, Your Honor. The prosecution is ready to present its case. We will show that the defendant is guilty beyond a reasonable doubt.`
+        : `Good morning, Your Honor. The defense is ready to present its case. We will show that the evidence does not support a finding of guilt beyond a reasonable doubt.`;
       try {
         // Use a simpler version that doesn't require DB
         const fallbackEvent: TrialEvent = {
           id: `temp-${Date.now()}`,
           session_id: session.id,
           event_type: 'opening',
-          speaker_role: 'prosecution',
-          speaker_name: prosecutorName || 'Prosecution',
+          speaker_role: aiRole,
+          speaker_name: aiRole === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense Counsel',
           content: fallback,
           timestamp: new Date().toISOString(),
           metadata: { phase: currentPhase },
@@ -984,7 +999,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     setEvents([...events, event]);
 
     // Track prosecution event for objections
-    if (turnState.current_turn === 'prosecution') {
+    if (turnState.current_turn === aiRole) {
       setLastProsecutionEvent(event);
     }
 
@@ -1106,12 +1121,12 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       setEvents([...events, questionEvent, responseEvent]);
       
       // Track last prosecution event for objections
-      if (turnState.current_turn === 'prosecution') {
+      if (turnState.current_turn === aiRole) {
         setLastProsecutionEvent(questionEvent);
       }
       
       // Update turn state - switch to user's turn if it was prosecution's turn
-      if (turnState.current_turn === 'prosecution') {
+      if (turnState.current_turn === aiRole) {
         setTurnState({
           ...turnState,
           prosecution_actions_remaining: turnState.prosecution_actions_remaining - 1
@@ -1149,7 +1164,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     setEvents([...events, event]);
     
     // Track prosecution event for objections
-    if (turnState.current_turn === 'prosecution') {
+    if (turnState.current_turn === aiRole) {
       setLastProsecutionEvent(event);
     }
     
@@ -1198,12 +1213,13 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
       const objectionReason = objectionReasonMap[reason] || 'Objection';
 
-      // Add objection to transcript
+      // Add objection to transcript — only the human objects, so this is
+      // always the player's side, whichever role they chose.
       const objectionEvent = await db.trialEvents.addEvent({
         session_id: session.id,
         event_type: 'objection',
-        speaker_role: 'defense',
-        speaker_name: 'Defense Counsel',
+        speaker_role: playerRole,
+        speaker_name: playerRole === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense Counsel',
         content: `Objection: ${objectionReason}`,
         metadata: {
           objection_reason: reason,
@@ -1221,7 +1237,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const transcriptSummary = buildTranscriptSummary(events);
 
       const ruling = await generateObjectionRuling({
-        objection_by: 'defense',
+        objection_by: playerRole,
         objection_reason: objectionReason,
         questioned_statement: lastProsecutionEvent.content,
         current_phase: phase?.name || 'Unknown',
@@ -1545,7 +1561,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                 </div>
               )}
               
-              {!isProsecutionThinking && turnState?.current_turn === 'prosecution' && (
+              {!isProsecutionThinking && turnState?.current_turn === aiRole && (
                 <div className="border-t border-slate-700 p-4">
                   <div className="text-center text-slate-400 py-2">
                     Waiting for prosecution to act...
@@ -1599,7 +1615,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                          <Send className="w-5 h-5" />
                          Submit
                        </button>
-                        {turnState?.current_turn === 'defense' && (
+                        {turnState?.current_turn === playerRole && (
                            <button
                              onClick={handleRestPhase}
                              className="flex-1 sm:flex-none justify-center px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2"
