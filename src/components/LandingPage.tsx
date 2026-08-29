@@ -1,14 +1,16 @@
 import { Scale, Briefcase, FileText, Swords } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import CaseOfTheWeek from './CaseOfTheWeek';
 
 interface LandingPageProps {
   onNavigateToCaseBoard: () => void;
   onNavigateToCustomCases: () => void;
   onNavigateToChallengeBoard: () => void;
+  onPlayFeaturedCase: (caseId: string) => void;
   onOpenAdmin?: () => void;
 }
 
-export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomCases, onNavigateToChallengeBoard, onOpenAdmin }: LandingPageProps) {
+export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomCases, onNavigateToChallengeBoard, onPlayFeaturedCase, onOpenAdmin }: LandingPageProps) {
   const { signOut } = useAuth();
 
   return (
@@ -130,6 +132,10 @@ export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomC
                   </div>
                 </div>
               </button>
+            </div>
+
+            <div className="mt-8 max-w-2xl mx-auto">
+              <CaseOfTheWeek onPlayCase={onPlayFeaturedCase} />
             </div>
           </div>
         </main>

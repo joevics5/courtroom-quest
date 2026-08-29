@@ -570,6 +570,7 @@ function AppContent() {
           onNavigateToCaseBoard={handleNavigateToCaseBoard}
           onNavigateToCustomCases={handleNavigateToCustomCases}
           onNavigateToChallengeBoard={() => setView('challenge-board')}
+          onPlayFeaturedCase={(caseId) => handleSelectCase(caseId, false)}
           onOpenAdmin={isAdmin ? handleOpenAdmin : undefined}
         />
       )}

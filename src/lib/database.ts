@@ -774,6 +774,18 @@ export const db = {
       return (data || []) as CaseWinner[];
     },
 
+    async getCaseLeaderboard(caseId: string, limit: number = 10): Promise<CaseWinner[]> {
+      const { data, error } = await supabase
+        .from('case_winners')
+        .select('*')
+        .eq('case_id', caseId)
+        .order('verdict_score', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return (data || []) as CaseWinner[];
+    },
+
     async getLeaderboard(limit: number = 100): Promise<Array<UserProfile & { username: string }>> {
       const { data, error } = await supabase
         .from('user_profiles')

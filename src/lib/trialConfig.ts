@@ -337,3 +337,16 @@ export function getProsecutionDifficultyModifier(difficulty: 'easy' | 'medium' |
       return 'DIFFICULTY: Medium. Argue competently and push back on weak defense arguments, but do not go out of your way to find obscure technicalities.';
   }
 }
+
+// ---------------------------------------------------------------------------
+// Case of the Week
+// ---------------------------------------------------------------------------
+// Deterministic rotation — no admin table or manual curation needed. Every
+// player sees the same featured case during the same week, computed purely
+// from the current date and the list of available preset cases.
+export function getCaseOfTheWeek<T extends { id: string }>(cases: T[]): T | null {
+  if (cases.length === 0) return null;
+  const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+  const index = weekNumber % cases.length;
+  return cases[index];
+}
