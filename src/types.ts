@@ -110,6 +110,7 @@ export interface CaseSession {
   opposing_counsel_user_id?: string;
   trial_type?: TrialType;
   jury_selection_complete?: boolean;
+  is_shared?: boolean;
   started_at: string;
   completed_at?: string;
   updated_at: string;

@@ -38,11 +38,21 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, onRet
   };
 
   const handleShare = async () => {
-    const shareText = `🏛️ CASE WON!\n\n${caseTitle}\nVerdict: ${verdict.outcome === 'win' ? 'Not Guilty' : 'Guilty'}\nRank Achieved: ${currentLevel}\nScore: ${verdict.score || 0}/100\n\nPlay AI Courtroom now!`;
+    // Mark the session shared so the public /share/:id route can read it —
+    // best-effort; if it fails we still share the text-only summary.
+    let shareUrl = '';
+    try {
+      await db.sessions.updateSession(verdict.session_id, { is_shared: true });
+      shareUrl = `${window.location.origin}/share/${verdict.session_id}`;
+    } catch (error) {
+      console.error('Failed to enable transcript sharing:', error);
+    }
+
+    const shareText = `🏛️ CASE WON!\n\n${caseTitle}\nVerdict: ${verdict.outcome === 'win' ? 'Not Guilty' : 'Guilty'}\nRank Achieved: ${currentLevel}\nScore: ${verdict.score || 0}/100\n\nPlay AI Courtroom now!${shareUrl ? `\n\nSee the full trial: ${shareUrl}` : ''}`;
 
     if (navigator.share) {
       try {
-        await navigator.share({ text: shareText });
+        await navigator.share({ text: shareText, url: shareUrl || undefined });
       } catch (err) {
         console.log('Share cancelled');
       }
