@@ -630,8 +630,10 @@ function AppContent() {
         />
       )}
 
-      {view === 'role-selection' && currentSession && (
+      {view === 'role-selection' && currentSession && currentCase && (
         <RoleSelector
+          caseTitle={currentCase.title}
+          defendantName={currentCase.defendant_name}
           onSelect={handleRoleSelect}
           onCancel={handleBackFromInvestigation}
         />
