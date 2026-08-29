@@ -165,6 +165,7 @@ export interface UserProfile {
   wins_count: number;
   current_level: string;
   is_admin: boolean;
+  tutorial_completed: boolean;
   created_at: string;
   updated_at: string;
 }

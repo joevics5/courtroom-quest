@@ -23,6 +23,7 @@ import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Ca
 import DifficultySelector from './components/DifficultySelector';
 import RoleSelector from './components/RoleSelector';
 import ChallengeBoard from './components/ChallengeBoard';
+import Tutorial from './components/Tutorial';
 
 type AppView =
   | 'landing'
@@ -30,6 +31,7 @@ type AppView =
   | 'case-selection'
   | 'custom-case-creator'
   | 'challenge-board'
+  | 'tutorial'
   | 'role-selection'
   | 'investigation'
   | 'difficulty-selection'
@@ -67,20 +69,34 @@ function AppContent() {
         'joevicsland@gmail.com'
       ];
       const isUserAdmin = adminEmails.includes(user.email?.toLowerCase() || '');
-
-      setUserProfile({
-        user_id: user.id,
-        subscription_tier: 'free',
-        voice_minutes_remaining: 0,
-        trial_count: 0,
-        case_creation_count: 0,
-        wins_count: 0,
-        current_level: 'Practicing Attorney',
-        is_admin: isUserAdmin,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
       setIsAdmin(isUserAdmin);
+
+      db.users.getUserProfile(user.id)
+        .then((profile) => {
+          if (profile) {
+            setUserProfile(profile);
+          } else {
+            // No row yet (e.g. the signup trigger hasn't caught up) —
+            // use a same-shaped placeholder so the UI doesn't break, but
+            // this should be rare; the real row is what future reads see.
+            setUserProfile({
+              user_id: user.id,
+              subscription_tier: 'free',
+              voice_minutes_remaining: 0,
+              trial_count: 0,
+              case_creation_count: 0,
+              wins_count: 0,
+              current_level: 'Practicing Attorney',
+              is_admin: isUserAdmin,
+              tutorial_completed: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to load user profile:', error);
+        });
     } else {
       setUserProfile(null);
       setIsAdmin(false);
@@ -127,7 +143,7 @@ function AppContent() {
           current_phase: 'role-selection'
         });
 
-        setView('role-selection');
+        setView(userProfile && !userProfile.tutorial_completed ? 'tutorial' : 'role-selection');
       }
     } catch (error) {
       console.error('Failed to start case:', error);
@@ -316,6 +332,18 @@ function AppContent() {
     }
 
     setView('difficulty-selection');
+  };
+
+  const handleTutorialDone = async () => {
+    if (user) {
+      try {
+        const updated = await db.users.updateProfile(user.id, { tutorial_completed: true });
+        setUserProfile(updated);
+      } catch (error) {
+        console.error('Failed to mark tutorial complete:', error);
+      }
+    }
+    setView('role-selection');
   };
 
   const handleMatched = async (session: CaseSession) => {
@@ -627,6 +655,13 @@ function AppContent() {
             setCurrentSession(null);
             setView('case-board');
           }}
+        />
+      )}
+
+      {view === 'tutorial' && (
+        <Tutorial
+          onComplete={handleTutorialDone}
+          onSkip={handleTutorialDone}
         />
       )}
 
