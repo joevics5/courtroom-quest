@@ -1,9 +1,10 @@
-import { Feather, Scale as ScaleIcon, Flame } from 'lucide-react';
+import { useState } from 'react';
+import { Feather, Scale as ScaleIcon, Flame, GraduationCap } from 'lucide-react';
 import type { Difficulty } from '../types';
 import { DIFFICULTY_INFO } from '../lib/trialConfig';
 
 interface Props {
-  onSelect: (difficulty: Difficulty) => void;
+  onSelect: (difficulty: Difficulty, practiceMode: boolean) => void;
   onCancel: () => void;
 }
 
@@ -30,6 +31,7 @@ const TIER_STYLE: Record<Difficulty, { icon: typeof Feather; accent: string; rin
 
 export default function DifficultySelector({ onSelect, onCancel }: Props) {
   const tiers: Difficulty[] = ['easy', 'medium', 'hard'];
+  const [practiceMode, setPracticeMode] = useState(false);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -47,7 +49,7 @@ export default function DifficultySelector({ onSelect, onCancel }: Props) {
             return (
               <button
                 key={tier}
-                onClick={() => onSelect(tier)}
+                onClick={() => onSelect(tier, practiceMode)}
                 className={`bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:${style.ring} rounded-lg p-4 text-left transition-all group flex flex-col`}
               >
                 <div className={`w-10 h-10 flex items-center justify-center rounded-lg bg-gradient-to-br ${style.glow} transition-all mb-3`}>
@@ -60,6 +62,22 @@ export default function DifficultySelector({ onSelect, onCancel }: Props) {
             );
           })}
         </div>
+
+        <button
+          onClick={() => setPracticeMode(!practiceMode)}
+          className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 mb-6 transition-colors text-left ${practiceMode ? 'border-amber-500 bg-amber-500/10' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
+        >
+          <div className={`w-9 h-9 shrink-0 flex items-center justify-center rounded-lg ${practiceMode ? 'bg-amber-500/20' : 'bg-white/5'}`}>
+            <GraduationCap className={`w-5 h-5 ${practiceMode ? 'text-amber-400' : 'text-white/50'}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-sm">Practice Mode</p>
+            <p className="text-white/60 text-xs">No clock — take as long as you need. Objection rulings explain the underlying legal rule in more depth.</p>
+          </div>
+          <div className={`w-10 h-6 rounded-full shrink-0 relative transition-colors ${practiceMode ? 'bg-amber-500' : 'bg-white/20'}`}>
+            <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${practiceMode ? 'left-5' : 'left-1'}`} />
+          </div>
+        </button>
 
         <div className="flex justify-center">
           <button

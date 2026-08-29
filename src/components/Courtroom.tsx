@@ -53,6 +53,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   // db.challenges.joinChallenge) so each browser can work out which side
   // THIS logged-in user is playing.
   const isMultiplayer: boolean = !!(session.session_state as any)?.isMultiplayer;
+  // Practice mode: no clock, and objection rulings explain their legal
+  // reasoning more fully. Chosen alongside difficulty, single-player only.
+  const practiceMode: boolean = !!(session.session_state as any)?.practiceMode;
   const playerRole: 'defense' | 'prosecution' = isMultiplayer
     ? ((session.session_state as any)?.prosecutionUserId === user.id ? 'prosecution' : 'defense')
     : ((session.session_state as any)?.playerRole || 'defense');
@@ -153,7 +156,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   }, [session]);
 
   useEffect(() => {
-    if (showPreTrial) return; // don't run trial timers/logic while pre-trial script is still showing
+    if (showPreTrial || practiceMode) return; // don't run trial timers/logic while pre-trial script is still showing, or ever in practice mode
     if (trialDuration) {
       const config = getTrialConfig(trialDuration);
       const phase = config.phases.find(p => p.number === currentPhase);
@@ -165,25 +168,25 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [currentPhase, trialDuration, timerPaused, showPreTrial]);
+  }, [currentPhase, trialDuration, timerPaused, showPreTrial, practiceMode]);
 
   // Auto-advance phase when time runs out
   useEffect(() => {
-    if (showPreTrial) return;
+    if (showPreTrial || practiceMode) return;
     if (trialDuration && timerActive && !timerPaused && phaseTimeRemaining[currentPhase] <= 0 && phaseTimeRemaining[currentPhase] !== undefined) {
       console.log('[Courtroom] Time ran out for phase', currentPhase, '- auto-advancing');
       handleNextPhase();
     }
-  }, [phaseTimeRemaining, currentPhase, timerActive, timerPaused, trialDuration, showPreTrial]);
+  }, [phaseTimeRemaining, currentPhase, timerActive, timerPaused, trialDuration, showPreTrial, practiceMode]);
 
   // Force verdict when total time runs out
   useEffect(() => {
-    if (showPreTrial) return;
+    if (showPreTrial || practiceMode) return;
     if (trialDuration && totalTimeRemaining <= 0 && timerActive && !timerPaused) {
       console.log('[Courtroom] Total trial time ran out - forcing verdict');
       handleVerdict();
     }
-  }, [totalTimeRemaining, timerActive, timerPaused, trialDuration, showPreTrial]);
+  }, [totalTimeRemaining, timerActive, timerPaused, trialDuration, showPreTrial, practiceMode]);
 
   // Save progress whenever trial phase changes
   useEffect(() => {
@@ -1302,7 +1305,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         questioned_statement: lastProsecutionEvent.content,
         current_phase: phase?.name || 'Unknown',
         recent_transcript: transcriptSummary,
-        difficulty: (session.session_state as any)?.difficulty
+        difficulty: (session.session_state as any)?.difficulty,
+        practiceMode
       });
 
       // Add ruling to transcript
@@ -1499,7 +1503,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                <div className="min-w-0">
                  <h1 className="text-base sm:text-2xl font-bold text-white truncate">Courtroom Session</h1>
                  <p className="text-slate-400 text-xs sm:text-sm truncate">{phase?.name}</p>
-                 {timerActive && <p className="text-slate-400 text-xs sm:text-sm">{formatTime(totalTimeRemaining)} remaining</p>}
+                 {practiceMode
+                   ? <p className="text-amber-400 text-xs sm:text-sm font-semibold">Practice Mode — no time limit</p>
+                   : timerActive && <p className="text-slate-400 text-xs sm:text-sm">{formatTime(totalTimeRemaining)} remaining</p>}
                </div>
             </div>
 
@@ -1545,6 +1551,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
               phaseTimeRemaining={phaseTimeRemaining}
               timerActive={timerActive}
               totalTimeRemaining={totalTimeRemaining}
+              practiceMode={practiceMode}
               events={events}
               prosecutorName={prosecutorName || 'Prosecution'}
               defenseName="Defense"

@@ -375,7 +375,7 @@ function AppContent() {
     setView('investigation');
   };
 
-  const handleDifficultySelect = async (difficulty: Difficulty) => {
+  const handleDifficultySelect = async (difficulty: Difficulty, practiceMode: boolean) => {
     if (!currentSession) return;
 
     try {
@@ -383,7 +383,8 @@ function AppContent() {
         current_phase: 'trial-type-selection',
         session_state: {
           ...currentSession.session_state,
-          difficulty
+          difficulty,
+          practiceMode
         }
       });
       const updatedSession = await db.sessions.getSession(currentSession.id);

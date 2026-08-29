@@ -10,6 +10,7 @@ interface TrialOutlineProps {
   phaseTimeRemaining: Record<number, number>;
   timerActive: boolean;
   totalTimeRemaining: number;
+  practiceMode?: boolean;
   events?: TrialEvent[]; // Optional: to show actual judge instructions from transcript
   prosecutorName?: string;
   defenseName?: string;
@@ -21,6 +22,7 @@ export default function TrialOutline({
   phaseTimeRemaining,
   timerActive,
   totalTimeRemaining,
+  practiceMode = false,
   events = [],
   prosecutorName = 'Prosecution',
   defenseName = 'Defense'
@@ -148,9 +150,11 @@ export default function TrialOutline({
               </span>
               {duration !== undefined && duration > 0 && (
                 <span className="text-xs text-slate-400 flex-shrink-0">
-                  {status === 'current' && timeRemaining !== undefined
-                    ? formatTime(timeRemaining)
-                    : `${duration}m`}
+                  {practiceMode
+                    ? '—'
+                    : status === 'current' && timeRemaining !== undefined
+                      ? formatTime(timeRemaining)
+                      : `${duration}m`}
                 </span>
               )}
             </div>
@@ -165,7 +169,11 @@ export default function TrialOutline({
       <div className="border-b border-slate-700 px-4 py-3 bg-slate-750">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-white">Trial Outline</h3>
-          {timerActive && (
+          {practiceMode ? (
+            <div className="flex items-center gap-1 text-amber-400">
+              <span className="text-xs font-semibold">Practice</span>
+            </div>
+          ) : timerActive && (
             <div className="flex items-center gap-1 text-blue-400">
               <Clock className="w-3 h-3" />
               <span className="text-xs font-mono">{formatTime(totalTimeRemaining)}</span>

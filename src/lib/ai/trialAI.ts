@@ -33,6 +33,7 @@ export interface JudgeContext {
   prosecutorName: string;
   phase: 'opening_request' | 'objection_ruling' | 'verdict' | 'general' | 'instruction';
   difficulty?: 'easy' | 'medium' | 'hard';
+  practiceMode?: boolean;
   nextPhaseName?: string;
   nextPhaseType?: 'prosecution' | 'defense' | 'witness' | 'closing';
   objectionContext?: {
@@ -119,6 +120,7 @@ export async function generateObjectionRuling(
     current_phase: string;
     recent_transcript: string;
     difficulty?: 'easy' | 'medium' | 'hard';
+    practiceMode?: boolean;
   }
 ): Promise<ObjectionRuling> {
   const judgeContext: JudgeContext = {
@@ -127,6 +129,7 @@ export async function generateObjectionRuling(
     prosecutorName: 'Prosecution',
     phase: 'objection_ruling',
     difficulty: context.difficulty,
+    practiceMode: context.practiceMode,
     objectionContext: {
       objection_by: context.objection_by,
       objection_reason: context.objection_reason,
@@ -516,7 +519,13 @@ RULES:
 - Rule either "sustained" or "overruled"
 - Provide brief reasoning (1-2 sentences max)
 - Be fair and consistent with legal standards
-- Respond ONLY in valid JSON format
+- Respond ONLY in valid JSON format${context.practiceMode ? `
+
+PRACTICE MODE: This player is learning. Instead of 1-2 sentences, give a
+teaching-oriented explanation (3-4 sentences): name the underlying rule
+of evidence or procedure, explain in plain English why it applies (or
+doesn't) here, and note what the objecting side would need to show for
+a different outcome next time.` : ''}
 
 RESPOND WITH VALID JSON:
 {
