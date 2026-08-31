@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
-import TrialConfigSelector from './TrialConfigSelector';
 import TrialOutline from './TrialOutline';
-import PreTrialScript from './PreTrialScript';
 import TrialVideoDisplay from './TrialVideoDisplay';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
@@ -65,6 +63,15 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   // that already correctly check isMultiplayer first don't need every
   // single one re-audited for a null case.
   const aiRole: 'defense' | 'prosecution' = playerRole === 'defense' ? 'prosecution' : 'defense';
+  // Single source of truth for "what name does this side go by right now" —
+  // whichever side the human plays is addressed by their own name, matching
+  // how it always worked for defense (the only side a human could play,
+  // before role selection existed); the AI side keeps its assigned persona
+  // name (the random attorney pool for prosecution, a generic label for
+  // defense, since there's no name pool for that side yet).
+  const humanDisplayName = getUserDisplayName(user);
+  const effectiveProsecutorName = playerRole === 'prosecution' ? humanDisplayName : (prosecutorName || 'Prosecution');
+  const effectiveDefenseName = playerRole === 'defense' ? humanDisplayName : 'Defense Counsel';
   const [trialDuration, setTrialDuration] = useState<TrialDuration | null>(
     session.trial_duration as TrialDuration || null
   );
@@ -256,90 +263,6 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     return () => clearInterval(syncInterval);
   }, [isMultiplayer, showPreTrial, session.id, currentPhase]);
 
-  const handlePreTrialComplete = async (pleaGuilty: boolean, judge: string, prosecutor: string) => {
-    setJudgeName(judge);
-    setProsecutorName(prosecutor);
-
-    // Persist so a remount (refresh, back/forward navigation) restores the
-    // same judge/prosecutor instead of re-randomizing and drifting out of
-    // sync with what was already said in the pre-trial transcript.
-    await db.sessions.updateSession(session.id, {
-      session_state: {
-        ...session.session_state,
-        judgeName: judge,
-        prosecutorName: prosecutor
-      }
-    });
-
-    if (pleaGuilty) {
-      // Mark session as completed
-      await db.sessions.updateSession(session.id, {
-        current_phase: 'completed',
-        completed_at: new Date().toISOString()
-      });
-
-      const guiltyVerdict: Omit<Verdict, 'id' | 'delivered_at'> = {
-        session_id: session.id,
-        outcome: 'lose',
-        reasoning: 'The defendant entered a guilty plea. The Court accepts the plea and proceeds to sentencing.',
-        evidence_cited: [],
-        score: 0
-      };
-
-      const verdict = await db.verdicts.createVerdict(guiltyVerdict);
-      onComplete(verdict);
-    } else {
-      // Update session to trial phase
-      await db.sessions.updateSession(session.id, {
-        current_phase: 'trial',
-        current_trial_phase: 7 // Start at opening statement
-      });
-      setShowPreTrial(false);
-    }
-  };
-
-  const handleTrialDurationSelect = async (type: TrialType, duration: TrialDuration) => {
-    setTrialDuration(duration);
-    const config = getTrialConfig(duration);
-
-    const initialTimes: Record<number, number> = {};
-    Object.entries(config.phaseDurations).forEach(([phase, minutes]) => {
-      initialTimes[Number(phase)] = minutes * 60;
-    });
-    setPhaseTimeRemaining(initialTimes);
-    setTotalTimeRemaining(duration * 60);
-
-    await db.sessions.updateSession(session.id, {
-      trial_duration: duration,
-      trial_type: type,
-      phase_timings: config.phaseDurations,
-      session_state: {
-        ...session.session_state,
-        phaseTimeRemaining: initialTimes
-      }
-    });
-
-    if (type === 'judge') {
-      // No jury selection step for a bench trial — let the player know
-      // who's deciding the case instead of silently skipping straight
-      // past it.
-      const assignmentEvent = await db.trialEvents.addEvent({
-        session_id: session.id,
-        event_type: 'announcement',
-        speaker_role: 'judge',
-        speaker_name: 'Court',
-        content: `Judge ${judgeName} has been assigned this case.`,
-        metadata: { phase: currentPhase },
-        event_order: events.length + 1
-      });
-      setEvents(prevEvents => [...prevEvents, assignmentEvent]);
-    }
-
-    if (currentPhase === 1) {
-      announcePhase(1);
-    }
-  };
-
   const startTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (timerPaused || !trialDuration) return;
@@ -444,8 +367,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       role === 'judge' ? 'judge' : role === 'witness' ? 'witness' : ((turnState?.current_turn as any) || 'defense');
     const resolvedName =
       resolvedRole === 'judge' ? (judgeName || 'Judge')
-      : resolvedRole === 'prosecution' ? (prosecutorName || 'Prosecution')
-      : resolvedRole === 'defense' ? 'Defense Counsel'
+      : resolvedRole === 'prosecution' ? effectiveProsecutorName
+      : resolvedRole === 'defense' ? effectiveDefenseName
       : 'Witness';
 
     try {
@@ -623,8 +546,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     // Generate hardcoded judge instruction
     const witnessNumber = extractWitnessNumber(currentPhaseInfo.name);
     const instruction = getJudgeInstructionForPhase({
-      prosecutorName: prosecutorName || 'Prosecution',
-      defenseName: 'Defense',
+      prosecutorName: effectiveProsecutorName,
+      defenseName: effectiveDefenseName,
       nextPhase: currentPhaseInfo,
       witnessNumber
     });
@@ -874,7 +797,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         session_id: session.id,
         event_type: isOpening ? 'opening' : 'closing',
         speaker_role: aiRole,
-        speaker_name: aiRole === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense Counsel',
+        speaker_name: aiRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
         content: statement,
         metadata: { 
           phase: currentPhase,
@@ -976,7 +899,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const openingStatement = await Promise.race([
         generateProsecutionOpeningStatement({
           caseTitle: caseData.title,
-          prosecutorName: aiRole === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense Counsel',
+          prosecutorName: aiRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
           side: aiRole,
           difficulty: (session.session_state as any)?.difficulty,
           defendantName: caseData.defendant_name,
@@ -1024,7 +947,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           session_id: session.id,
           event_type: 'opening',
           speaker_role: aiRole,
-          speaker_name: aiRole === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense Counsel',
+          speaker_name: aiRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
           content: fallback,
           timestamp: new Date().toISOString(),
           metadata: { phase: currentPhase },
@@ -1084,7 +1007,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       session_id: session.id,
       event_type: 'witness_call',
       speaker_role: 'defense',
-      speaker_name: 'Defense Counsel',
+      speaker_name: effectiveDefenseName,
       content: `Calls ${witness.name} to the stand.`,
       metadata: {
         witness_id: witness.id,
@@ -1141,8 +1064,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       event_type: 'witness_examination',
       speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
       speaker_name: turnState.current_turn === 'prosecution' 
-        ? (prosecutorName || 'Prosecution')
-        : 'Defense Counsel',
+        ? effectiveProsecutorName
+        : effectiveDefenseName,
       content: question,
       metadata: { 
         witness_id: witnessId,
@@ -1212,8 +1135,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       event_type: 'evidence_submission',
       speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
       speaker_name: turnState.current_turn === 'prosecution' 
-        ? (prosecutorName || 'Prosecution')
-        : 'Defense Counsel',
+        ? effectiveProsecutorName
+        : effectiveDefenseName,
       content: `Submits ${evidenceItem.exhibit_label || evidenceItem.title} to the court.`,
       metadata: { 
         evidence_id: evidenceItem.id,
@@ -1282,7 +1205,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         session_id: session.id,
         event_type: 'objection',
         speaker_role: playerRole,
-        speaker_name: playerRole === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense Counsel',
+        speaker_name: playerRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
         content: `Objection: ${objectionReason}`,
         metadata: {
           objection_reason: reason,
@@ -1398,9 +1321,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       event_type: 'witness_examination',
       speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
       speaker_name: turnState.current_turn === 'prosecution'
-        ? (prosecutorName || 'Prosecution')
-        : 'Defense Counsel',
-      content: `The ${turnState.current_turn === 'prosecution' ? (prosecutorName || 'Prosecution') : 'Defense'} rests.`,
+        ? effectiveProsecutorName
+        : effectiveDefenseName,
+      content: `The ${turnState.current_turn === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName} rests.`,
       metadata: { phase: currentPhase, rested: true },
       event_order: events.length + 1
     });
@@ -1461,24 +1384,15 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
   };
 
-  if (!trialDuration) {
-    return (
-      <TrialConfigSelector
-        onSelect={handleTrialDurationSelect}
-        onCancel={onBack}
-      />
-    );
-  }
-
-  if (showPreTrial && caseData && user) {
-    return (
-      <PreTrialScript
-        caseTitle={caseData.title}
-        userName={getUserDisplayName(user)}
-        onComplete={handlePreTrialComplete}
-      />
-    );
-  }
+  // Note: trialDuration and pre-trial are both fully handled upstream by
+  // App.tsx before this component ever mounts (handleTrialTypeSelect sets
+  // trial_duration before switching to this view; current_phase is always
+  // 'trial' by the time view becomes 'courtroom', so showPreTrial's
+  // initializer is always false here). Fallback screens for those cases
+  // used to live here but were unreachable dead code with a stale,
+  // incomplete PreTrialScript call (missing judgeName/prosecutorName) —
+  // removed rather than fixed, since there's nothing valid to fix them
+  // with at this point in the component.
 
   // At this point, trialDuration is guaranteed to be set (checked above)
   const trialConfig = getTrialConfig(trialDuration);

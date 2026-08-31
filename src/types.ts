@@ -1,5 +1,4 @@
 export type CaseType = 'criminal' | 'civil' | 'burglary' | 'fraud' | 'assault' | 'murder' | 'theft' | 'other';
-export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'easy' | 'medium' | 'hard';
 export type SubscriptionTier = 'free' | 'basic' | 'pro' | 'max' | 'family';
 export type TrialType = 'judge' | 'jury';
 export type PlayerRole = 'defense' | 'prosecution';
@@ -37,7 +36,7 @@ export type Relevance = 'favorable' | 'neutral' | 'risky';
 export type Phase = 'setup' | 'role-selection' | 'investigation' | 'difficulty-selection' | 'trial-type-selection' | 'jury-selection' | 'pre-trial' | 'trial' | 'completed';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type InteractionPhase = 'pre_trial' | 'trial';
-export type EventType = 'opening' | 'witness_examination' | 'cross_examination' | 'objection' | 'ruling' | 'closing' | 'verdict' | 'evidence_submission' | 'witness_call';
+export type EventType = 'opening' | 'witness_examination' | 'cross_examination' | 'objection' | 'ruling' | 'closing' | 'verdict' | 'evidence_submission' | 'witness_call' | 'announcement';
 export type SpeakerRole = 'judge' | 'counsel' | 'witness' | 'opposing_counsel' | 'prosecution' | 'defense' | 'jury';
 export type Outcome = 'win' | 'lose' | 'partial';
 

@@ -427,6 +427,27 @@ function AppContent() {
         setCurrentSession(updatedSession);
       }
 
+      if (trialType === 'judge') {
+        // No jury selection step for a bench trial — let the player know
+        // who's deciding the case instead of silently skipping straight
+        // past it. Written directly to trial_events (rather than through
+        // any local transcript state) since it'll be picked up when
+        // Courtroom loads the session's events later.
+        try {
+          await db.trialEvents.addEvent({
+            session_id: currentSession.id,
+            event_type: 'announcement',
+            speaker_role: 'judge',
+            speaker_name: 'Court',
+            content: `Judge ${judgeName} has been assigned this case.`,
+            metadata: { phase: 0 },
+            event_order: 0
+          });
+        } catch (error) {
+          console.error('Failed to record judge assignment:', error);
+        }
+      }
+
       if (trialType === 'jury') {
         setView('jury-selection');
       } else {
@@ -705,6 +726,7 @@ function AppContent() {
           userName={getUserDisplayName(user)}
           judgeName={(currentSession.session_state as any)?.judgeName || ''}
           prosecutorName={(currentSession.session_state as any)?.prosecutorName || ''}
+          playerRole={(currentSession.session_state as any)?.playerRole || 'defense'}
           onComplete={handlePreTrialComplete}
         />
       )}

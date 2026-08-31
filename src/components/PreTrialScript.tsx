@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Scale, Play, Gavel } from 'lucide-react';
 import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName } from '../lib/trialConfig';
+import type { PlayerRole } from '../types';
 
 interface PreTrialScriptProps {
   caseTitle: string;
   userName: string;
   judgeName: string;
   prosecutorName: string;
+  playerRole?: PlayerRole; // defaults to 'defense' for sessions created before role selection existed
   onComplete: (pleaGuilty: boolean, judgeName: string, prosecutorName: string) => void;
 }
 
@@ -19,12 +21,18 @@ type PreTrialPhase =
   | 'plea_complete'
   | 'start_trial';
 
-export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, onComplete }: PreTrialScriptProps) {
+export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, playerRole = 'defense', onComplete }: PreTrialScriptProps) {
   const [phase, setPhase] = useState<PreTrialPhase>('idle');
   // Fall back to a fresh random pick only if a caller doesn't supply one
   // (e.g. an old session created before this was lifted to App.tsx).
   const [judgeName] = useState(judgeNameProp || getRandomJudgeName());
-  const [prosecutorName] = useState(prosecutorNameProp || getRandomProsecutorName());
+  // The NPC attorney pool name (e.g. "District Attorney Harrison") is only
+  // ever actually spoken for whichever side the human ISN'T playing — the
+  // human is addressed by their own name, same as defense always was
+  // before prosecution became a selectable role.
+  const [npcProsecutorName] = useState(prosecutorNameProp || getRandomProsecutorName());
+  const prosecutorDisplayName = playerRole === 'prosecution' ? userName : npcProsecutorName;
+  const defenseDisplayName = playerRole === 'defense' ? userName : 'Defense Counsel';
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
   const [pleaGuilty, setPleaGuilty] = useState<boolean | null>(null);
   const [isLoadingJudgeRequest, setIsLoadingJudgeRequest] = useState(false);
@@ -56,13 +64,13 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
 
       setTimeout(() => {
         setPhase('counsel_appearances');
-        const prosecutorText = `For the prosecution, ${prosecutorName}.`;
-        addTranscript(prosecutorName, prosecutorText);
+        const prosecutorText = `For the prosecution, ${prosecutorDisplayName}.`;
+        addTranscript(prosecutorDisplayName, prosecutorText);
         speakText(prosecutorText);
 
         setTimeout(() => {
-          const defenseText = `For the defense, ${userName}, representing the defendant.`;
-          addTranscript(userName, defenseText);
+          const defenseText = `For the defense, ${defenseDisplayName}, representing the defendant.`;
+          addTranscript(defenseDisplayName, defenseText);
           speakText(defenseText);
 
           setTimeout(() => {
@@ -89,7 +97,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
 
     // If guilty plea, complete immediately
     if (pleaGuilty) {
-      onComplete(true, judgeName, prosecutorName);
+      onComplete(true, judgeName, npcProsecutorName);
       return;
     }
 
@@ -98,7 +106,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
     // judge's "you may proceed with your opening statement" line
     // correctly. Generating a second version of that line here, in
     // pre-trial, was duplicating it.
-    onComplete(false, judgeName, prosecutorName);
+    onComplete(false, judgeName, npcProsecutorName);
   };
 
   return (
@@ -178,7 +186,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                     )}
                     {pleaGuilty && (
                       <button
-                        onClick={() => onComplete(true, judgeName, prosecutorName)}
+                        onClick={() => onComplete(true, judgeName, npcProsecutorName)}
                         className="px-8 py-4 bg-slate-600 hover:bg-slate-700 text-white rounded-lg font-semibold transition-all"
                       >
                         Continue
