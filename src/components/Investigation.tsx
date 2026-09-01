@@ -4,6 +4,7 @@ import { db } from '../lib/database';
 import EvidenceViewer from './EvidenceViewer';
 import { generateWitnessResponse as generateAIWitnessResponse } from '../lib/ai/trialAI';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
+import { speakAs } from '../lib/speech';
 import type { Evidence, Witness, WitnessInteraction, CaseSession, Case } from '../types';
 
 interface InvestigationProps {
@@ -107,6 +108,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
       );
       
       console.log('Received response:', response.substring(0, 100) + '...');
+      speakAs('witness', response);
 
       const interaction = await db.interactions.addInteraction({
         session_id: session.id,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Scale, Play, Gavel } from 'lucide-react';
 import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName } from '../lib/trialConfig';
 import type { PlayerRole } from '../types';
+import { speakAs } from '../lib/speech';
 
 interface PreTrialScriptProps {
   caseTitle: string;
@@ -37,15 +38,6 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const [pleaGuilty, setPleaGuilty] = useState<boolean | null>(null);
   const [isLoadingJudgeRequest, setIsLoadingJudgeRequest] = useState(false);
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
   const addTranscript = (speaker: string, text: string) => {
     setTranscript(prev => [...prev, { speaker, text }]);
   };
@@ -54,30 +46,30 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
     setPhase('bailiff_call');
     const bailiffText = `All rise. Court is now in session. The Honorable ${judgeName} presiding.`;
     addTranscript('Bailiff', bailiffText);
-    speakText(bailiffText);
+    speakAs('recorder', bailiffText);
 
     setTimeout(() => {
       setPhase('case_announcement');
       const caseText = `This is the case of ${caseTitle}. Counsel, please state your appearances.`;
       addTranscript(judgeName, caseText);
-      speakText(caseText);
+      speakAs('judge', caseText);
 
       setTimeout(() => {
         setPhase('counsel_appearances');
         const prosecutorText = `For the prosecution, ${prosecutorDisplayName}.`;
         addTranscript(prosecutorDisplayName, prosecutorText);
-        speakText(prosecutorText);
+        speakAs('counsel', prosecutorText);
 
         setTimeout(() => {
           const defenseText = `For the defense, ${defenseDisplayName}, representing the defendant.`;
           addTranscript(defenseDisplayName, defenseText);
-          speakText(defenseText);
+          speakAs('counsel', defenseText);
 
           setTimeout(() => {
             setPhase('defendant_plea');
             const pleaText = 'Defendant, how do you plead to the charges before this court?';
             addTranscript(judgeName, pleaText);
-            speakText(pleaText);
+            speakAs('judge', pleaText);
           }, 3000);
         }, 3000);
       }, 4000);
@@ -87,7 +79,6 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const handlePlea = (guilty: boolean) => {
     const pleaText = guilty ? 'Guilty, Your Honor.' : 'Not guilty, Your Honor.';
     addTranscript('Defendant', pleaText);
-    speakText(pleaText);
     setPleaGuilty(guilty);
     setPhase('plea_complete');
   };

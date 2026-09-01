@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic } from 'lucide-react';
+import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic, Sparkles } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
@@ -19,6 +19,7 @@ import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
 import { getUserDisplayName } from '../lib/userName';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
+import { speakAs } from '../lib/speech';
 import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case } from '../types';
 
 interface CourtroomProps {
@@ -127,6 +128,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
    const [lastProsecutionEvent, setLastProsecutionEvent] = useState<TrialEvent | null>(null);
     const prosecutionTurnTriggeredRef = useRef<number | null>(null);
    const [showVideoDisplay, setShowVideoDisplay] = useState(true); // Video display on by default
+   const [showRealVoiceInfo, setShowRealVoiceInfo] = useState(false);
    const [judgeInstructionPending, setJudgeInstructionPending] = useState(false);
 
   useEffect(() => {
@@ -323,18 +325,18 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     switch (phaseNumber) {
       case 2:
         announcement = BAILIFF_PROMPTS.callToOrder;
-        speakText(announcement);
+        speakAs('recorder', announcement);
         break;
       case 3:
         announcement = "Judge enters";
         break;
       case 4:
         announcement = JUDGE_PROMPTS.caseAnnouncement.replace('{plaintiff}', 'The State').replace('{defendant}', 'Defendant');
-        speakText(announcement);
+        speakAs('judge', announcement);
         break;
       case 6:
         announcement = JUDGE_PROMPTS.plea;
-        speakText(announcement);
+        speakAs('judge', announcement);
         break;
     }
 
@@ -343,14 +345,6 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
   };
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
 
   const addEvent = async (role: 'judge' | 'counsel' | 'witness', content: string) => {
     setCurrentSpeaker(role === 'judge' ? 'judge' : role === 'counsel' ? (turnState?.current_turn as any) || 'defense' : 'witness');
@@ -573,7 +567,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           event_order: events.length + 1
         });
         setEvents((prev: TrialEvent[]) => [...prev, judgeEvent]);
-        speakText(instruction);
+        speakAs('judge', instruction);
         // Wait for speech to complete (approximate)
         await new Promise(resolve => setTimeout(resolve, instruction.length * 50));
         setJudgeInstructionPending(false);
@@ -594,7 +588,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           event_order: events.length + 1
         };
         setEvents((prev: TrialEvent[]) => [...prev, fallbackEvent]);
-        speakText(instruction);
+        speakAs('judge', instruction);
         await new Promise(resolve => setTimeout(resolve, instruction.length * 50));
         setJudgeInstructionPending(false);
       }
@@ -811,7 +805,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       setEvents(prevEvents => [...prevEvents, event]);
       
       console.log('[Courtroom] 🔊 Speaking text...');
-      speakText(statement);
+      speakAs('counsel', statement);
 
       // Track prosecution event for objections
       setLastProsecutionEvent(event);
@@ -840,7 +834,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         event_order: events.length + 1
       };
       setEvents([...events, fallbackEvent]);
-      speakText(statement);
+      speakAs('counsel', statement);
       setLastProsecutionEvent(fallbackEvent);
       throw error; // Re-throw so caller knows it failed
     }
@@ -954,7 +948,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           event_order: events.length + 1
         };
         setEvents([...events, fallbackEvent]);
-        speakText(fallback);
+        speakAs('counsel', fallback);
         setLastProsecutionEvent(fallbackEvent);
       } catch (fallbackError) {
         console.error('[Courtroom] ❌ Failed to make fallback statement:', fallbackError);
@@ -1088,6 +1082,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         }));
 
       const response = await generateWitnessResponse(witness, question, previousInteractions);
+      speakAs('witness', response);
 
       // Add witness response to transcript
       const responseEvent = await db.trialEvents.addEvent({
@@ -1269,9 +1264,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
       // If sustained, prosecution should rephrase (this will be handled in their next turn)
       if (ruling.ruling === 'sustained') {
-        speakText(`Objection sustained. ${ruling.reasoning}`);
+        speakAs('judge', `Objection sustained. ${ruling.reasoning}`);
       } else {
-        speakText(`Objection overruled. ${ruling.reasoning}`);
+        speakAs('judge', `Objection overruled. ${ruling.reasoning}`);
       }
     } catch (error) {
       console.error('Failed to process objection:', error);
@@ -1365,7 +1360,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const announcement = isJuryTrial
         ? `Members of the jury, have you reached a verdict? We have, Your Honor. We the jury find the defendant ${verdictText}.`
         : JUDGE_PROMPTS.verdict.replace('{verdict}', verdictText);
-      speakText(announcement);
+      speakAs('judge', announcement);
 
       onComplete(verdict);
     } catch (error) {
@@ -1439,6 +1434,14 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
               >
                 {showVideoDisplay ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
                 <span className="hidden sm:inline">{showVideoDisplay ? 'Hide Video' : 'Show Video'}</span>
+              </button>
+              <button
+                onClick={() => setShowRealVoiceInfo(true)}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-gradient-to-r from-purple-600/30 to-fuchsia-600/30 hover:from-purple-600/40 hover:to-fuchsia-600/40 border border-purple-500/40 text-purple-200 rounded-lg transition-colors"
+                title="Real Voice — Coming Soon"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs font-semibold">Real Voice</span>
               </button>
                {timerActive && (
                  <button
@@ -1650,6 +1653,27 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           onSkip={handleRestPhase}
           onClose={() => setShowWitnessSelector(false)}
         />
+      )}
+
+      {showRealVoiceInfo && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-md w-full border border-purple-500/30 shadow-2xl">
+            <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 mb-4">
+              <Sparkles className="w-7 h-7 text-purple-300" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-1 text-center">Real Voice — Coming Soon</h2>
+            <p className="text-purple-300 text-xs font-semibold text-center mb-4 uppercase tracking-wide">Live Voice Trial Mode</p>
+            <p className="text-white/70 text-sm leading-relaxed text-center mb-6">
+              A fully spoken courtroom — natural, distinct voices for every character, low-latency back-and-forth, no typing at all. What's here today (the mic input and read-aloud lines) is the free version; this is the upgraded experience we're building next.
+            </p>
+            <button
+              onClick={() => setShowRealVoiceInfo(false)}
+              className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Evidence Selector Modal */}
