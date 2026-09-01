@@ -166,6 +166,7 @@ export interface UserProfile {
   current_level: string;
   is_admin: boolean;
   tutorial_completed: boolean;
+  difficulty: Difficulty;
   created_at: string;
   updated_at: string;
 }

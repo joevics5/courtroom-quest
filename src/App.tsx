@@ -20,10 +20,10 @@ import { getLevelForWins } from './lib/levels';
 import { getUserDisplayName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
-import DifficultySelector from './components/DifficultySelector';
-import RoleSelector from './components/RoleSelector';
+import CasePreview from './components/CasePreview';
 import ChallengeBoard from './components/ChallengeBoard';
 import Tutorial from './components/Tutorial';
+import Settings from './components/Settings';
 
 type AppView =
   | 'landing'
@@ -34,12 +34,12 @@ type AppView =
   | 'tutorial'
   | 'role-selection'
   | 'investigation'
-  | 'difficulty-selection'
   | 'trial-type-selection'
   | 'jury-selection'
   | 'pre-trial'
   | 'courtroom'
   | 'verdict'
+  | 'settings'
   | 'admin';
 
 function AppContent() {
@@ -89,6 +89,7 @@ function AppContent() {
               current_level: 'Practicing Attorney',
               is_admin: isUserAdmin,
               tutorial_completed: false,
+              difficulty: 'medium',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             });
@@ -102,6 +103,15 @@ function AppContent() {
       setIsAdmin(false);
     }
   }, [user]);
+
+  // First-login tutorial: fires as soon as the profile loads, while still
+  // on the landing view. Independent of case selection — previously this
+  // only showed up after picking a case, deep inside the case flow.
+  useEffect(() => {
+    if (view === 'landing' && userProfile && !userProfile.tutorial_completed) {
+      setView('tutorial');
+    }
+  }, [view, userProfile]);
 
   if (!user) {
     if (showAuth) {
@@ -143,7 +153,7 @@ function AppContent() {
           current_phase: 'role-selection'
         });
 
-        setView(userProfile && !userProfile.tutorial_completed ? 'tutorial' : 'role-selection');
+        setView('role-selection');
       }
     } catch (error) {
       console.error('Failed to start case:', error);
@@ -234,9 +244,7 @@ function AppContent() {
         case 'investigation':
           setView('investigation');
           break;
-        case 'difficulty-selection':
-          setView('difficulty-selection');
-          break;
+        case 'difficulty-selection': // legacy — this phase no longer exists, redirect forward
         case 'trial-type-selection':
           setView('trial-type-selection');
           break;
@@ -321,7 +329,7 @@ function AppContent() {
     // Save progress - user has completed investigation and is proceeding to trial
     try {
       await db.sessions.updateSession(currentSession.id, {
-        current_phase: 'difficulty-selection'
+        current_phase: 'trial-type-selection'
       });
       const updatedSession = await db.sessions.getSession(currentSession.id);
       if (updatedSession) {
@@ -331,7 +339,7 @@ function AppContent() {
       console.error('Failed to save progress:', error);
     }
 
-    setView('difficulty-selection');
+    setView('trial-type-selection');
   };
 
   const handleTutorialDone = async () => {
@@ -343,7 +351,7 @@ function AppContent() {
         console.error('Failed to mark tutorial complete:', error);
       }
     }
-    setView('role-selection');
+    setView('landing');
   };
 
   const handleMatched = async (session: CaseSession) => {
@@ -353,7 +361,7 @@ function AppContent() {
     await resumeSession(session);
   };
 
-  const handleRoleSelect = async (role: PlayerRole) => {
+  const handleRoleSelect = async (role: PlayerRole, practiceMode: boolean = false) => {
     if (!currentSession) return;
 
     try {
@@ -361,7 +369,8 @@ function AppContent() {
         current_phase: 'investigation',
         session_state: {
           ...currentSession.session_state,
-          playerRole: role
+          playerRole: role,
+          practiceMode
         }
       });
       const updatedSession = await db.sessions.getSession(currentSession.id);
@@ -373,29 +382,6 @@ function AppContent() {
     }
 
     setView('investigation');
-  };
-
-  const handleDifficultySelect = async (difficulty: Difficulty, practiceMode: boolean) => {
-    if (!currentSession) return;
-
-    try {
-      await db.sessions.updateSession(currentSession.id, {
-        current_phase: 'trial-type-selection',
-        session_state: {
-          ...currentSession.session_state,
-          difficulty,
-          practiceMode
-        }
-      });
-      const updatedSession = await db.sessions.getSession(currentSession.id);
-      if (updatedSession) {
-        setCurrentSession(updatedSession);
-      }
-    } catch (error) {
-      console.error('Failed to save difficulty:', error);
-    }
-
-    setView('trial-type-selection');
   };
 
   const handleTrialTypeSelect = async (trialType: TrialType, duration: number) => {
@@ -418,7 +404,8 @@ function AppContent() {
         session_state: {
           ...currentSession.session_state,
           judgeName,
-          prosecutorName
+          prosecutorName,
+          difficulty: userProfile?.difficulty || 'medium'
         }
       });
 
@@ -592,6 +579,7 @@ function AppContent() {
           onNavigateToCustomCases={handleNavigateToCustomCases}
           onNavigateToChallengeBoard={() => setView('challenge-board')}
           onPlayFeaturedCase={(caseId) => handleSelectCase(caseId, false)}
+          onOpenSettings={() => setView('settings')}
           onOpenAdmin={isAdmin ? handleOpenAdmin : undefined}
         />
       )}
@@ -689,18 +677,21 @@ function AppContent() {
       )}
 
       {view === 'role-selection' && currentSession && currentCase && (
-        <RoleSelector
+        <CasePreview
           caseTitle={currentCase.title}
+          caseText={currentCase.case_summary || currentCase.description}
           defendantName={currentCase.defendant_name}
           onSelect={handleRoleSelect}
           onCancel={handleBackFromInvestigation}
         />
       )}
 
-      {view === 'difficulty-selection' && currentSession && (
-        <DifficultySelector
-          onSelect={handleDifficultySelect}
-          onCancel={handleBackFromInvestigation}
+      {view === 'settings' && user && userProfile && (
+        <Settings
+          userId={user.id}
+          userProfile={userProfile}
+          onBack={() => setView('landing')}
+          onProfileUpdated={setUserProfile}
         />
       )}
 

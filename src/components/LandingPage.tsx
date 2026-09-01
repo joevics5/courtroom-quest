@@ -1,4 +1,4 @@
-import { Scale, Briefcase, FileText, Swords } from 'lucide-react';
+import { Scale, Briefcase, FileText, Swords, Settings as SettingsIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import CaseOfTheWeek from './CaseOfTheWeek';
 
@@ -7,10 +7,11 @@ interface LandingPageProps {
   onNavigateToCustomCases: () => void;
   onNavigateToChallengeBoard: () => void;
   onPlayFeaturedCase: (caseId: string) => void;
+  onOpenSettings: () => void;
   onOpenAdmin?: () => void;
 }
 
-export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomCases, onNavigateToChallengeBoard, onPlayFeaturedCase, onOpenAdmin }: LandingPageProps) {
+export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomCases, onNavigateToChallengeBoard, onPlayFeaturedCase, onOpenSettings, onOpenAdmin }: LandingPageProps) {
   const { signOut } = useAuth();
 
   return (
@@ -46,6 +47,13 @@ export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomC
                 </button>
               )}
               <button
+                onClick={onOpenSettings}
+                className="flex items-center justify-center w-10 h-10 bg-slate-700/50 hover:bg-slate-600 text-white rounded-lg transition-colors backdrop-blur-sm"
+                title="Settings"
+              >
+                <SettingsIcon className="w-5 h-5" />
+              </button>
+              <button
                 onClick={signOut}
                 className="px-4 py-2 bg-slate-700/50 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm backdrop-blur-sm"
               >
@@ -57,13 +65,20 @@ export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomC
 
         <main className="flex-1 flex items-center justify-center px-4 sm:px-6">
           <div className="max-w-3xl w-full space-y-6 sm:space-y-8">
-            <div className="text-center space-y-3 sm:space-y-4 mb-8 sm:mb-12">
+            <div className="text-center space-y-2 mb-2">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
                 Welcome to the Courtroom
               </h2>
-              <p className="text-lg sm:text-xl text-slate-300">
-                Choose your path
-              </p>
+            </div>
+
+            <div>
+              <CaseOfTheWeek onPlayCase={onPlayFeaturedCase} />
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <div className="flex-1 h-px bg-white/10" />
+              <p className="text-slate-400 text-sm whitespace-nowrap">or choose your path</p>
+              <div className="flex-1 h-px bg-white/10" />
             </div>
 
             <div className="grid sm:grid-cols-3 gap-4 sm:gap-6">
@@ -132,10 +147,6 @@ export default function LandingPage({ onNavigateToCaseBoard, onNavigateToCustomC
                   </div>
                 </div>
               </button>
-            </div>
-
-            <div className="mt-8 max-w-2xl mx-auto">
-              <CaseOfTheWeek onPlayCase={onPlayFeaturedCase} />
             </div>
           </div>
         </main>
