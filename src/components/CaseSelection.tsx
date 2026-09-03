@@ -96,14 +96,6 @@ export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEdit
         </p>
 
         <div className="flex items-center gap-2">
-          {caseItem.difficulty && (
-            <>
-              <span className="text-xs text-slate-400">Difficulty:</span>
-              <span className={`text-xs px-2 py-1 rounded font-medium ${getDifficultyColor(caseItem.difficulty)}`}>
-                {caseItem.difficulty.toUpperCase()}
-              </span>
-            </>
-          )}
           {isOngoing && (
             <span className="text-xs px-2 py-1 rounded font-medium text-yellow-400 bg-yellow-500/10">
               {(caseItem.current_phase || 'investigation').toUpperCase()}

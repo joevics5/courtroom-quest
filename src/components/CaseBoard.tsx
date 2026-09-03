@@ -210,14 +210,6 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
                     <span className="text-slate-300">{ongoingCase.defendant_name || (ongoingCase.truth_state as any)?.defendant_name || 'Unknown'}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    {ongoingCase.difficulty && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-500 text-sm">Difficulty:</span>
-                        <span className={`text-xs px-3 py-1 rounded-full border font-medium uppercase tracking-wide ${getDifficultyColor(ongoingCase.difficulty)}`}>
-                          {ongoingCase.difficulty}
-                        </span>
-                      </div>
-                    )}
                     <div className="px-2 py-1 bg-amber-500/20 border border-amber-500/40 rounded text-xs text-amber-300 font-medium">
                       {ongoingCase.current_phase.replace('_', ' ').toUpperCase()}
                     </div>
@@ -265,14 +257,6 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
                     <span className="text-slate-500">Defendant: </span>
                     <span className="text-slate-300">{caseItem.defendant_name || 'Unknown'}</span>
                   </div>
-                  {caseItem.difficulty && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500 text-sm">Difficulty:</span>
-                      <span className={`text-xs px-3 py-1 rounded-full border font-medium uppercase tracking-wide ${getDifficultyColor(caseItem.difficulty)}`}>
-                        {caseItem.difficulty}
-                      </span>
-                    </div>
-                  )}
                   <div className="text-xs text-slate-500 italic">
                     New Case - Awaiting Counsel
                   </div>

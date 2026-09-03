@@ -124,6 +124,27 @@ function AppContent() {
     return null;
   }
 
+  const handleTutorialDone = async () => {
+    if (user) {
+      try {
+        const updated = await db.users.updateProfile(user.id, { tutorial_completed: true });
+        setUserProfile(updated);
+      } catch (error) {
+        console.error('Failed to mark tutorial complete:', error);
+      }
+    }
+    setView('landing');
+  };
+
+  // First-login tutorial: a hard gate, not an effect reacting to view
+  // changes. This guarantees it shows immediately once the profile loads
+  // and tutorial_completed is false — no race where a quick click into a
+  // case beats the async profile fetch, and no chance of it firing later
+  // mid-case if the user happens to navigate back through 'landing'.
+  if (!userProfile.tutorial_completed) {
+    return <Tutorial onComplete={handleTutorialDone} onSkip={handleTutorialDone} />;
+  }
+
   const handleSelectCase = async (caseId: string, isCustom: boolean) => {
     try {
       setIsLoading(true);
@@ -340,18 +361,6 @@ function AppContent() {
     }
 
     setView('trial-type-selection');
-  };
-
-  const handleTutorialDone = async () => {
-    if (user) {
-      try {
-        const updated = await db.users.updateProfile(user.id, { tutorial_completed: true });
-        setUserProfile(updated);
-      } catch (error) {
-        console.error('Failed to mark tutorial complete:', error);
-      }
-    }
-    setView('landing');
   };
 
   const handleMatched = async (session: CaseSession) => {
@@ -666,13 +675,6 @@ function AppContent() {
             setCurrentSession(null);
             setView('case-board');
           }}
-        />
-      )}
-
-      {view === 'tutorial' && (
-        <Tutorial
-          onComplete={handleTutorialDone}
-          onSkip={handleTutorialDone}
         />
       )}
 
