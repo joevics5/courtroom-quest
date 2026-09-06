@@ -657,9 +657,10 @@ function AppContent() {
 
       {view === 'role-selection' && currentSession && currentCase && (
         <CasePreview
+          caseId={currentCase.id}
           caseTitle={currentCase.title}
           caseText={currentCase.case_summary || currentCase.description}
-          defendantName={currentCase.defendant_name}
+          defendantName={currentCase.defendant_name || (currentCase.truth_state as any)?.defendant_name}
           onSelect={handleRoleSelect}
           onCancel={handleBackFromInvestigation}
         />
