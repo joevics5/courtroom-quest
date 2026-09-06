@@ -222,29 +222,6 @@ function AppContent() {
     setView('case-selection');
   };
 
-  const handleSelectCaseFromBoard = async (caseId: string) => {
-    try {
-      setIsLoading(true);
-      // Load case details but don't create session yet
-      const caseDetails = await db.cases.getCaseWithDetails(caseId);
-      if (!caseDetails) {
-        alert('Case not found');
-        return;
-      }
-      setCurrentCase(caseDetails);
-      setIsCurrentCaseCustom(false);
-      setShowCaseReview(true);
-      // Navigate to investigation view to show the review modal
-      // But don't create session until they accept
-      setView('investigation');
-    } catch (error) {
-      console.error('Failed to load case:', error);
-      alert('Failed to load case. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const resumeSession = async (session: CaseSession) => {
     try {
       setIsLoading(true);
@@ -604,7 +581,7 @@ function AppContent() {
       {view === 'case-board' && (
         <CaseBoard
           onBack={() => setView('landing')}
-          onSelectCase={handleSelectCaseFromBoard}
+          onSelectCase={(caseId) => handleSelectCase(caseId, false)}
           onContinueCase={handleContinueCase}
         />
       )}
