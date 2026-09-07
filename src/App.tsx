@@ -165,15 +165,12 @@ function AppContent() {
         // Resume existing ongoing session
         await resumeSession(existingOngoingSession);
       } else {
-        // No ongoing session - create a new session (even if there are completed sessions)
-        // This allows users to replay completed cases while preserving history
-        const session = await db.sessions.createSession(caseId, user.id);
-        setCurrentSession(session);
-
-        await db.sessions.updateSession(session.id, {
-          current_phase: 'role-selection'
-        });
-
+        // No ongoing session — just show the case preview. No session is
+        // created yet; that only happens once the user actually accepts
+        // a role (handleRoleSelect). Previously a session was created
+        // right here, meaning merely opening the preview and backing out
+        // without accepting still left an 'in progress' session behind.
+        setCurrentSession(null);
         setView('role-selection');
       }
     } catch (error) {
@@ -348,23 +345,24 @@ function AppContent() {
   };
 
   const handleRoleSelect = async (role: PlayerRole, practiceMode: boolean = false) => {
-    if (!currentSession) return;
+    if (!currentCase || !user) return;
 
     try {
-      await db.sessions.updateSession(currentSession.id, {
+      const session = await db.sessions.createSession(currentCase.id, user.id);
+      await db.sessions.updateSession(session.id, {
         current_phase: 'investigation',
         session_state: {
-          ...currentSession.session_state,
           playerRole: role,
           practiceMode
         }
       });
-      const updatedSession = await db.sessions.getSession(currentSession.id);
+      const updatedSession = await db.sessions.getSession(session.id);
       if (updatedSession) {
         setCurrentSession(updatedSession);
       }
     } catch (error) {
-      console.error('Failed to save role:', error);
+      console.error('Failed to create session:', error);
+      return;
     }
 
     setView('investigation');
@@ -655,7 +653,7 @@ function AppContent() {
         />
       )}
 
-      {view === 'role-selection' && currentSession && currentCase && (
+      {view === 'role-selection' && currentCase && (
         <CasePreview
           caseId={currentCase.id}
           caseTitle={currentCase.title}
