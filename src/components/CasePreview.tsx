@@ -26,7 +26,16 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
   const [filesLoaded, setFilesLoaded] = useState(false);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const defendant = defendantName || 'the defendant';
+
+  const toggleItem = (id: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const handleToggleFiles = async () => {
     const next = !filesExpanded;
@@ -122,12 +131,34 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
               </p>
               {evidence.length > 0 ? (
                 <div className="space-y-1.5">
-                  {evidence.map((e) => (
-                    <div key={e.id} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm">
-                      <span className="text-amber-400 font-medium">{e.exhibit_label || 'Exhibit'}:</span>{' '}
-                      <span className="text-white/80">{e.title}</span>
-                    </div>
-                  ))}
+                  {evidence.map((e) => {
+                    const isOpen = expandedItems.has(e.id);
+                    const hasDetail = !!(e.description || e.content);
+                    return (
+                      <div key={e.id} className="bg-white/5 border border-white/10 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => hasDetail && toggleItem(e.id)}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 text-left ${hasDetail ? 'cursor-pointer hover:bg-white/5' : 'cursor-default'}`}
+                        >
+                          <span className="text-sm">
+                            <span className="text-amber-400 font-medium">{e.exhibit_label || 'Exhibit'}:</span>{' '}
+                            <span className="text-white/80">{e.title}</span>
+                          </span>
+                          {hasDetail && (isOpen ? <ChevronUp className="w-4 h-4 text-white/40 shrink-0" /> : <ChevronDown className="w-4 h-4 text-white/40 shrink-0" />)}
+                        </button>
+                        {isOpen && hasDetail && (
+                          <div className="px-3 pb-3 pt-0 space-y-2 border-t border-white/10">
+                            {e.description && (
+                              <p className="text-white/60 text-xs leading-relaxed whitespace-pre-line pt-2">{e.description}</p>
+                            )}
+                            {e.content && (
+                              <p className="text-white/80 text-sm leading-relaxed whitespace-pre-line bg-black/20 rounded p-2.5">{e.content}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-white/40 text-sm italic">No evidence listed yet.</p>
@@ -141,12 +172,40 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
               </p>
               {witnesses.length > 0 ? (
                 <div className="space-y-1.5">
-                  {witnesses.map((w) => (
-                    <div key={w.id} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm">
-                      <span className="text-white font-medium">{w.name}</span>{' '}
-                      <span className="text-white/50">— {w.role}</span>
-                    </div>
-                  ))}
+                  {witnesses.map((w) => {
+                    const isOpen = expandedItems.has(w.id);
+                    const hasDetail = !!(w.background || w.base_testimony);
+                    return (
+                      <div key={w.id} className="bg-white/5 border border-white/10 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => hasDetail && toggleItem(w.id)}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 text-left ${hasDetail ? 'cursor-pointer hover:bg-white/5' : 'cursor-default'}`}
+                        >
+                          <span className="text-sm">
+                            <span className="text-white font-medium">{w.name}</span>{' '}
+                            <span className="text-white/50">— {w.role}</span>
+                          </span>
+                          {hasDetail && (isOpen ? <ChevronUp className="w-4 h-4 text-white/40 shrink-0" /> : <ChevronDown className="w-4 h-4 text-white/40 shrink-0" />)}
+                        </button>
+                        {isOpen && hasDetail && (
+                          <div className="px-3 pb-3 pt-0 space-y-2 border-t border-white/10">
+                            {w.background && (
+                              <div className="pt-2">
+                                <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">Background</p>
+                                <p className="text-white/60 text-xs leading-relaxed whitespace-pre-line">{w.background}</p>
+                              </div>
+                            )}
+                            {w.base_testimony && (
+                              <div>
+                                <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">Statement</p>
+                                <p className="text-white/80 text-sm leading-relaxed whitespace-pre-line bg-black/20 rounded p-2.5">{w.base_testimony}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-white/40 text-sm italic">No witnesses listed yet.</p>
