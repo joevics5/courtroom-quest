@@ -559,6 +559,7 @@ function AppContent() {
     <>
       {view === 'landing' && (
         <LandingPage
+          userProfile={userProfile}
           onNavigateToCaseBoard={handleNavigateToCaseBoard}
           onNavigateToCustomCases={handleNavigateToCustomCases}
           onNavigateToChallengeBoard={() => setView('challenge-board')}

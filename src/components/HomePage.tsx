@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Scale, Gavel, BookOpen, Users, ArrowRight, Play } from 'lucide-react';
+import { Scale, Gavel, BookOpen, Swords, ArrowRight, Search } from 'lucide-react';
 
 interface HomePageProps {
   onSignIn: () => void;
@@ -46,12 +46,12 @@ export default function HomePage({ onSignIn }: HomePageProps) {
               </div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
                 Courtroom
-                <span className="text-blue-400"> Simulator</span>
+                <span className="text-amber-400"> Quest</span>
               </h1>
             </div>
             <button
               onClick={onSignIn}
-              className="px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50"
+              className="px-4 py-2 sm:px-6 sm:py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg hover:shadow-amber-500/50"
             >
               Sign In
             </button>
@@ -63,31 +63,31 @@ export default function HomePage({ onSignIn }: HomePageProps) {
           <div className={`max-w-6xl mx-auto transition-all duration-1000 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             {/* Hero Section */}
             <div className="text-center mb-12 sm:mb-16 lg:mb-20">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-full mb-6 sm:mb-8">
-                <Play className="w-4 h-4 text-blue-400" />
-                <span className="text-sm sm:text-base text-blue-300 font-medium">Experience Realistic Courtroom Drama</span>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-full mb-6 sm:mb-8">
+                <Search className="w-4 h-4 text-red-400" />
+                <span className="text-sm sm:text-base text-red-300 font-medium">Every case has a loophole. Can you find it?</span>
               </div>
               
               <h2 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-white mb-4 sm:mb-6 leading-tight">
-                Master the Art of
+                No side gets an
                 <br />
-                <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  Legal Strategy
+                <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                  easy win
                 </span>
               </h2>
               
               <p className="text-lg sm:text-xl lg:text-2xl text-slate-300 max-w-3xl mx-auto mb-8 sm:mb-12 leading-relaxed">
-                Build your case, question witnesses, present evidence, and argue before the jury.
+                Prosecute or defend. Question witnesses, exploit contradictions, find the argument nobody saw coming.
                 <br className="hidden sm:block" />
-                Every decision matters. Every word counts.
+                The same case plays completely differently depending on your side.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
                 <button
                   onClick={onSignIn}
-                  className="group px-8 py-4 sm:px-10 sm:py-5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold text-lg sm:text-xl transition-all hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/50 flex items-center gap-3"
+                  className="group px-8 py-4 sm:px-10 sm:py-5 bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white rounded-xl font-bold text-lg sm:text-xl transition-all hover:scale-105 hover:shadow-2xl hover:shadow-red-500/50 flex items-center gap-3"
                 >
-                  Start Playing
+                  Find Your First Loophole
                   <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-1 transition-transform" />
                 </button>
                 <button
@@ -102,55 +102,55 @@ export default function HomePage({ onSignIn }: HomePageProps) {
             {/* Features Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-12 sm:mb-16">
               {/* Feature 1 */}
-              <div className="group bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 sm:p-8 hover:border-blue-500/50 transition-all hover:scale-105 hover:shadow-xl hover:shadow-blue-500/20">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                  <Gavel className="w-7 h-7 sm:w-8 sm:h-8 text-blue-400" />
+              <div className="group bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 sm:p-8 hover:border-amber-500/50 transition-all hover:scale-105 hover:shadow-xl hover:shadow-amber-500/20">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-amber-500/20 to-red-600/20 rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
+                  <Search className="w-7 h-7 sm:w-8 sm:h-8 text-amber-400" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Real Courtroom Experience</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Pick Your Side</h3>
                 <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                  Navigate through authentic trial procedures, from opening statements to closing arguments.
+                  Prosecute or defend the same case — each side has a real argument to make, and neither one is the "correct" answer.
                 </p>
               </div>
 
               {/* Feature 2 */}
               <div className="group bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 sm:p-8 hover:border-purple-500/50 transition-all hover:scale-105 hover:shadow-xl hover:shadow-purple-500/20">
                 <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                  <Users className="w-7 h-7 sm:w-8 sm:h-8 text-purple-400" />
+                  <Gavel className="w-7 h-7 sm:w-8 sm:h-8 text-purple-400" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">AI-Powered Witnesses</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Full AI Courtroom</h3>
                 <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                  Interview witnesses with advanced AI that responds based on their knowledge and testimony.
+                  A real judge rules on your objections, witnesses answer based on their actual testimony, and opposing counsel argues back — all AI, all reactive to what you actually say.
                 </p>
               </div>
 
               {/* Feature 3 */}
-              <div className="group bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 sm:p-8 hover:border-pink-500/50 transition-all hover:scale-105 hover:shadow-xl hover:shadow-pink-500/20 md:col-span-2 lg:col-span-1">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-pink-500/20 to-pink-600/20 rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                  <BookOpen className="w-7 h-7 sm:w-8 sm:h-8 text-pink-400" />
+              <div className="group bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 sm:p-8 hover:border-red-500/50 transition-all hover:scale-105 hover:shadow-xl hover:shadow-red-500/20 md:col-span-2 lg:col-span-1">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-red-500/20 to-orange-600/20 rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
+                  <Swords className="w-7 h-7 sm:w-8 sm:h-8 text-red-400" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Build Your Case</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Face a Real Opponent</h3>
                 <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                  Create custom cases with unique evidence, witnesses, and legal challenges.
+                  Open a live challenge, pick your side, and argue the case against another player — no AI counsel, just the two of you.
                 </p>
               </div>
             </div>
 
-            {/* Stats Section */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {/* How it works */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {[
-                { label: 'Cases Won', value: '10K+', gradient: 'from-blue-400 to-blue-600' },
-                { label: 'Active Players', value: '50K+', gradient: 'from-purple-400 to-purple-600' },
-                { label: 'Custom Cases', value: '5K+', gradient: 'from-pink-400 to-pink-600' },
-                { label: 'Court Sessions', value: '100K+', gradient: 'from-cyan-400 to-cyan-600' }
-              ].map((stat, index) => (
+                { step: '1', title: 'Read the case file', desc: 'Review the evidence and witnesses — the loophole is in there somewhere.' },
+                { step: '2', title: 'Pick prosecution or defense', desc: 'Same case, completely different game depending on your side.' },
+                { step: '3', title: 'Argue it out', desc: 'Object, examine witnesses, and convince the court before your opponent does.' }
+              ].map((item) => (
                 <div
-                  key={index}
-                  className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/30 rounded-xl p-4 sm:p-6 text-center hover:border-slate-600/50 transition-all"
+                  key={item.step}
+                  className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/30 rounded-xl p-5 sm:p-6 hover:border-amber-500/30 transition-all"
                 >
-                  <div className={`text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
-                    {stat.value}
+                  <div className="w-8 h-8 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-sm mb-3">
+                    {item.step}
                   </div>
-                  <div className="text-xs sm:text-sm text-slate-400">{stat.label}</div>
+                  <h4 className="text-white font-semibold mb-1.5">{item.title}</h4>
+                  <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -162,8 +162,8 @@ export default function HomePage({ onSignIn }: HomePageProps) {
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <Scale className="w-5 h-5 text-blue-400" />
-                <span className="text-slate-400 text-sm sm:text-base">© 2024 Courtroom Simulator</span>
+                <Gavel className="w-5 h-5 text-amber-400" />
+                <span className="text-slate-400 text-sm sm:text-base">Courtroom Quest — Every case has a loophole.</span>
               </div>
               <div className="flex items-center gap-6 text-sm text-slate-400">
                 <a href="#" className="hover:text-white transition-colors">Privacy</a>
@@ -189,7 +189,7 @@ export default function HomePage({ onSignIn }: HomePageProps) {
               animationDuration: `${10 + i * 2}s`
             }}
           >
-            <BookOpen className="w-16 h-16 sm:w-20 sm:h-20 text-blue-400" />
+            <BookOpen className="w-16 h-16 sm:w-20 sm:h-20 text-amber-400" />
           </div>
         ))}
       </div>
