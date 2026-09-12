@@ -13,7 +13,8 @@ import type {
   Juror,
   CaseInvitation,
   JurySelection,
-  CaseWinner
+  CaseWinner,
+  PlayerRole
 } from '../types';
 
 export const db = {
@@ -434,6 +435,38 @@ export const db = {
       return data as CaseSession;
     },
 
+    // "Pass & play": one account, one device, two humans taking turns.
+    // Reuses the existing isMultiplayer session shape (so all the
+    // multiplayer turn-tracking code already works unchanged) but both
+    // seats belong to the same user — Courtroom.tsx uses the extra
+    // sameDevicePlay flag to know to keep the input open for both sides
+    // instead of expecting a second logged-in device.
+    async createSameDevicePlaySession(caseId: string, userId: string, creatorRole: PlayerRole): Promise<CaseSession> {
+      const prosecutionUserId = userId;
+      const defenseUserId = userId;
+      const { data, error } = await supabase
+        .from('case_sessions')
+        .insert([{
+          case_id: caseId,
+          user_id: userId,
+          current_phase: 'investigation',
+          evidence_filed: false,
+          witnesses_locked: false,
+          session_state: {
+            isMultiplayer: true,
+            sameDevicePlay: true,
+            creatorRole,
+            prosecutionUserId,
+            defenseUserId
+          }
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as CaseSession;
+    },
+
     async getSession(sessionId: string): Promise<CaseSession | null> {
       const { data, error } = await supabase
         .from('case_sessions')
@@ -457,10 +490,14 @@ export const db = {
     },
 
     async getOngoingSessions(userId: string): Promise<CaseSession[]> {
+      // Also match sessions where this user is the second player in a
+      // multiplayer match (opposing_counsel_user_id) — otherwise the
+      // person who joined someone else's challenge/invite would never
+      // see the session again after leaving it (e.g. a page refresh).
       const { data, error } = await supabase
         .from('case_sessions')
         .select('*, cases(*)')
-        .eq('user_id', userId)
+        .or(`user_id.eq.${userId},opposing_counsel_user_id.eq.${userId}`)
         .is('completed_at', null)
         .order('updated_at', { ascending: false });
 
@@ -704,50 +741,128 @@ export const db = {
   },
 
   invitations: {
-    async createInvitation(invitation: Omit<CaseInvitation, 'id' | 'created_at'>): Promise<CaseInvitation> {
+    async createInvitation(caseId: string, inviterUserId: string, inviterRole: PlayerRole, inviteeEmail: string): Promise<CaseInvitation> {
       const { data, error } = await supabase
         .from('case_invitations')
-        .insert([invitation as any])
-        .select()
+        .insert([{
+          case_id: caseId,
+          inviter_user_id: inviterUserId,
+          inviter_role: inviterRole,
+          invitee_email: inviteeEmail.trim().toLowerCase(),
+          status: 'pending'
+        }])
+        .select('*, cases(title)')
         .single();
 
       if (error) throw error;
-      return data as CaseInvitation;
+      return { ...(data as any), case_title: (data as any)?.cases?.title } as CaseInvitation;
     },
 
+    // Invitations sent by this user, plus any already claimed by them
+    // (invitee_user_id set once they've accepted/declined at least once).
     async getInvitationsByUser(userId: string): Promise<CaseInvitation[]> {
       const { data, error } = await supabase
         .from('case_invitations')
-        .select('*')
+        .select('*, cases(title)')
         .or(`inviter_user_id.eq.${userId},invitee_user_id.eq.${userId}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as CaseInvitation[];
+      return ((data || []) as any[]).map(row => ({ ...row, case_title: row.cases?.title }));
     },
 
+    // Pending invitations addressed to this email that haven't been
+    // claimed by a user_id yet — the "you've been invited" inbox.
     async getInvitationsByEmail(email: string): Promise<CaseInvitation[]> {
       const { data, error } = await supabase
         .from('case_invitations')
-        .select('*')
-        .eq('invitee_email', email)
+        .select('*, cases(title)')
+        .eq('invitee_email', email.trim().toLowerCase())
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as CaseInvitation[];
+      return ((data || []) as any[]).map(row => ({ ...row, case_title: row.cases?.title }));
     },
 
-    async updateInvitation(invitationId: string, updates: Partial<CaseInvitation>): Promise<CaseInvitation> {
-      const { data, error } = await supabase
+    async declineInvitation(invitationId: string, userId: string): Promise<void> {
+      const { error } = await supabase
         .from('case_invitations')
-        .update(updates as any)
+        .update({ status: 'declined', invitee_user_id: userId })
         .eq('id', invitationId)
-        .select()
-        .single();
+        .eq('status', 'pending');
 
       if (error) throw error;
-      return data as CaseInvitation;
+    },
+
+    async cancelInvitation(invitationId: string): Promise<void> {
+      const { error } = await supabase
+        .from('case_invitations')
+        .update({ status: 'declined' })
+        .eq('id', invitationId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+    },
+
+    // Accepts a pending invite: claims it, creates the shared session
+    // with the invitee on the opposite side from the inviter, and links
+    // the session back to the invitation. Mirrors challenges.joinChallenge.
+    async acceptInvitation(invitationId: string, joinerUserId: string): Promise<CaseSession> {
+      const { data: invitation, error: fetchError } = await supabase
+        .from('case_invitations')
+        .select('*')
+        .eq('id', invitationId)
+        .single();
+      if (fetchError) throw fetchError;
+      if (!invitation || invitation.status !== 'pending') {
+        throw new Error('This invitation is no longer available — it may have already been accepted or declined.');
+      }
+      if (invitation.inviter_user_id === joinerUserId) {
+        throw new Error("You can't accept your own invitation.");
+      }
+
+      const { data: claimed, error: claimError } = await supabase
+        .from('case_invitations')
+        .update({ status: 'accepted', invitee_user_id: joinerUserId, accepted_at: new Date().toISOString() })
+        .eq('id', invitationId)
+        .eq('status', 'pending') // guards against a double-accept race
+        .select()
+        .single();
+      if (claimError || !claimed) {
+        throw new Error('This invitation was just handled elsewhere. Refresh and try again.');
+      }
+
+      const inviterRole = claimed.inviter_role as 'defense' | 'prosecution';
+      const prosecutionUserId = inviterRole === 'prosecution' ? claimed.inviter_user_id : joinerUserId;
+      const defenseUserId = inviterRole === 'defense' ? claimed.inviter_user_id : joinerUserId;
+
+      const { data: session, error: sessionError } = await supabase
+        .from('case_sessions')
+        .insert([{
+          case_id: claimed.case_id,
+          user_id: claimed.inviter_user_id,
+          opposing_counsel_user_id: joinerUserId,
+          current_phase: 'investigation',
+          evidence_filed: false,
+          witnesses_locked: false,
+          session_state: {
+            isMultiplayer: true,
+            prosecutionUserId,
+            defenseUserId
+          }
+        }])
+        .select()
+        .single();
+      if (sessionError) throw sessionError;
+
+      const { error: linkError } = await supabase
+        .from('case_invitations')
+        .update({ session_id: session.id })
+        .eq('id', invitationId);
+      if (linkError) throw linkError;
+
+      return session as CaseSession;
     }
   },
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic, Sparkles } from 'lucide-react';
+import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic, Sparkles, Gavel, Shield } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
@@ -52,6 +52,13 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   // db.challenges.joinChallenge) so each browser can work out which side
   // THIS logged-in user is playing.
   const isMultiplayer: boolean = !!(session.session_state as any)?.isMultiplayer;
+  // Two humans, one device, taking turns handing it back and forth.
+  // Deliberately layered on top of the existing isMultiplayer machinery
+  // (turn tracking, no-AI-counsel gating, addEvent's speaker resolution)
+  // rather than replacing any of it — see the awaitingUserInput effect
+  // and the pass-device overlay below for the only two behavior changes
+  // this flag actually causes.
+  const sameDevicePlay: boolean = isMultiplayer && !!(session.session_state as any)?.sameDevicePlay;
   // Practice mode: no clock, and objection rulings explain their legal
   // reasoning more fully. Chosen alongside difficulty, single-player only.
   const practiceMode: boolean = !!(session.session_state as any)?.practiceMode;
@@ -124,8 +131,27 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
    const [defenceModalTab, setDefenceModalTab] = useState<'witnesses' | 'evidence'>('witnesses');
   const [isProsecutionThinking, setIsProsecutionThinking] = useState(false);
   const [awaitingUserInput, setAwaitingUserInput] = useState(false);
+  // Pass & play only: which "phase-turn" combo the device has already
+  // been handed over for. Reset implicitly every time the key changes
+  // (new phase, or turn flips within a phase), which is what makes the
+  // handoff overlay reappear automatically at every turn change.
+  const [deviceRevealedFor, setDeviceRevealedFor] = useState<string | null>(null);
    const [isProcessingObjection, setIsProcessingObjection] = useState(false);
    const [lastProsecutionEvent, setLastProsecutionEvent] = useState<TrialEvent | null>(null);
+   // Pass & play only: since aiRole is a fixed nominal value (there's no
+   // real AI side), objections there can't rely on the aiRole-based
+   // tracking above — instead we track each side's own last statement
+   // and let whichever side is currently active object to the other
+   // side's most recent one. Single-player and real (2-device)
+   // multiplayer are untouched — they keep using lastProsecutionEvent
+   // exactly as before.
+   const [lastProsecutionStatementEvent, setLastProsecutionStatementEvent] = useState<TrialEvent | null>(null);
+   const [lastDefenseStatementEvent, setLastDefenseStatementEvent] = useState<TrialEvent | null>(null);
+   const trackObjectableStatement = (event: TrialEvent) => {
+     if (!sameDevicePlay) return;
+     if (event.speaker_role === 'prosecution') setLastProsecutionStatementEvent(event);
+     else if (event.speaker_role === 'defense') setLastDefenseStatementEvent(event);
+   };
     const prosecutionTurnTriggeredRef = useRef<number | null>(null);
    const [showVideoDisplay, setShowVideoDisplay] = useState(true); // Video display on by default
    const [showRealVoiceInfo, setShowRealVoiceInfo] = useState(false);
@@ -377,6 +403,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       });
 
       setEvents(prevEvents => [...prevEvents, event]);
+      trackObjectableStatement(event);
     } catch (error) {
       console.error('Failed to add event:', error);
     }
@@ -473,8 +500,10 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
          }
         }).catch(err => console.error('Failed to save turn state:', err));
 
-        // Enable user input for defense turns (after judge instruction)
-        if (newTurnState.current_turn === playerRole && !judgeInstructionPending) {
+        // Enable user input for defense turns (after judge instruction).
+        // In pass & play, both sides are the same human on one device, so
+        // input opens on every turn, not just playerRole's fixed side.
+        if ((newTurnState.current_turn === playerRole || sameDevicePlay) && !judgeInstructionPending) {
           setAwaitingUserInput(true);
         }
 
@@ -982,6 +1011,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     if (turnState.current_turn === aiRole) {
       setLastProsecutionEvent(event);
     }
+    trackObjectableStatement(event);
 
     setTurnState({
       ...turnState,
@@ -1105,6 +1135,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       if (turnState.current_turn === aiRole) {
         setLastProsecutionEvent(questionEvent);
       }
+      trackObjectableStatement(questionEvent);
       
       // Update turn state - switch to user's turn if it was prosecution's turn
       if (turnState.current_turn === aiRole) {
@@ -1148,6 +1179,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     if (turnState.current_turn === aiRole) {
       setLastProsecutionEvent(event);
     }
+    trackObjectableStatement(event);
     
     setTurnState({
       ...turnState,
@@ -1163,7 +1195,17 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
   // Handle objection
   const handleObjection = async (reason: string) => {
-    if (!turnState || !lastProsecutionEvent) {
+    // Pass & play: whoever's turn it currently is objects to the other
+    // side's most recent statement (there's no fixed aiRole to key off
+    // of, since both sides are the same human on this device).
+    const objectorRole: 'prosecution' | 'defense' = sameDevicePlay
+      ? ((turnState?.current_turn as 'prosecution' | 'defense') || playerRole)
+      : playerRole;
+    const targetEvent: TrialEvent | null = sameDevicePlay
+      ? (objectorRole === 'prosecution' ? lastDefenseStatementEvent : lastProsecutionStatementEvent)
+      : lastProsecutionEvent;
+
+    if (!turnState || !targetEvent) {
       setShowObjectionSelector(false);
       return;
     }
@@ -1195,16 +1237,17 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const objectionReason = objectionReasonMap[reason] || 'Objection';
 
       // Add objection to transcript — only the human objects, so this is
-      // always the player's side, whichever role they chose.
+      // always the player's side, whichever role they chose (or, in pass
+      // & play, whichever side currently has the device).
       const objectionEvent = await db.trialEvents.addEvent({
         session_id: session.id,
         event_type: 'objection',
-        speaker_role: playerRole,
-        speaker_name: playerRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
+        speaker_role: objectorRole,
+        speaker_name: objectorRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
         content: `Objection: ${objectionReason}`,
         metadata: {
           objection_reason: reason,
-          objected_to_event_id: lastProsecutionEvent.id,
+          objected_to_event_id: targetEvent.id,
           phase: currentPhase
         },
         event_order: events.length + 1
@@ -1218,9 +1261,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const transcriptSummary = buildTranscriptSummary(events);
 
       const ruling = await generateObjectionRuling({
-        objection_by: playerRole,
+        objection_by: objectorRole,
         objection_reason: objectionReason,
-        questioned_statement: lastProsecutionEvent.content,
+        questioned_statement: targetEvent.content,
         current_phase: phase?.name || 'Unknown',
         recent_transcript: transcriptSummary,
         difficulty: (session.session_state as any)?.difficulty,
@@ -1393,6 +1436,12 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   const trialConfig = getTrialConfig(trialDuration);
   const phase = getPhaseInfo(currentPhase, trialDuration);
 
+  // Pass & play handoff: identifies the current "turn slot" so the
+  // overlay reappears every time it changes, and whether this slot has
+  // already been acknowledged (device handed to the right player).
+  const turnHandoffKey = turnState ? `${currentPhase}-${turnState.current_turn}` : null;
+  const pendingHandoff = sameDevicePlay && awaitingUserInput && turnHandoffKey !== null && deviceRevealedFor !== turnHandoffKey;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
       {/* Fixed Header - Non-scrolling */}
@@ -1545,7 +1594,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                 </div>
               )}
               
-              {!isProsecutionThinking && turnState?.current_turn === aiRole && (
+              {!isProsecutionThinking && !sameDevicePlay && turnState?.current_turn === aiRole && (
                 <div className="border-t border-slate-700 p-4">
                   <div className="text-center text-slate-400 py-2">
                     Waiting for prosecution to act...
@@ -1557,6 +1606,28 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         </div>
         </div>
       </div>
+
+      {pendingHandoff && turnState && (
+        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-sm w-full border border-white/10 shadow-2xl text-center">
+            <div className={`w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center ${turnState.current_turn === 'prosecution' ? 'bg-red-500/20' : 'bg-blue-500/20'}`}>
+              {turnState.current_turn === 'prosecution'
+                ? <Gavel className="w-7 h-7 text-red-400" />
+                : <Shield className="w-7 h-7 text-blue-400" />}
+            </div>
+            <h2 className="text-white text-lg font-bold mb-2">Pass the device</h2>
+            <p className="text-white/60 text-sm mb-6">
+              It's the {turnState.current_turn === 'prosecution' ? 'Prosecution' : 'Defense'} player's turn. Hand over the device, then tap below when you're ready.
+            </p>
+            <button
+              onClick={() => turnHandoffKey && setDeviceRevealedFor(turnHandoffKey)}
+              className={`w-full px-4 py-3 rounded-lg text-white font-semibold transition-colors ${turnState.current_turn === 'prosecution' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+            >
+              I'm the {turnState.current_turn === 'prosecution' ? 'Prosecution' : 'Defense'} player — I'm ready
+            </button>
+          </div>
+        </div>
+      )}
 
                {/* Fixed Bottom Input Bar - Static, doesn't scroll - MUST be at bottom */}
                <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}>
@@ -1573,14 +1644,14 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                              ? "Ask a question to the witness..."
                              : "Type your statement or question..."
                          }
-                         disabled={isProcessing || !awaitingUserInput}
+                         disabled={isProcessing || !awaitingUserInput || pendingHandoff}
                          className="w-full px-4 py-3 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base"
                        />
                        {speechSupported && (
                          <button
                            type="button"
                            onClick={() => isListening ? stopListening() : startListening()}
-                           disabled={isProcessing || !awaitingUserInput}
+                           disabled={isProcessing || !awaitingUserInput || pendingHandoff}
                            title={isListening ? 'Stop recording' : 'Speak your statement'}
                            className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                              isListening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
@@ -1593,13 +1664,13 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                      <div className="flex gap-2 flex-wrap">
                        <button
                          onClick={handleSubmit}
-                         disabled={!input.trim() || isProcessing || !awaitingUserInput}
+                         disabled={!input.trim() || isProcessing || !awaitingUserInput || pendingHandoff}
                          className="flex-1 sm:flex-none justify-center px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
                        >
                          <Send className="w-5 h-5" />
                          Submit
                        </button>
-                        {turnState?.current_turn === playerRole && (
+                        {(turnState?.current_turn === playerRole || sameDevicePlay) && (
                            <button
                              onClick={handleRestPhase}
                              className="flex-1 sm:flex-none justify-center px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2"

@@ -203,13 +203,16 @@ export interface Juror {
 export interface CaseInvitation {
   id: string;
   case_id: string;
-  session_id: string;
+  session_id?: string;
   inviter_user_id: string;
+  inviter_role: PlayerRole;
   invitee_email: string;
   invitee_user_id?: string;
   status: InvitationStatus;
   created_at: string;
   accepted_at?: string;
+  // Joined fields (not in the DB row itself) for display convenience
+  case_title?: string;
 }
 
 export interface JurySelection {

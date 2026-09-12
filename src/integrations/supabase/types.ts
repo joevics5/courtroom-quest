@@ -22,6 +22,7 @@ export type Database = {
           id: string
           invitee_email: string
           invitee_user_id: string | null
+          inviter_role: string | null
           inviter_user_id: string
           session_id: string | null
           status: string | null
@@ -33,6 +34,7 @@ export type Database = {
           id?: string
           invitee_email: string
           invitee_user_id?: string | null
+          inviter_role?: string | null
           inviter_user_id: string
           session_id?: string | null
           status?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           id?: string
           invitee_email?: string
           invitee_user_id?: string | null
+          inviter_role?: string | null
           inviter_user_id?: string
           session_id?: string | null
           status?: string | null
@@ -58,6 +61,57 @@ export type Database = {
           },
           {
             foreignKeyName: "case_invitations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "case_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_challenges: {
+        Row: {
+          case_id: string
+          created_at: string | null
+          creator_role: string
+          creator_user_id: string
+          id: string
+          matched_at: string | null
+          opponent_user_id: string | null
+          session_id: string | null
+          status: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string | null
+          creator_role: string
+          creator_user_id: string
+          id?: string
+          matched_at?: string | null
+          opponent_user_id?: string | null
+          session_id?: string | null
+          status?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string | null
+          creator_role?: string
+          creator_user_id?: string
+          id?: string
+          matched_at?: string | null
+          opponent_user_id?: string | null
+          session_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_challenges_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_challenges_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "case_sessions"

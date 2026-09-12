@@ -12,6 +12,21 @@ interface SubscriptionPlan {
 
 const plans: SubscriptionPlan[] = [
   {
+    tier: 'free',
+    name: 'Free',
+    price: '$0',
+    features: [
+      'Unlimited text sessions',
+      'All preset cases',
+      'Custom case creation',
+      'Multiplayer invites',
+      'Voice witness interviews',
+      'Full voiced trials'
+    ],
+    icon: Zap,
+    color: 'from-blue-500 to-cyan-600'
+  },
+  {
     tier: 'basic',
     name: 'Basic',
     price: '$9.99/month',
@@ -177,7 +192,9 @@ export function canAccessFeature(currentTier: SubscriptionTier, requiredTier: Su
 }
 
 export function getTrialLimit(tier: SubscriptionTier): number {
-  if (tier === 'free') return 3;
+  // No payment plan has been decided yet, so the free tier carries the
+  // same unlimited-trial benefit as every paid tier for now. Revisit
+  // once pricing is finalized.
   return Infinity;
 }
 
@@ -197,5 +214,7 @@ export function isAdminEmail(email: string): boolean {
 }
 
 export function hasVoiceAccess(tier: SubscriptionTier): boolean {
-  return ['pro', 'max', 'family'].includes(tier);
+  // Same reasoning as getTrialLimit: pricing isn't finalized, so every
+  // tier (including free) currently gets voice access.
+  return true;
 }

@@ -50,22 +50,27 @@ export function useSpeechRecognition({ onResult, onError }: UseSpeechRecognition
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const isSupported = getSpeechRecognitionConstructor() !== null;
+  // Tracks "the user wants this on" independently of whatever the browser
+  // engine itself decides to do. Chrome (and others) will silently fire
+  // `onend` after a stretch of silence even with continuous=true — without
+  // this flag that used to read as "user stopped it" and the mic would
+  // just go dark. Now onend only turns isListening off when this is false,
+  // i.e. stop() was actually called; otherwise it restarts automatically.
+  const shouldListenRef = useRef(false);
+  const onResultRef = useRef(onResult);
+  const onErrorRef = useRef(onError);
+  onResultRef.current = onResult;
+  onErrorRef.current = onError;
 
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.stop();
-    };
-  }, []);
-
-  const start = useCallback(() => {
+  const runRecognition = useCallback(() => {
     const SpeechRecognitionCtor = getSpeechRecognitionConstructor();
-    if (!SpeechRecognitionCtor) {
-      onError?.('Voice input is not supported in this browser. Try Chrome or Edge.');
-      return;
-    }
+    if (!SpeechRecognitionCtor) return;
 
     const recognition = new SpeechRecognitionCtor();
-    recognition.continuous = false;
+    // continuous=true asks the engine itself not to stop after one
+    // utterance. It still isn't a hard guarantee across all browsers
+    // (see shouldListenRef above), but it's the right baseline setting.
+    recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
 
@@ -78,34 +83,66 @@ export function useSpeechRecognition({ onResult, onError }: UseSpeechRecognition
         }
       }
       if (finalText.trim()) {
-        onResult(finalText.trim());
+        onResultRef.current(finalText.trim());
       }
     };
 
     recognition.onerror = (event: { error: string }) => {
-      setIsListening(false);
-      if (event.error === 'no-speech') {
-        // Not really an error from the user's perspective — just didn't
-        // catch anything. Don't surface a scary error message for this.
+      if (event.error === 'no-speech' || event.error === 'aborted') {
+        // 'no-speech' just means it didn't catch anything in this stretch —
+        // not a real error, and onend (which follows) will restart it as
+        // long as the user hasn't clicked stop. 'aborted' fires on our own
+        // manual stop() calls, including the restart below, so it's not
+        // something to surface either.
         return;
       }
       if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-        onError?.('Microphone access was denied. Enable it in your browser settings to use voice input.');
+        shouldListenRef.current = false;
+        setIsListening(false);
+        onErrorRef.current?.('Microphone access was denied. Enable it in your browser settings to use voice input.');
         return;
       }
-      onError?.(`Voice input error: ${event.error}`);
+      shouldListenRef.current = false;
+      setIsListening(false);
+      onErrorRef.current?.(`Voice input error: ${event.error}`);
     };
 
     recognition.onend = () => {
+      if (shouldListenRef.current) {
+        // The engine stopped on its own (silence timeout, mobile Safari's
+        // short max duration, etc.) but the user never clicked stop —
+        // start a fresh recognition instance right away so it feels like
+        // it never turned off.
+        runRecognition();
+        return;
+      }
       setIsListening(false);
     };
 
     recognitionRef.current = recognition;
-    setIsListening(true);
     recognition.start();
-  }, [onResult, onError]);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      shouldListenRef.current = false;
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
+  const start = useCallback(() => {
+    const SpeechRecognitionCtor = getSpeechRecognitionConstructor();
+    if (!SpeechRecognitionCtor) {
+      onErrorRef.current?.('Voice input is not supported in this browser. Try Chrome or Edge.');
+      return;
+    }
+    shouldListenRef.current = true;
+    setIsListening(true);
+    runRecognition();
+  }, [runRecognition]);
 
   const stop = useCallback(() => {
+    shouldListenRef.current = false;
     recognitionRef.current?.stop();
     setIsListening(false);
   }, []);

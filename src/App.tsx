@@ -572,6 +572,7 @@ function AppContent() {
       {view === 'challenge-board' && user && (
         <ChallengeBoard
           userId={user.id}
+          userEmail={user.email || ''}
           onBack={() => setView('landing')}
           onMatched={handleMatched}
         />
