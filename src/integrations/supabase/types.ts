@@ -17,6 +17,7 @@ export type Database = {
       case_invitations: {
         Row: {
           accepted_at: string | null
+          allow_spectators: boolean | null
           case_id: string | null
           created_at: string | null
           id: string
@@ -29,6 +30,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          allow_spectators?: boolean | null
           case_id?: string | null
           created_at?: string | null
           id?: string
@@ -41,6 +43,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          allow_spectators?: boolean | null
           case_id?: string | null
           created_at?: string | null
           id?: string
@@ -121,12 +124,14 @@ export type Database = {
       }
       case_sessions: {
         Row: {
+          allow_spectators: boolean | null
           case_id: string
           completed_at: string | null
           current_phase: string
           current_trial_phase: number | null
           evidence_filed: boolean | null
           id: string
+          is_shared: boolean | null
           jury_selection_complete: boolean | null
           opposing_counsel_id: string | null
           opposing_counsel_user_id: string | null
@@ -145,12 +150,14 @@ export type Database = {
           witnesses_locked: boolean | null
         }
         Insert: {
+          allow_spectators?: boolean | null
           case_id: string
           completed_at?: string | null
           current_phase?: string
           current_trial_phase?: number | null
           evidence_filed?: boolean | null
           id?: string
+          is_shared?: boolean | null
           jury_selection_complete?: boolean | null
           opposing_counsel_id?: string | null
           opposing_counsel_user_id?: string | null
@@ -169,6 +176,7 @@ export type Database = {
           witnesses_locked?: boolean | null
         }
         Update: {
+          allow_spectators?: boolean | null
           case_id?: string
           completed_at?: string | null
           current_phase?: string

@@ -396,6 +396,12 @@ export const db = {
           current_phase: 'investigation',
           evidence_filed: false,
           witnesses_locked: false,
+          // Quick Match games are already visible to anyone on the open
+          // board, so spectating defaults on here (unlike Invite a
+          // Friend / Pass & Play, which are private unless explicitly
+          // opted in — see createInvitation/acceptInvitation and
+          // createSameDevicePlaySession).
+          allow_spectators: true,
           session_state: {
             isMultiplayer: true,
             prosecutionUserId,
@@ -441,7 +447,7 @@ export const db = {
     // seats belong to the same user — Courtroom.tsx uses the extra
     // sameDevicePlay flag to know to keep the input open for both sides
     // instead of expecting a second logged-in device.
-    async createSameDevicePlaySession(caseId: string, userId: string, creatorRole: PlayerRole): Promise<CaseSession> {
+    async createSameDevicePlaySession(caseId: string, userId: string, creatorRole: PlayerRole, allowSpectators: boolean = false): Promise<CaseSession> {
       const prosecutionUserId = userId;
       const defenseUserId = userId;
       const { data, error } = await supabase
@@ -452,6 +458,7 @@ export const db = {
           current_phase: 'investigation',
           evidence_filed: false,
           witnesses_locked: false,
+          allow_spectators: allowSpectators,
           session_state: {
             isMultiplayer: true,
             sameDevicePlay: true,
@@ -741,7 +748,7 @@ export const db = {
   },
 
   invitations: {
-    async createInvitation(caseId: string, inviterUserId: string, inviterRole: PlayerRole, inviteeEmail: string): Promise<CaseInvitation> {
+    async createInvitation(caseId: string, inviterUserId: string, inviterRole: PlayerRole, inviteeEmail: string, allowSpectators: boolean = false): Promise<CaseInvitation> {
       const { data, error } = await supabase
         .from('case_invitations')
         .insert([{
@@ -749,6 +756,7 @@ export const db = {
           inviter_user_id: inviterUserId,
           inviter_role: inviterRole,
           invitee_email: inviteeEmail.trim().toLowerCase(),
+          allow_spectators: allowSpectators,
           status: 'pending'
         }])
         .select('*, cases(title)')
@@ -846,6 +854,7 @@ export const db = {
           current_phase: 'investigation',
           evidence_filed: false,
           witnesses_locked: false,
+          allow_spectators: !!claimed.allow_spectators,
           session_state: {
             isMultiplayer: true,
             prosecutionUserId,

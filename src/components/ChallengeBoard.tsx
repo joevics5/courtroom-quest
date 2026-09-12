@@ -34,6 +34,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
   const [inviteCaseId, setInviteCaseId] = useState<string>('');
   const [inviteRole, setInviteRole] = useState<PlayerRole>('defense');
   const [inviteeEmail, setInviteeEmail] = useState('');
+  const [inviteAllowSpectators, setInviteAllowSpectators] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -41,6 +42,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
   // --- Pass & play (same device) state ---
   const [localCaseId, setLocalCaseId] = useState<string>('');
   const [localCreatorRole, setLocalCreatorRole] = useState<PlayerRole>('defense');
+  const [localAllowSpectators, setLocalAllowSpectators] = useState(false);
   const [startingLocal, setStartingLocal] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -160,9 +162,10 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
     setSendingInvite(true);
     setInviteError(null);
     try {
-      await db.invitations.createInvitation(inviteCaseId, userId, inviteRole, inviteeEmail.trim());
+      await db.invitations.createInvitation(inviteCaseId, userId, inviteRole, inviteeEmail.trim(), inviteAllowSpectators);
       setInviteCaseId('');
       setInviteeEmail('');
+      setInviteAllowSpectators(false);
       await refreshInvites();
     } catch (err) {
       console.error('Failed to send invitation:', err);
@@ -213,7 +216,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
     setStartingLocal(true);
     setLocalError(null);
     try {
-      const session = await db.sessions.createSameDevicePlaySession(localCaseId, userId, localCreatorRole);
+      const session = await db.sessions.createSameDevicePlaySession(localCaseId, userId, localCreatorRole, localAllowSpectators);
       onMatched(session);
     } catch (err) {
       console.error('Failed to start pass & play session:', err);
@@ -450,6 +453,16 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
                 They'll see this invite waiting for them the next time they open the Invite a Friend tab while signed in with that email. They'll play the opposite side.
               </p>
 
+              <label className="flex items-center gap-2 mb-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={inviteAllowSpectators}
+                  onChange={(e) => setInviteAllowSpectators(e.target.checked)}
+                  className="w-4 h-4 rounded accent-purple-600"
+                />
+                <span className="text-white/70 text-sm">Let people watch this trial live</span>
+              </label>
+
               <button
                 onClick={handleSendInvite}
                 disabled={!inviteCaseId || !inviteeEmail.trim() || sendingInvite}
@@ -539,6 +552,16 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
               <p className="text-white/40 text-xs mb-4">
                 Player 2 automatically gets the other side. The app will prompt you to pass the device at every turn change.
               </p>
+
+              <label className="flex items-center gap-2 mb-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={localAllowSpectators}
+                  onChange={(e) => setLocalAllowSpectators(e.target.checked)}
+                  className="w-4 h-4 rounded accent-purple-600"
+                />
+                <span className="text-white/70 text-sm">Let people watch this trial live</span>
+              </label>
 
               <button
                 onClick={handleStartLocal}

@@ -192,6 +192,12 @@ export default function LandingPage({ userProfile, onNavigateToCaseBoard, onNavi
                 </div>
               </button>
             </div>
+
+            <div className="text-center mt-6">
+              <a href="/watch" className="text-slate-400 hover:text-amber-400 text-sm transition-colors">
+                Watch a live or recent trial →
+              </a>
+            </div>
           </div>
         </main>
 

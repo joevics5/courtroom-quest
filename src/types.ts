@@ -110,6 +110,7 @@ export interface CaseSession {
   trial_type?: TrialType;
   jury_selection_complete?: boolean;
   is_shared?: boolean;
+  allow_spectators?: boolean;
   started_at: string;
   completed_at?: string;
   updated_at: string;
@@ -209,6 +210,7 @@ export interface CaseInvitation {
   invitee_email: string;
   invitee_user_id?: string;
   status: InvitationStatus;
+  allow_spectators?: boolean;
   created_at: string;
   accepted_at?: string;
   // Joined fields (not in the DB row itself) for display convenience
