@@ -33,9 +33,18 @@ const ROLE_VOICE_CONFIG: Record<VoiceRole, { pitch: number; rate: number; voiceI
   recorder: { pitch: 0.92, rate: 1.08, voiceIndex: 3 }     // brisk, procedural — bailiff / court recorder
 };
 
-export function speakAs(role: VoiceRole, text: string) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  if (!text?.trim()) return;
+export function speakAs(role: VoiceRole, text: string, onEnd?: () => void) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    // No TTS available in this browser — fall back to calling onEnd
+    // immediately so callers waiting on "speech finished" (e.g. to know
+    // when to hand control back after the AI's statement) don't hang.
+    onEnd?.();
+    return;
+  }
+  if (!text?.trim()) {
+    onEnd?.();
+    return;
+  }
 
   const utterance = new SpeechSynthesisUtterance(text);
   const config = ROLE_VOICE_CONFIG[role];
@@ -44,6 +53,15 @@ export function speakAs(role: VoiceRole, text: string) {
 
   if (cachedVoices.length > 0) {
     utterance.voice = cachedVoices[config.voiceIndex % cachedVoices.length];
+  }
+
+  if (onEnd) {
+    // 'error' fires instead of 'end' if speech gets interrupted/blocked
+    // (e.g. the tab was backgrounded, or the browser blocks autoplay
+    // audio) — still call onEnd so the trial doesn't get stuck waiting
+    // for a speech event that will never come.
+    utterance.onend = onEnd;
+    utterance.onerror = onEnd;
   }
 
   window.speechSynthesis.speak(utterance);

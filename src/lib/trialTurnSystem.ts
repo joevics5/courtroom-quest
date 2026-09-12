@@ -134,6 +134,20 @@ export function getTurnForPhase(phase: TrialPhase | undefined): TurnRole {
 
   const phaseName = phase.name.toLowerCase();
 
+  // Cross-examination is conducted by the side that DIDN'T call the
+  // witness — "Prosecution Witness 1 - Cross-Examination" is the
+  // defense questioning the prosecution's own witness, and vice versa.
+  // This has to be checked before the generic prosecution/defense match
+  // below, or it wrongly resolves to whichever side owns the witness
+  // (i.e. the side that just finished direct examination), which meant
+  // cross-examination phases handed the turn back to the same side that
+  // was supposed to be cross-examined and the other side never got a
+  // turn to act.
+  if (phaseName.includes('cross-examination')) {
+    if (phaseName.includes('prosecution witness')) return 'defense';
+    if (phaseName.includes('defense witness')) return 'prosecution';
+  }
+
   if (phaseName.includes('prosecution')) {
     return 'prosecution';
   }

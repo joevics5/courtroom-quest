@@ -12,6 +12,7 @@ import {
   getAllowedActions,
   initializeTurnState,
   isWitnessPhase,
+  getExaminationType,
   type TurnState
 } from '../lib/trialTurnSystem';
 import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateObjectionRuling, generateWitnessResponse, generateVerdict } from '../lib/ai/trialAI';
@@ -93,6 +94,16 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     return session.current_trial_phase || 7; // Default to 7 for new trials
   });
   const [events, setEvents] = useState<TrialEvent[]>([]);
+  // Mirrors `events` for callbacks that resolve well after the render
+  // they were scheduled in (e.g. TTS's onend firing seconds later) — a
+  // closure over `events` state directly would still see whatever it
+  // was at schedule-time, which is stale by then. handleNextPhase's
+  // mandatory-statement gate reads from this instead of `events`
+  // directly so it always sees the statement that was just saved.
+  const eventsRef = useRef<TrialEvent[]>([]);
+  useEffect(() => {
+    eventsRef.current = events;
+  }, [events]);
   const [input, setInput] = useState('');
   const { isListening, isSupported: speechSupported, start: startListening, stop: stopListening } = useSpeechRecognition({
     onResult: (transcript) => {
@@ -433,19 +444,28 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   const handleNextPhase = async () => {
     if (!trialDuration) return;
 
-    // Opening statements are mandatory: don't let the timer (or any other
-    // trigger) advance past phase 7 (prosecution) or 8 (defense) until that
-    // side has actually given their statement.
-    if (currentPhase === 7 && !events.some(e => e.speaker_role === 'prosecution' && (e.metadata as any)?.phase === 7)) {
-      console.log('[Courtroom] Blocked advance from phase 7 — prosecution has not given an opening statement yet');
-      return;
-    }
-    if (currentPhase === 8 && !events.some(e => e.speaker_role === 'defense' && (e.metadata as any)?.phase === 8)) {
-      console.log('[Courtroom] Blocked advance from phase 8 — defense has not given an opening statement yet');
+    // Opening AND closing statements are mandatory: don't let the timer
+    // (or any other trigger) advance past a statement phase until that
+    // side has actually given their statement. Matched by phase name
+    // rather than a hardcoded phase number, since closing phases are
+    // renumbered dynamically based on trial length (unlike opening,
+    // which is always 7/8) — this previously only covered opening,
+    // which let closing arguments be skipped entirely.
+    const config = getTrialConfig(trialDuration);
+    const currentPhaseInfo = config.phases.find(p => p.number === currentPhase);
+    const phaseNameLower = currentPhaseInfo?.name.toLowerCase() || '';
+    const isStatementPhase = phaseNameLower.includes('opening') || phaseNameLower.includes('closing');
+    const statementSpeaker: 'prosecution' | 'defense' | null = phaseNameLower.includes('prosecution')
+      ? 'prosecution'
+      : phaseNameLower.includes('defense')
+      ? 'defense'
+      : null;
+
+    if (isStatementPhase && statementSpeaker && !eventsRef.current.some(e => e.speaker_role === statementSpeaker && (e.metadata as any)?.phase === currentPhase)) {
+      console.log(`[Courtroom] Blocked advance from phase ${currentPhase} (${currentPhaseInfo?.name}) — ${statementSpeaker} has not given their statement yet`);
       return;
     }
 
-    const config = getTrialConfig(trialDuration);
     const verdictPhase = config.phases.find(p => p.name === 'Verdict Delivery');
     const nextPhase = currentPhase + 1;
 
@@ -476,18 +496,31 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     if (trialDuration && caseData) {
       const config = getTrialConfig(trialDuration);
       const phase = config.phases.find(p => p.number === currentPhase);
-      
+
       // Try to load turn state from session state
       const savedTurnState = session.session_state?.turnState as Partial<TurnState> | undefined;
-      
+
+      // A witness's id/name should only carry over into a phase that's
+      // still examining THAT SAME witness (cross-examination or redirect
+      // immediately following their direct examination). Every fresh
+      // "Direct Examination" phase is a new witness slot and needs
+      // current_witness_id reset to null, or getAllowedActions never
+      // shows "call witness" again — it thinks a witness (the previous
+      // one) is already on the stand. Without this, any trial with more
+      // than one witness per side got stuck after the first witness's
+      // cross-examination, since the second witness could never be
+      // called.
+      const targetPhaseType = getExaminationType(phase);
+      const carriesForwardWitness = targetPhaseType === 'cross' || targetPhaseType === 'redirect';
+
       const newTurnState = initializeTurnState(
         phase,
         trialDuration,
         savedTurnState || turnState ? {
           witnesses_called: savedTurnState?.witnesses_called || turnState?.witnesses_called || [],
           evidence_submitted: savedTurnState?.evidence_submitted || turnState?.evidence_submitted || [],
-          current_witness_id: savedTurnState?.current_witness_id || turnState?.current_witness_id || null,
-          current_witness_name: savedTurnState?.current_witness_name || turnState?.current_witness_name || null
+          current_witness_id: carriesForwardWitness ? (savedTurnState?.current_witness_id || turnState?.current_witness_id || null) : null,
+          current_witness_name: carriesForwardWitness ? (savedTurnState?.current_witness_name || turnState?.current_witness_name || null) : null
         } : undefined
       );
        setTurnState(newTurnState);
@@ -832,21 +865,27 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
       console.log('[Courtroom] 📋 Updating events state...');
       setEvents(prevEvents => [...prevEvents, event]);
-      
-      console.log('[Courtroom] 🔊 Speaking text...');
-      speakAs('counsel', statement);
 
       // Track prosecution event for objections
       setLastProsecutionEvent(event);
       console.log('[Courtroom] ✅ Statement processed successfully');
 
-      // After opening statement (phase 7), automatically end phase and move to next phase
-      if (isOpening && currentPhase === 7) {
-        console.log('[Courtroom] ⏭️ Scheduling phase end in 2 seconds...');
-        setTimeout(async () => {
-          console.log('[Courtroom] ⏭️ Ending phase now...');
-          await handleEndPhase();
-        }, 2000);
+      // Move on as soon as the AI is actually done *speaking* the
+      // statement, rather than a fixed delay — a fixed timer either cuts
+      // the statement off (long ones) or leaves the phase sitting idle
+      // for however much of its time limit is left after a short one
+      // finishes reading. Previously this also only fired for phase 7
+      // (prosecution's opening) — phase 8 (defense's opening, i.e. the
+      // AI playing defense) never auto-advanced at all.
+      if (isOpening) {
+        console.log('[Courtroom] 🔊 Speaking text — will end phase when speech finishes...');
+        speakAs('counsel', statement, () => {
+          console.log('[Courtroom] ⏭️ Speech finished — ending phase now...');
+          handleEndPhase();
+        });
+      } else {
+        console.log('[Courtroom] 🔊 Speaking text...');
+        speakAs('counsel', statement);
       }
     } catch (error) {
       console.error('[Courtroom] ❌ Error in handleMakeStatement:', error);
@@ -988,15 +1027,23 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
   };
 
-  // Handle calling a witness
+  // Handle calling a witness. Attributed to whichever side's turn it
+  // actually is (turnState.current_turn), not hardcoded to prosecution —
+  // this is the one "call witness" path used by both the main Call
+  // Witness button and the Defence Actions modal, so a witness call
+  // during a defense witness phase is correctly logged as the defense
+  // calling their witness, not mislabeled as the prosecution's.
   const handleCallWitness = async (witness: Witness) => {
     if (!turnState) return;
+
+    const callerRole: 'prosecution' | 'defense' = turnState.current_turn === 'defense' ? 'defense' : 'prosecution';
+    const callerName = callerRole === 'prosecution' ? (prosecutorName || 'Prosecution') : effectiveDefenseName;
 
     const event = await db.trialEvents.addEvent({
       session_id: session.id,
       event_type: 'witness_call',
-      speaker_role: 'prosecution',
-      speaker_name: prosecutorName || 'Prosecution',
+      speaker_role: callerRole,
+      speaker_name: callerName,
       content: witness.name,
       metadata: {
         witness_id: witness.id,
@@ -1020,59 +1067,6 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       witnesses_called: [...turnState.witnesses_called, witness.id]
     });
     setShowWitnessSelector(false);
-  };
-
-  // Handle defence calling a witness
-  const handleDefenceCallWitness = async (witness: Witness) => {
-    if (!turnState) return;
-
-    // First, add the defence calling the witness
-    const callEvent = await db.trialEvents.addEvent({
-      session_id: session.id,
-      event_type: 'witness_call',
-      speaker_role: 'defense',
-      speaker_name: effectiveDefenseName,
-      content: `Calls ${witness.name} to the stand.`,
-      metadata: {
-        witness_id: witness.id,
-        phase: currentPhase
-      },
-      event_order: events.length + 1
-    });
-
-    setEvents([...events, callEvent]);
-
-    // Then, witness introduces themselves with name and details
-    const introContent = `My name is ${witness.name}. ${witness.role}. ${witness.background || 'I am here to testify.'}`;
-
-    const introEvent = await db.trialEvents.addEvent({
-      session_id: session.id,
-      event_type: 'witness_examination',
-      speaker_role: 'witness',
-      speaker_name: witness.name,
-      content: introContent,
-      metadata: {
-        witness_id: witness.id,
-        phase: currentPhase,
-        introduction: true
-      },
-      event_order: events.length + 2
-    });
-
-    setEvents([...events, callEvent, introEvent]);
-
-    // Update turn state
-    setTurnState({
-      ...turnState,
-      current_witness_id: witness.id,
-      current_witness_name: witness.name,
-      witnesses_called: [...turnState.witnesses_called, witness.id],
-      current_turn: 'defense', // Defence gets to question first
-      current_phase_type: 'cross' // Defence cross-examination
-    });
-
-    // Enable user input for defence questioning
-    setAwaitingUserInput(true);
   };
 
   // Handle asking a question to witness
@@ -1136,9 +1130,14 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         setLastProsecutionEvent(questionEvent);
       }
       trackObjectableStatement(questionEvent);
-      
-      // Update turn state - switch to user's turn if it was prosecution's turn
-      if (turnState.current_turn === aiRole) {
+
+      // Re-open the input for another question. This needs to cover the
+      // human's own turn too (current_turn === playerRole), not just
+      // aiRole's — previously it only fired for aiRole's turn, which
+      // meant that after asking their first question during their own
+      // witness examination, the human's input box never came back
+      // until the phase ended, with no way to ask a natural follow-up.
+      if (turnState.current_turn === aiRole || turnState.current_turn === playerRole || sameDevicePlay) {
         setTurnState({
           ...turnState,
           prosecution_actions_remaining: turnState.prosecution_actions_remaining - 1
@@ -1634,18 +1633,23 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                  <div className="w-full max-w-[1800px] mx-auto">
                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                      <div className="relative w-full sm:flex-1">
-                       <input
-                         type="text"
+                       <textarea
                          value={input}
                          onChange={(e) => setInput(e.target.value)}
-                         onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+                         onKeyDown={(e) => {
+                           if (e.key === 'Enter' && !e.shiftKey) {
+                             e.preventDefault();
+                             handleSubmit();
+                           }
+                         }}
                          placeholder={
                            turnState?.current_phase_type === 'direct' || turnState?.current_phase_type === 'cross'
-                             ? "Ask a question to the witness..."
-                             : "Type your statement or question..."
+                             ? "Ask a question to the witness... (Shift+Enter for a new line)"
+                             : "Type your statement or question... (Shift+Enter for a new line)"
                          }
                          disabled={isProcessing || !awaitingUserInput || pendingHandoff}
-                         className="w-full px-4 py-3 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base"
+                         rows={2}
+                         className="w-full px-4 py-3 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base resize-y min-h-[3rem] max-h-40"
                        />
                        {speechSupported && (
                          <button
@@ -1653,7 +1657,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                            onClick={() => isListening ? stopListening() : startListening()}
                            disabled={isProcessing || !awaitingUserInput || pendingHandoff}
                            title={isListening ? 'Stop recording' : 'Speak your statement'}
-                           className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                           className={`absolute right-2 top-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                              isListening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
                            }`}
                          >
@@ -1820,7 +1824,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                       <button
                         key={witness.id}
                         onClick={() => {
-                          handleDefenceCallWitness(witness);
+                          handleCallWitness(witness);
                           setShowDefenceModal(false);
                         }}
                         className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"

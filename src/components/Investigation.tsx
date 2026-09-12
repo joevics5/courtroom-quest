@@ -492,14 +492,19 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
                   <div className="border-t border-slate-700 p-4 flex-shrink-0 bg-slate-800">
                     <div className="flex gap-2">
                       <div className="relative flex-1">
-                        <input
-                          type="text"
+                        <textarea
                           value={question}
                           onChange={(e) => setQuestion(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && handleAskQuestion()}
-                          placeholder={`Ask ${selectedWitness.name} a question...`}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleAskQuestion();
+                            }
+                          }}
+                          placeholder={`Ask ${selectedWitness.name} a question... (Shift+Enter for a new line)`}
                           disabled={isQuestioningLoading}
-                          className="w-full px-4 py-2 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows={2}
+                          className="w-full px-4 py-2 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[2.75rem] max-h-40"
                         />
                         {speechSupported && (
                           <button
@@ -507,7 +512,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
                             onClick={() => isListening ? stopListening() : startListening()}
                             disabled={isQuestioningLoading}
                             title={isListening ? 'Stop recording' : 'Speak your question'}
-                            className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                            className={`absolute right-2 top-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                               isListening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
                             }`}
                           >
