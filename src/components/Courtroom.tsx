@@ -540,34 +540,62 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           setAwaitingUserInput(true);
         }
 
-        // Auto-trigger the AI's side if it's their turn (only once per phase)
-      // NOTE: Opening statements are handled by the dedicated useEffect below
-      // IMPORTANT: Wait for judge instruction to complete before the AI acts
-      const isOpeningPhase = phase?.name.toLowerCase().includes('opening statement');
-      
-      if (!isMultiplayer &&
-          newTurnState.current_turn === aiRole && 
-          phase?.category === 'trial' && 
-          !isOpeningPhase && // Skip opening - handled separately
-          !isProsecutionThinking &&
-          !judgeInstructionPending && // Wait for judge instruction first
-          prosecutionTurnTriggeredRef.current !== currentPhase) {
-        prosecutionTurnTriggeredRef.current = currentPhase;
-        
-        console.log('[Courtroom] Triggering prosecution turn for phase', currentPhase, '(after judge instruction)');
-        
-        // Delay to ensure judge instruction is visible and spoken first
-        const timer = setTimeout(() => {
-          if (caseData && turnState) {
-            handleProsecutionTurn();
-          } else {
-            console.warn('[Courtroom] Cannot trigger prosecution - data not ready');
-          }
-        }, 2500); // Longer delay to let judge instruction complete
-        return () => clearTimeout(timer);
-      }
+        // Auto-triggering the AI's side for witness-examination phases is
+        // handled by the dedicated effect below (keyed off turnState so it
+        // can keep re-firing for each of the AI's actions within a phase,
+        // not just the first). Opening statements have their own dedicated
+        // effect further down too. Don't duplicate either trigger here.
     }
   }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial]);
+
+  // Auto-trigger the AI's side during witness-examination phases (direct,
+  // cross, redirect). This re-fires every time turnState changes — which
+  // happens after every action the AI (or the human) takes — so it keeps
+  // driving the AI's turn forward (call witness, then ask a question, then
+  // another, then end the phase) instead of firing once and going silent.
+  //
+  // This used to live inside the "Initialize turn state" effect above and
+  // claimed prosecutionTurnTriggeredRef *before* scheduling its delayed
+  // call, using the same-tick value of judgeInstructionPending. That value
+  // is stale on the very first render of a new phase — the judge-
+  // instruction effect (which sets judgeInstructionPending true) runs
+  // *after* this one in the same commit, so this effect would read `false`,
+  // claim the ref immediately, and schedule a timer. That timer then got
+  // cancelled a moment later when judgeInstructionPending actually flipped
+  // to true (a dependency change re-runs the effect, and React tears down
+  // the old effect's cleanup first). But the ref stays claimed for this
+  // phase number forever, so when judgeInstructionPending correctly flips
+  // back to false once the judge is done speaking, the guard
+  // `prosecutionTurnTriggeredRef.current !== currentPhase` is already
+  // false and the AI is never (re)scheduled. That's the root cause behind
+  // "witness calling doesn't work" — the AI's turn silently never fires.
+  //
+  // The fix here has no such ref: this effect is written to be safe to
+  // re-run on every relevant dependency change (including the stale first
+  // pass), since isProsecutionThinking naturally prevents overlapping
+  // calls, and turnState only changes when there's genuinely a new action
+  // to take.
+  useEffect(() => {
+    if (isMultiplayer || showPreTrial) return;
+    if (!trialDuration || !caseData || !turnState) return;
+    if (isProsecutionThinking || judgeInstructionPending) return;
+
+    const config = getTrialConfig(trialDuration);
+    const phase = config.phases.find(p => p.number === currentPhase);
+
+    // Only witness-examination phases (direct/cross/redirect) — opening
+    // and closing statements are each handled by their own effect.
+    if (!isWitnessPhase(phase)) return;
+    if (turnState.current_turn !== aiRole) return;
+
+    console.log('[Courtroom] Scheduling AI turn for witness phase', currentPhase, turnState);
+
+    const timer = setTimeout(() => {
+      handleProsecutionTurn();
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole]);
 
   // Judge Instruction Sub-Phase Handler
   // Before entering any counsel action phase, show judge instruction first
@@ -1131,17 +1159,23 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       }
       trackObjectableStatement(questionEvent);
 
-      // Re-open the input for another question. This needs to cover the
-      // human's own turn too (current_turn === playerRole), not just
-      // aiRole's — previously it only fired for aiRole's turn, which
-      // meant that after asking their first question during their own
-      // witness examination, the human's input box never came back
-      // until the phase ended, with no way to ask a natural follow-up.
-      if (turnState.current_turn === aiRole || turnState.current_turn === playerRole || sameDevicePlay) {
-        setTurnState({
-          ...turnState,
-          prosecution_actions_remaining: turnState.prosecution_actions_remaining - 1
-        });
+      // Decrement the action count for whoever is currently examining —
+      // this always applies, regardless of which side just asked.
+      setTurnState({
+        ...turnState,
+        prosecution_actions_remaining: turnState.prosecution_actions_remaining - 1
+      });
+
+      // Re-open the *human's* text input only when it's actually their
+      // turn (or pass & play, where every turn is the human's). This used
+      // to also check `current_turn === aiRole`, but aiRole is always the
+      // opposite of playerRole, so that half of the condition was always
+      // true — the input box reopened after every question regardless of
+      // whose turn it was, letting a human type over what should have
+      // been the AI's own follow-up question instead of the AI continuing
+      // on its own (see the dedicated witness-phase AI-trigger effect,
+      // which now handles the AI's side of this).
+      if (turnState.current_turn === playerRole || sameDevicePlay) {
         setAwaitingUserInput(true);
       }
     } catch (error) {
@@ -1580,15 +1614,28 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                 })}
               </div>
 
-              {/* Status/Thinking Messages */}
+              {/* Status/Thinking Messages — the label and action wording
+                  reflect whichever side the AI is actually playing
+                  (aiRole) and what kind of phase it's currently in, rather
+                  than always saying "prosecution" / "opening statement"
+                  regardless of who's turn it is or what phase is active. */}
               {isProsecutionThinking && (
                 <div className="border-t border-slate-700 p-4">
                   <div className="flex flex-col items-center justify-center gap-3 py-6">
                     <div className="flex items-center gap-3 text-slate-300">
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-400 border-t-transparent"></div>
-                      <span className="font-medium text-lg">Prosecution is preparing opening statement...</span>
+                      <span className="font-medium text-lg">
+                        {aiRole === 'prosecution' ? 'Prosecution' : 'Defense'} is {(() => {
+                          const phaseNameLower = trialDuration
+                            ? (getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase)?.name.toLowerCase() || '')
+                            : '';
+                          if (phaseNameLower.includes('opening')) return 'preparing its opening statement...';
+                          if (phaseNameLower.includes('closing')) return 'preparing its closing argument...';
+                          return 'deciding its next move...';
+                        })()}
+                      </span>
                     </div>
-                    <p className="text-xs text-slate-500">Generating opening statement with AI</p>
+                    <p className="text-xs text-slate-500">Generating response with AI</p>
                   </div>
                 </div>
               )}
@@ -1596,7 +1643,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
               {!isProsecutionThinking && !sameDevicePlay && turnState?.current_turn === aiRole && (
                 <div className="border-t border-slate-700 p-4">
                   <div className="text-center text-slate-400 py-2">
-                    Waiting for prosecution to act...
+                    Waiting for {aiRole === 'prosecution' ? 'prosecution' : 'the defense'} to act...
                   </div>
                 </div>
               )}
