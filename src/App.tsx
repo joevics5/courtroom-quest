@@ -19,6 +19,7 @@ import { db } from './lib/database';
 import { getLevelForWins } from './lib/levels';
 import { getUserDisplayName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
+import { didPlayerWin } from './lib/verdictUtils';
 import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import CasePreview from './components/CasePreview';
 import ChallengeBoard from './components/ChallengeBoard';
@@ -507,7 +508,9 @@ function AppContent() {
       }
     }
 
-    if (verdict.outcome === 'win' && currentCase) {
+    const playerRole: PlayerRole = (currentSession?.session_state as any)?.playerRole || 'defense';
+
+    if (didPlayerWin(verdict.outcome, playerRole) && currentCase) {
       try {
         const newWinsCount = userProfile.wins_count + 1;
         const levelInfo = getLevelForWins(newWinsCount);
@@ -715,6 +718,7 @@ function AppContent() {
           verdict={currentVerdict}
           caseTitle={currentCase.title}
           currentLevel={userProfile.current_level}
+          playerRole={(currentSession?.session_state as any)?.playerRole || 'defense'}
           onReturnHome={handleReturnHome}
         />
       )}

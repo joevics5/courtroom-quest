@@ -374,7 +374,11 @@ RESPOND WITH VALID JSON:
   } catch (error) {
     console.error('[Verdict AI] Error generating verdict:', error);
     return {
-      outcome: 'lose',
+      // 'partial' keeps this neutral rather than silently defaulting to
+      // "not guilty", which — via the player-relative win/loss mapping —
+      // would always count as a win for defense players and a loss for
+      // prosecution players on every AI failure.
+      outcome: 'partial',
       reasoning: isJuryTrial
         ? 'The jury was unable to reach a verdict. A mistrial is declared.'
         : 'An error occurred while generating the verdict. The Court makes its ruling based on the available evidence.',
@@ -761,7 +765,7 @@ function parseVerdictResponse(text: string, evidenceCitations: string[]): Verdic
     try {
       const parsed = JSON.parse(jsonMatch[0]);
       const validOutcomes = ['win', 'lose', 'partial'];
-      const outcome = validOutcomes.includes(parsed.outcome) ? parsed.outcome : 'lose';
+      const outcome = validOutcomes.includes(parsed.outcome) ? parsed.outcome : 'partial';
 
       return {
         outcome: outcome as 'win' | 'lose' | 'partial',
@@ -775,8 +779,9 @@ function parseVerdictResponse(text: string, evidenceCitations: string[]): Verdic
   }
 
   const lowerText = text.toLowerCase();
-  let outcome: 'win' | 'lose' | 'partial' = 'lose';
-  if (lowerText.includes('guilty') || lowerText.includes('proven')) outcome = 'win';
+  let outcome: 'win' | 'lose' | 'partial' = 'partial';
+  if (lowerText.includes('not guilty') || lowerText.includes('not proven')) outcome = 'lose';
+  else if (lowerText.includes('guilty') || lowerText.includes('proven')) outcome = 'win';
   else if (lowerText.includes('partial')) outcome = 'partial';
 
   return {

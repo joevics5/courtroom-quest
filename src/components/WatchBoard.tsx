@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Scale, Radio, Trophy, XCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../integrations/supabase/client';
-import type { CaseSession, Case } from '../types';
+import type { CaseSession, Case, Outcome } from '../types';
+import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
 
 interface ListedSession extends CaseSession {
   cases?: Case;
-  outcome?: 'win' | 'loss';
+  outcome?: Outcome;
 }
 
 export default function WatchBoard() {
@@ -113,12 +114,16 @@ export default function WatchBoard() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-white font-semibold text-sm truncate">{s.cases?.title || 'Trial'}</p>
-                      {s.outcome && (
-                        <span className={`flex items-center gap-1.5 text-xs font-semibold shrink-0 ${s.outcome === 'win' ? 'text-amber-400' : 'text-slate-400'}`}>
-                          {s.outcome === 'win' ? <Trophy className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                          {s.outcome === 'win' ? 'Not Guilty' : 'Guilty'}
-                        </span>
-                      )}
+                      {s.outcome && (() => {
+                        const sessionPlayerRole = (s.session_state as any)?.playerRole || 'defense';
+                        const playerWon = didPlayerWin(s.outcome, sessionPlayerRole);
+                        return (
+                          <span className={`flex items-center gap-1.5 text-xs font-semibold shrink-0 ${playerWon ? 'text-amber-400' : 'text-slate-400'}`}>
+                            {playerWon ? <Trophy className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                            {verdictLabel(s.outcome)}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </Link>
                 ))}

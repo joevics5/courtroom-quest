@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Scale, Trophy, XCircle, CheckCircle, Home, Share2, Download, FileText } from 'lucide-react';
-import type { Verdict, TrialEvent } from '../types';
+import type { Verdict, TrialEvent, PlayerRole } from '../types';
 import { db } from '../lib/database';
+import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
 import TranscriptViewer from './TranscriptViewer';
 
 interface VerdictDisplayProps {
   verdict: Verdict;
   caseTitle: string;
   currentLevel: string;
+  playerRole: PlayerRole;
   onReturnHome: () => void;
 }
 
-export default function VerdictDisplay({ verdict, caseTitle, currentLevel, onReturnHome }: VerdictDisplayProps) {
-  const isWin = verdict.outcome === 'win';
+export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playerRole, onReturnHome }: VerdictDisplayProps) {
+  // isWin reflects whether the PLAYER won their case, not the raw AI
+  // outcome field (which is an absolute guilty/not-guilty call and means
+  // the opposite thing for a defense player vs. a prosecution player).
+  const isWin = didPlayerWin(verdict.outcome, playerRole);
+  const verdictWord = verdictLabel(verdict.outcome);
   const [shareMessage, setShareMessage] = useState('');
   const [showTranscript, setShowTranscript] = useState(false);
   const [transcriptEvents, setTranscriptEvents] = useState<TrialEvent[]>([]);
@@ -48,7 +54,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, onRet
       console.error('Failed to enable transcript sharing:', error);
     }
 
-    const shareText = `🏛️ CASE WON!\n\n${caseTitle}\nVerdict: ${verdict.outcome === 'win' ? 'Not Guilty' : 'Guilty'}\nRank Achieved: ${currentLevel}\nScore: ${verdict.score || 0}/100\n\nPlay AI Courtroom now!${shareUrl ? `\n\nSee the full trial: ${shareUrl}` : ''}`;
+    const shareText = `🏛️ CASE WON!\n\n${caseTitle}\nVerdict: ${verdictWord}\nRank Achieved: ${currentLevel}\nScore: ${verdict.score || 0}/100\n\nPlay AI Courtroom now!${shareUrl ? `\n\nSee the full trial: ${shareUrl}` : ''}`;
 
     if (navigator.share) {
       try {
@@ -73,7 +79,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, onRet
               <h2 className="text-3xl font-bold text-white mb-2">CASE WON</h2>
               <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 mb-4">
                 <p className="text-xl font-semibold text-white mb-2">{caseTitle}</p>
-                <p className="text-lg text-white/90 mb-1">Verdict: Not Guilty</p>
+                <p className="text-lg text-white/90 mb-1">Verdict: {verdictWord}</p>
                 <p className="text-lg text-white/90 mb-1">Rank Achieved: {currentLevel}</p>
                 {verdict.score && (
                   <p className="text-lg text-white/90">Score: {verdict.score}/100</p>
@@ -130,7 +136,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, onRet
                   : 'bg-red-500/10 border border-red-500/30 text-red-400'
               }`}>
                 {isWin ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                <span className="font-semibold capitalize">{verdict.outcome}</span>
+                <span className="font-semibold">{verdictWord} — {isWin ? 'You Won' : 'You Lost'}</span>
               </div>
             </div>
 

@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Scale, Trophy, XCircle, Loader2, Radio } from 'lucide-react';
 import { supabase } from '../integrations/supabase/client';
 import type { TrialEvent, Verdict, CaseSession, Case } from '../types';
+import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
 
 function getSpeakerDisplayName(event: TrialEvent, isLive: boolean) {
   // Live trials hide real account names from spectators — only the
@@ -122,7 +123,8 @@ export default function SharedTranscript() {
     );
   }
 
-  const isWin = verdict?.outcome === 'win';
+  const sessionPlayerRole = (session.session_state as any)?.playerRole || 'defense';
+  const isWin = verdict ? didPlayerWin(verdict.outcome, sessionPlayerRole) : false;
   const isLive = !session.completed_at;
 
   return (
@@ -148,7 +150,7 @@ export default function SharedTranscript() {
               <div>
                 <h1 className="text-white text-xl font-bold">{caseData?.title || 'Trial'}</h1>
                 <p className={`text-sm font-semibold ${isWin ? 'text-amber-400' : 'text-slate-400'}`}>
-                  Verdict: {isWin ? 'Not Guilty' : 'Guilty'}{verdict.score !== undefined ? ` — Score: ${verdict.score}/100` : ''}
+                  Verdict: {verdictLabel(verdict.outcome)}{verdict.score !== undefined ? ` — Score: ${verdict.score}/100` : ''}
                 </p>
               </div>
             </div>

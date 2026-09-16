@@ -1363,12 +1363,16 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
 
     try {
-      // Generate verdict - force defense loss for early termination
+      // Ending early is a forfeit for whichever side the human is actually
+      // playing — not always "defense". A guilty ('win') outcome means the
+      // defense lost, so a defense player forfeiting needs outcome 'win';
+      // a prosecution player forfeiting needs outcome 'lose' (not guilty).
+      const forfeitOutcome: Verdict['outcome'] = playerRole === 'defense' ? 'win' : 'lose';
       const verdict: Verdict = {
         id: crypto.randomUUID(),
         session_id: session.id,
-        outcome: 'lose',
-        reasoning: 'Trial ended prematurely. Defense forfeits the case.',
+        outcome: forfeitOutcome,
+        reasoning: `Trial ended prematurely. The ${playerRole === 'defense' ? 'defense' : 'prosecution'} forfeits the case.`,
         evidence_cited: [],
         witness_performance: {},
         missed_opportunities: [],
@@ -1441,11 +1445,13 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       onComplete(verdict);
     } catch (error) {
       console.error('Failed to create verdict:', error);
-      // Fallback verdict
+      // Fallback verdict — the AI failed, so there's no real basis to call
+      // this a win or a loss for either side. 'partial' keeps it neutral
+      // instead of silently favoring whichever side 'lose' maps to.
       const fallbackVerdict = await db.verdicts.createVerdict({
         session_id: session.id,
-        outcome: 'lose',
-        reasoning: 'The Court has reviewed the evidence and testimony presented.',
+        outcome: 'partial',
+        reasoning: 'The Court was unable to reach a clear verdict due to a technical issue. This result is inconclusive.',
         evidence_cited: [],
         score: 50
       });
