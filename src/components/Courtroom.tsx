@@ -802,8 +802,22 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     try {
       const config = getTrialConfig(trialDuration);
       const phase = config.phases.find(p => p.number === currentPhase);
+
+      // turnState.phase_time_remaining is set once when the phase starts
+      // and never decrements — the real, ticking countdown lives in the
+      // separate phaseTimeRemaining state (driven by startTimer's 1-second
+      // interval). Build a live-corrected view of turnState for this one
+      // turn's decision-making instead of persisting the correction via
+      // setTurnState — writing it into turnState every second would make
+      // turnState change every second, and the witness-phase AI-trigger
+      // effect below is keyed on turnState changing, so that would cancel
+      // and reschedule the AI's pending action every second and it would
+      // never actually fire.
+      const liveTimeRemaining = phaseTimeRemaining[currentPhase] ?? turnState.phase_time_remaining;
+      const liveTurnState = { ...turnState, phase_time_remaining: liveTimeRemaining };
+
       const allowedActions = getAllowedActions(
-        turnState,
+        liveTurnState,
         phase,
         trialDuration,
         witnesses.map(w => ({ id: w.id, name: w.name })),
@@ -821,7 +835,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         side: aiRole,
         phase: phase?.name || 'Unknown',
         difficulty: (session.session_state as any)?.difficulty,
-        time_remaining_seconds: turnState.phase_time_remaining,
+        time_remaining_seconds: liveTimeRemaining,
         current_witness: currentWitness,
         available_witnesses: witnesses.map(w => ({ id: w.id, name: w.name })),
         available_evidence: evidence.map(e => ({
