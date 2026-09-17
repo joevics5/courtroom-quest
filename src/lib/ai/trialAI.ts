@@ -198,6 +198,41 @@ export async function generateProsecutionOpeningStatement(
   return response.text;
 }
 
+export interface ClosingArgumentContext {
+  caseTitle: string;
+  prosecutorName: string;
+  side: 'prosecution' | 'defense';
+  difficulty?: 'easy' | 'medium' | 'hard';
+  defendantName?: string;
+  caseDescription: string;
+  timeLimitMinutes: number;
+  trialTranscriptSummary: string;
+  evidenceSubmitted: Array<{ id: string; exhibit_label?: string; title: string }>;
+  witnessesCalled: Array<{ id: string; name: string }>;
+}
+
+/**
+ * Generate a closing argument. Unlike the opening statement (which argues
+ * from the pre-trial investigation findings, since nothing has happened
+ * yet), a closing argument has to reference what actually came out during
+ * the trial — testimony, evidence submitted, objections sustained/overruled
+ * — not just restate the pre-trial theory of the case.
+ */
+export async function generateClosingArgument(
+  context: ClosingArgumentContext
+): Promise<string> {
+  const prompt = buildClosingArgumentPrompt(context);
+
+  const response = await generateAIResponse({
+    system: prompt,
+    user: 'Deliver your closing argument. Begin directly without greetings - the judge has already spoken.',
+    temperature: AGENT_TEMPERATURES.prosecution,
+    maxTokens: Math.min(4000, Math.max(1500, context.timeLimitMinutes * 200))
+  });
+
+  return response.text;
+}
+
 /**
  * Generate prosecution action
  */
@@ -582,6 +617,50 @@ MANDATORY REQUIREMENTS:
 ${isDefense
     ? '- DO NOT use generic statements like "my client is innocent"\n- SPECIFICALLY REFERENCE evidence from the INVESTIGATION FINDINGS section that supports your client\n- MENTION specific witness statements and what they said\n- Begin directly with substantive content (no greetings)\n- Be professional but composed and persuasive\n- Outline the defense\'s theory of the case using SPECIFIC investigation details, focused on reasonable doubt'
     : '- DO NOT use generic statements like "we will show the defendant is guilty"\n- SPECIFICALLY REFERENCE evidence from the INVESTIGATION FINDINGS section\n- MENTION specific witness statements and what they said\n- Begin directly with substantive content (no greetings)\n- Be professional but forceful and persuasive\n- Outline the prosecution\'s theory of the case using SPECIFIC investigation details'}
+- Keep it comprehensive but focused — aim for 2-4 paragraphs`;
+}
+
+function buildClosingArgumentPrompt(context: ClosingArgumentContext): string {
+  const timeLimit = context.timeLimitMinutes;
+  const isDefense = context.side === 'defense';
+  const evidenceList = context.evidenceSubmitted
+    .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}`)
+    .join('\n');
+  const witnessList = context.witnessesCalled
+    .map(w => `- ${w.name}`)
+    .join('\n');
+
+  return `You are ${context.prosecutorName}, ${isDefense ? 'a sharp and confident Defense Attorney' : 'an aggressive and confident Prosecutor'}, delivering your CLOSING ARGUMENT.
+
+PERSONALITY: ${isDefense
+    ? 'You are composed, persuasive, and protective of your client. You speak with conviction, arguing that the prosecution failed to meet its burden of proof.'
+    : 'You are forceful, persuasive, and relentless. You speak with conviction, arguing that the evidence and testimony together prove guilt beyond a reasonable doubt.'}
+
+${getProsecutionDifficultyModifier(context.difficulty)}
+
+CASE: ${context.caseTitle}
+${context.defendantName ? `DEFENDANT: ${context.defendantName}` : ''}
+
+CASE DESCRIPTION:
+${context.caseDescription}
+
+WHAT ACTUALLY HAPPENED AT TRIAL — YOU MUST BUILD YOUR ARGUMENT FROM THIS, NOT FROM THE PRE-TRIAL THEORY OF THE CASE:
+${context.trialTranscriptSummary || 'No trial activity was recorded.'}
+
+EVIDENCE ACTUALLY SUBMITTED AT TRIAL:
+${evidenceList || 'No evidence was formally submitted during the trial.'}
+
+WITNESSES WHO ACTUALLY TESTIFIED:
+${witnessList || 'No witnesses were called during the trial.'}
+
+TIME LIMIT: ${timeLimit} ${timeLimit === 1 ? 'minute' : 'minutes'}
+
+YOUR TASK: Deliver a closing argument that argues from what actually happened at trial above — this is a summation, not a preview. Do not say things like "we will show" or "we will prove"; the evidence and testimony have already been presented. Reference specific testimony and evidence from the transcript above.
+
+MANDATORY REQUIREMENTS:
+${isDefense
+    ? '- SPECIFICALLY REFERENCE testimony and evidence from the trial transcript above\n- Point out gaps, inconsistencies, or reasonable doubt raised during the actual testimony\n- If a witness said something damaging to the defense, address it directly rather than ignoring it\n- Begin directly with substantive content (no greetings)\n- Be professional but composed and persuasive\n- Do not introduce new evidence or witnesses that were not part of the trial'
+    : '- SPECIFICALLY REFERENCE testimony and evidence from the trial transcript above\n- Tie the actual testimony and evidence together into a coherent case for guilt beyond a reasonable doubt\n- If a witness said something damaging to the prosecution, address it directly rather than ignoring it\n- Begin directly with substantive content (no greetings)\n- Be professional but forceful and persuasive\n- Do not introduce new evidence or witnesses that were not part of the trial'}
 - Keep it comprehensive but focused — aim for 2-4 paragraphs`;
 }
 

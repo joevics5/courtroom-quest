@@ -208,7 +208,14 @@ export function initializeTurnState(
   if (phase) {
     const phaseName = phase.name.toLowerCase();
 
-    // Set question limits for direct examination based on trial duration
+    // Set question limits based on trial duration. Cross-examination and
+    // redirect get lower caps than direct examination (typical trial
+    // pacing — cross is usually shorter than direct, redirect shorter
+    // still), scaled the same way direct's caps are, rather than always
+    // falling through to the flat default of 10 regardless of trial
+    // length. Previously only direct examination scaled by duration, so a
+    // 15-minute trial's cross-examination could run exactly as long as a
+    // 60-minute trial's.
     if (phaseName.includes('direct examination')) {
       switch (trialDuration) {
         case 15:
@@ -223,8 +230,36 @@ export function initializeTurnState(
         default:
           prosecutionActionsRemaining = 5;
       }
+    } else if (phaseName.includes('cross-examination')) {
+      switch (trialDuration) {
+        case 15:
+          prosecutionActionsRemaining = 2;
+          break;
+        case 30:
+          prosecutionActionsRemaining = 3;
+          break;
+        case 60:
+          prosecutionActionsRemaining = 5;
+          break;
+        default:
+          prosecutionActionsRemaining = 3;
+      }
+    } else if (phaseName.includes('redirect')) {
+      switch (trialDuration) {
+        case 15:
+          prosecutionActionsRemaining = 1;
+          break;
+        case 30:
+          prosecutionActionsRemaining = 2;
+          break;
+        case 60:
+          prosecutionActionsRemaining = 3;
+          break;
+        default:
+          prosecutionActionsRemaining = 2;
+      }
     }
-    // For other phases, use default or adjust as needed
+    // For other phases, use default
   }
 
   return {

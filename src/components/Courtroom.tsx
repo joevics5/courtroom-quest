@@ -15,7 +15,7 @@ import {
   getExaminationType,
   type TurnState
 } from '../lib/trialTurnSystem';
-import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateObjectionRuling, generateWitnessResponse, generateVerdict } from '../lib/ai/trialAI';
+import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateClosingArgument, generateObjectionRuling, generateWitnessResponse, generateVerdict } from '../lib/ai/trialAI';
 import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
 import { getUserDisplayName } from '../lib/userName';
@@ -756,6 +756,44 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     return () => clearTimeout(timer);
   }, [currentPhase, caseData, trialDuration, isProsecutionThinking, judgeInstructionPending, showPreTrial, aiRole]);
 
+  // Closing Statement - AI's side. Unlike opening, closing phase numbers
+  // vary by trial duration, so the phase is resolved by name each time
+  // rather than a hardcoded 7/8. Structured identically to the opening
+  // effect above (same race-closing 2500ms deferral, same lazy ref-set
+  // inside the delayed callback) so it doesn't inherit the trigger-race
+  // bug that blocked witness-phase auto-triggering.
+  useEffect(() => {
+    if (isMultiplayer || showPreTrial || !caseData || !trialDuration || isProsecutionThinking) return;
+
+    const config = getTrialConfig(trialDuration);
+    const expectedName = aiRole === 'prosecution' ? 'Closing Statement - Prosecution' : 'Closing Statement - Defense';
+    const closingPhase = config.phases.find(p => p.name === expectedName);
+    if (!closingPhase || currentPhase !== closingPhase.number) return;
+
+    if (judgeInstructionPending) return;
+    if (prosecutionTurnTriggeredRef.current === closingPhase.number) return;
+
+    const generateClosing = async () => {
+      prosecutionTurnTriggeredRef.current = closingPhase.number;
+      setIsProsecutionThinking(true);
+      try {
+        await handleGenerateClosingStatement();
+      } catch (error) {
+        console.error('[Courtroom] ❌ Closing argument failed:', error);
+        setIsProsecutionThinking(false);
+      }
+    };
+
+    // Same 2500ms deferral the opening effect uses — see the comment there
+    // for why the delay (not just the judgeInstructionPending check) is
+    // what actually closes the same-tick staleness race.
+    const timer = setTimeout(() => {
+      generateClosing();
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [currentPhase, caseData, trialDuration, isProsecutionThinking, judgeInstructionPending, showPreTrial, aiRole]);
+
   // Handle prosecution AI turn
   const handleProsecutionTurn = async () => {
     if (!trialDuration || !turnState || !caseData) return;
@@ -816,8 +854,19 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         if (action.content) {
           await handleMakeStatement(action.content);
         } else {
-          // Generate statement automatically for opening
-          await handleGenerateOpeningStatement();
+          // Generate the statement automatically — route to whichever kind
+          // the current phase actually calls for. This used to always call
+          // handleGenerateOpeningStatement() regardless of phase, so an AI
+          // reaching closing arguments without supplying its own content
+          // would get a fresh OPENING statement generated instead.
+          const config = trialDuration ? getTrialConfig(trialDuration) : null;
+          const phase = config?.phases.find(p => p.number === currentPhase);
+          const isClosingPhase = phase?.name.toLowerCase().includes('closing');
+          if (isClosingPhase) {
+            await handleGenerateClosingStatement();
+          } else {
+            await handleGenerateOpeningStatement();
+          }
         }
         break;
 
@@ -1052,6 +1101,87 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     } finally {
       setIsProsecutionThinking(false);
       console.log('[Courtroom] ✅ Opening statement generation complete (finally block executed)');
+    }
+  };
+
+  // Generate closing argument automatically. Mirrors
+  // handleGenerateOpeningStatement, but pulls context from what actually
+  // happened during the trial (transcript, evidence submitted, witnesses
+  // called) instead of the pre-trial investigation findings, since a
+  // closing argument needs to reference the trial that unfolded rather
+  // than the pre-trial theory of the case.
+  const handleGenerateClosingStatement = async () => {
+    if (!caseData || !trialDuration) {
+      console.warn('[Courtroom] ⚠️ Cannot generate closing argument - missing caseData or trialDuration');
+      setIsProsecutionThinking(false);
+      return;
+    }
+
+    setIsProsecutionThinking(true);
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Closing argument generation timeout after 60 seconds')), 60000);
+    });
+
+    try {
+      const config = getTrialConfig(trialDuration);
+      // Closing phase numbers vary by trial length (unlike opening, which is
+      // always 7/8), so resolve by name rather than a hardcoded number.
+      const expectedName = aiRole === 'prosecution' ? 'Closing Statement - Prosecution' : 'Closing Statement - Defense';
+      const phase = config.phases.find(p => p.name === expectedName);
+      const timeLimit = phase ? (config.phaseDurations[phase.number] || 0) : 0;
+
+      const transcriptSummary = buildTranscriptSummary(events, events.length);
+      const evidenceSubmitted = evidence.filter(e => turnState?.evidence_submitted.includes(e.id) ?? false);
+      const witnessesCalled = witnesses.filter(w => turnState?.witnesses_called.includes(w.id) ?? false);
+
+      const closingArgument = await Promise.race([
+        generateClosingArgument({
+          caseTitle: caseData.title,
+          prosecutorName: aiRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
+          side: aiRole,
+          difficulty: (session.session_state as any)?.difficulty,
+          defendantName: caseData.defendant_name,
+          caseDescription: caseData.description,
+          timeLimitMinutes: timeLimit,
+          trialTranscriptSummary: transcriptSummary,
+          evidenceSubmitted: evidenceSubmitted.map(e => ({ id: e.id, exhibit_label: e.exhibit_label, title: e.title })),
+          witnessesCalled: witnessesCalled.map(w => ({ id: w.id, name: w.name }))
+        }),
+        timeoutPromise
+      ]) as string;
+
+      await Promise.race([
+        handleMakeStatement(closingArgument),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('handleMakeStatement timeout after 30 seconds')), 30000);
+        })
+      ]);
+    } catch (error) {
+      console.error('[Courtroom] ❌ Failed to generate closing argument:', error);
+      const fallback = aiRole === 'prosecution'
+        ? `Your Honor, members of the jury — the evidence and testimony you've heard today prove beyond a reasonable doubt that the defendant is guilty. We ask you to return a guilty verdict.`
+        : `Your Honor, members of the jury — the prosecution has not met its burden of proof. The evidence and testimony leave real, reasonable doubt, and we ask you to return a verdict of not guilty.`;
+      try {
+        const fallbackEvent: TrialEvent = {
+          id: `temp-${Date.now()}`,
+          session_id: session.id,
+          event_type: 'closing',
+          speaker_role: aiRole,
+          speaker_name: aiRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
+          content: fallback,
+          timestamp: new Date().toISOString(),
+          metadata: { phase: currentPhase, statement_type: 'closing' },
+          event_order: events.length + 1
+        };
+        setEvents(prev => [...prev, fallbackEvent]);
+        speakAs('counsel', fallback);
+        setLastProsecutionEvent(fallbackEvent);
+      } catch (fallbackError) {
+        console.error('[Courtroom] ❌ Failed to make fallback closing argument:', fallbackError);
+      }
+    } finally {
+      setIsProsecutionThinking(false);
     }
   };
 
