@@ -75,6 +75,47 @@ export interface Evidence {
   created_at: string;
 }
 
+export interface WitnessKnowledgeScope {
+  // Facts the witness genuinely knows and will state naturally when
+  // relevantly asked — this is the bulk of ordinary, cooperative testimony.
+  known_facts?: string[];
+  // Facts they know but won't volunteer unless questioned skillfully or
+  // pressed — these should NOT come out from a generic "tell me what
+  // happened", only from specific, well-aimed questions.
+  hidden_knowledge?: string[];
+  // Facts they know only part of — answering should reflect the gap, not
+  // fill it in.
+  partial_knowledge?: string[];
+  // Things they genuinely do not know — the only legitimate territory for
+  // an "I don't know" style answer.
+  unknown_information?: string[];
+  // Things they sincerely believe but are factually wrong about — they
+  // should state these with the same confidence as known_facts, since
+  // they don't know they're mistaken.
+  incorrect_beliefs?: string[];
+  // What they personally think happened — opinion, framed as opinion, not
+  // stated as established fact.
+  personal_opinions?: string[];
+  // What they suspect but can't prove — should come across as
+  // speculation/hedging if raised at all.
+  suspicions?: string[];
+  // Information they're reluctant to reveal — expect evasion, deflection,
+  // or minimizing when approached, not an outright lie, unless the
+  // witness is also marked deceptive.
+  secrets?: string[];
+  // Information they intentionally leave out unless directly confronted
+  // with it (e.g. via evidence or a pointed question) — similar to
+  // secrets, but specifically about omission rather than concealment.
+  motivated_omissions?: string[];
+  // Evidence (by title or id) this witness recognizes and can speak to.
+  evidence_recognized?: string[];
+  // Evidence (by title or id) this witness is positioned to authenticate.
+  evidence_can_authenticate?: string[];
+  // Things this witness cannot reliably testify about (wasn't present,
+  // outside their expertise, etc.) — should be met with a clear
+  // "I can't speak to that" rather than a guess.
+}
+
 export interface Witness {
   id: string;
   case_id: string;
@@ -82,7 +123,7 @@ export interface Witness {
   role: string;
   background: string;
   base_testimony: string;
-  knowledge_scope?: Record<string, any>;
+  knowledge_scope?: WitnessKnowledgeScope;
   personality_traits?: Record<string, any>;
   photo_url?: string;
   use_ai?: boolean;

@@ -21,7 +21,23 @@ import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNu
 import { getUserDisplayName } from '../lib/userName';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { speakAs } from '../lib/speech';
-import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case } from '../types';
+import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case, EventType } from '../types';
+
+// Roughly how long it'd take to read a statement aloud, used to size the
+// auto-rest countdown to the actual statement instead of one flat
+// duration for every opening/closing regardless of length. ~150 words per
+// minute is a typical spoken pace for formal courtroom delivery. Clamped
+// so a very short statement still gives the human a moment to read it,
+// and a very long one doesn't stall for several minutes.
+const READ_WORDS_PER_MINUTE = 150;
+const MIN_AUTO_REST_SECONDS = 25;
+const MAX_AUTO_REST_SECONDS = 150;
+
+function estimateReadTimeSeconds(text: string): number {
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  const seconds = Math.round((wordCount / READ_WORDS_PER_MINUTE) * 60);
+  return Math.max(MIN_AUTO_REST_SECONDS, Math.min(seconds, MAX_AUTO_REST_SECONDS));
+}
 
 interface CourtroomProps {
   session: CaseSession;
@@ -139,6 +155,30 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
    const [showEvidenceSelector, setShowEvidenceSelector] = useState(false);
    const [showObjectionSelector, setShowObjectionSelector] = useState(false);
    const [showDefenceModal, setShowDefenceModal] = useState(false);
+   // Once the AI finishes generating its opening/closing statement, don't
+   // just sit idle until the full phase timer (which could be minutes)
+   // runs out — count down an estimated read time and auto-rest, so the
+   // human isn't stuck waiting on a side that has nothing left to say.
+   const [autoRestSecondsLeft, setAutoRestSecondsLeft] = useState<number | null>(null);
+   const [autoRestPaused, setAutoRestPaused] = useState(false);
+   const autoRestTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   // The interval callback below is set up once per countdown and reads
+   // this on every tick — using state directly there would only ever see
+   // the value from the render when the interval was created.
+   const autoRestPausedRef = useRef(false);
+   autoRestPausedRef.current = autoRestPaused;
+   // Always points at the latest handleRestPhase — the countdown interval
+   // is set up once and lives for up to its full duration, so if it called
+   // handleRestPhase directly it would be closing over turnState/events/etc.
+   // from whatever render was active when the countdown started, stale by
+   // the time it actually fires.
+   const handleRestPhaseRef = useRef<() => Promise<void>>(async () => {});
+   // Vertical drag offset (px, added to the default bottom-6 position) for
+   // the floating action button — it sits over the Rest/Object buttons on
+   // small screens, so it needs to be movable out of the way.
+   const [floatingButtonOffset, setFloatingButtonOffset] = useState(0);
+   const floatingButtonDragRef = useRef<{ startY: number; startOffset: number } | null>(null);
+   const floatingButtonWasDraggedRef = useRef(false);
    const [defenceModalTab, setDefenceModalTab] = useState<'witnesses' | 'evidence'>('witnesses');
   const [isProsecutionThinking, setIsProsecutionThinking] = useState(false);
   const [awaitingUserInput, setAwaitingUserInput] = useState(false);
@@ -220,10 +260,47 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   useEffect(() => {
     if (showPreTrial || practiceMode) return;
     if (trialDuration && timerActive && !timerPaused && phaseTimeRemaining[currentPhase] <= 0 && phaseTimeRemaining[currentPhase] !== undefined) {
-      console.log('[Courtroom] Time ran out for phase', currentPhase, '- auto-advancing');
-      handleNextPhase();
+      // Route through handleRestPhase rather than calling handleNextPhase
+      // directly. Two reasons: (1) it logs an actual "rests" event, so if
+      // the mandatory statement gate applies to this phase (opening/
+      // closing) and nobody said anything before time ran out, advancing
+      // doesn't get silently blocked forever; (2) it's the same "this
+      // side is done" action the Rest button performs, so a timeout and a
+      // manual Rest behave identically instead of diverging.
+      console.log('[Courtroom] Time ran out for phase', currentPhase, '- auto-resting');
+      handleRestPhase();
     }
   }, [phaseTimeRemaining, currentPhase, timerActive, timerPaused, trialDuration, showPreTrial, practiceMode]);
+
+  // Auto-pause if the player navigates away (switches tabs/apps, locks
+  // their screen) while it's actually on them to act — so their clock
+  // doesn't run out while they're not looking. Only pauses; resuming is
+  // always a deliberate action via the Pause/Resume button, so the trial
+  // doesn't quietly restart while they're still getting back to it.
+  useEffect(() => {
+    if (showPreTrial || practiceMode || !trialDuration) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'hidden') return;
+      if (!awaitingUserInput || timerPaused) return;
+
+      console.log('[Courtroom] Player navigated away mid-turn — auto-pausing');
+      setTimerPaused(true);
+      try {
+        await db.sessions.updateSession(session.id, {
+          current_phase: 'trial',
+          current_trial_phase: currentPhase,
+          timer_paused_at: new Date().toISOString(),
+          session_state: { ...session.session_state, phaseTimeRemaining }
+        });
+      } catch (error) {
+        console.error('[Courtroom] Failed to save auto-pause state:', error);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [awaitingUserInput, timerPaused, trialDuration, showPreTrial, practiceMode, currentPhase, session, phaseTimeRemaining]);
 
   // Force verdict when total time runs out
   useEffect(() => {
@@ -402,10 +479,24 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       : resolvedRole === 'defense' ? effectiveDefenseName
       : 'Witness';
 
+    // Which kind of statement this actually is, by phase — this used to
+    // be hardcoded to 'opening' unconditionally, which meant a human's
+    // own typed closing argument got filed in the transcript mislabeled
+    // as an opening statement. Pre-trial announcements (role==='judge'
+    // calls before phase 7) fall back to 'announcement'.
+    const config = trialDuration ? getTrialConfig(trialDuration) : null;
+    const phaseInfo = config?.phases.find(p => p.number === currentPhase);
+    const phaseNameLower = phaseInfo?.name.toLowerCase() || '';
+    const eventType: EventType = phaseNameLower.includes('closing')
+      ? 'closing'
+      : phaseNameLower.includes('opening')
+      ? 'opening'
+      : 'announcement';
+
     try {
       const event = await db.trialEvents.addEvent({
         session_id: session.id,
-        event_type: 'opening',
+        event_type: eventType,
         speaker_role: resolvedRole,
         speaker_name: resolvedName,
         content,
@@ -420,6 +511,79 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
   };
 
+  const cancelAutoRestCountdown = () => {
+    if (autoRestTimerRef.current) {
+      clearInterval(autoRestTimerRef.current);
+      autoRestTimerRef.current = null;
+    }
+    setAutoRestSecondsLeft(null);
+    setAutoRestPaused(false);
+  };
+
+  // seconds should be an estimated read time (see estimateReadTimeSeconds)
+  // for the statement that was just generated — sized to the actual
+  // content instead of one flat duration for every statement.
+  const startAutoRestCountdown = (seconds: number) => {
+    cancelAutoRestCountdown();
+    setAutoRestSecondsLeft(seconds);
+    autoRestTimerRef.current = setInterval(() => {
+      if (autoRestPausedRef.current) return; // frozen while the player has it paused
+      setAutoRestSecondsLeft(prev => {
+        if (prev === null) return null;
+        if (prev <= 1) {
+          if (autoRestTimerRef.current) {
+            clearInterval(autoRestTimerRef.current);
+            autoRestTimerRef.current = null;
+          }
+          handleRestPhaseRef.current();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Tapping the countdown display pauses/resumes it — the player might
+  // want to keep reading a statement without the clock forcing a move on
+  // before they're ready. This only pauses the auto-rest countdown, not
+  // the phase's overall timer.
+  const toggleAutoRestPause = () => {
+    setAutoRestPaused(prev => !prev);
+  };
+
+  // Drag handling for the floating action button. Pointer events cover
+  // both touch and mouse. A movement past a small threshold counts as a
+  // drag (and is suppressed from also firing the click that opens the
+  // modal); anything smaller is treated as a tap.
+  const handleFloatingButtonPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    floatingButtonDragRef.current = { startY: e.clientY, startOffset: floatingButtonOffset };
+    floatingButtonWasDraggedRef.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleFloatingButtonPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = floatingButtonDragRef.current;
+    if (!drag) return;
+    const deltaY = drag.startY - e.clientY; // moving finger/cursor up = positive offset
+    if (Math.abs(deltaY) > 6) {
+      floatingButtonWasDraggedRef.current = true;
+      const maxOffset = typeof window !== 'undefined' ? window.innerHeight - 140 : 600;
+      setFloatingButtonOffset(Math.max(8, Math.min(drag.startOffset + deltaY, maxOffset)));
+    }
+  };
+
+  const handleFloatingButtonPointerUp = () => {
+    floatingButtonDragRef.current = null;
+  };
+
+  const handleFloatingButtonClick = () => {
+    if (floatingButtonWasDraggedRef.current) {
+      floatingButtonWasDraggedRef.current = false;
+      return;
+    }
+    setShowDefenceModal(true);
+  };
+
   const handleSubmit = async () => {
     if (!input.trim() || !turnState || !awaitingUserInput) return;
 
@@ -428,12 +592,24 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       // If we're in a witness examination phase, treat input as a question
       if (turnState.current_witness_id && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect')) {
         await handleAskQuestion(input, turnState.current_witness_id);
+        // handleAskQuestion re-opens awaitingUserInput itself (for the
+        // human's own turn / pass & play) so a follow-up question can be
+        // asked right away — don't clear it again here.
       } else {
-        // Otherwise, treat as a statement
+        // Statement phases (opening/closing): submitting one chunk of text
+        // is NOT the same as ending your turn. This used to unconditionally
+        // set awaitingUserInput false right after every submission —
+        // functionally identical to clicking Rest, since there was no way
+        // to type again without changing phases. Multiple submissions now
+        // build up your statement; only Rest (or the phase timer running
+        // out, which now auto-rests — see handleRestPhase) actually moves
+        // on to the other side.
         await addEvent('counsel', input);
+        if (turnState.current_turn === playerRole || sameDevicePlay) {
+          setAwaitingUserInput(true);
+        }
       }
       setInput('');
-      setAwaitingUserInput(false);
     } catch (error) {
       console.error('Failed to submit:', error);
     } finally {
@@ -467,7 +643,33 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
 
     const verdictPhase = config.phases.find(p => p.name === 'Verdict Delivery');
-    const nextPhase = currentPhase + 1;
+    let nextPhase = currentPhase + 1;
+
+    // If a witness slot's Direct Examination never actually had a witness
+    // called during it, there's nothing to cross-examine or redirect —
+    // skip straight past those phases for that slot instead of sitting
+    // through an "examination" of a witness who was never called. This
+    // can skip more than one phase in a row (cross AND redirect for the
+    // same empty slot).
+    while (true) {
+      const candidatePhase = config.phases.find(p => p.number === nextPhase);
+      if (!candidatePhase) break;
+      const candidateNameLower = candidatePhase.name.toLowerCase();
+      const isCrossOrRedirect = candidateNameLower.includes('cross-examination') || candidateNameLower.includes('redirect');
+      if (!isCrossOrRedirect) break;
+
+      // e.g. "Prosecution Witness 1" from "Prosecution Witness 1 - Cross-Examination"
+      const slotPrefix = candidatePhase.name.split(' - ')[0];
+      const directPhase = config.phases.find(p => p.name === `${slotPrefix} - Direct Examination`);
+      const witnessWasCalled = !directPhase || eventsRef.current.some(
+        e => e.event_type === 'witness_call' && (e.metadata as any)?.phase === directPhase.number
+      );
+
+      if (witnessWasCalled) break;
+
+      console.log(`[Courtroom] Skipping phase ${nextPhase} (${candidatePhase.name}) — no witness was called during ${slotPrefix} - Direct Examination`);
+      nextPhase += 1;
+    }
 
     // Check if next phase is verdict or beyond the last phase
     if (verdictPhase && nextPhase >= verdictPhase.number) {
@@ -961,23 +1163,16 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       setLastProsecutionEvent(event);
       console.log('[Courtroom] ✅ Statement processed successfully');
 
-      // Move on as soon as the AI is actually done *speaking* the
-      // statement, rather than a fixed delay — a fixed timer either cuts
-      // the statement off (long ones) or leaves the phase sitting idle
-      // for however much of its time limit is left after a short one
-      // finishes reading. Previously this also only fired for phase 7
-      // (prosecution's opening) — phase 8 (defense's opening, i.e. the
-      // AI playing defense) never auto-advanced at all.
-      if (isOpening) {
-        console.log('[Courtroom] 🔊 Speaking text — will end phase when speech finishes...');
-        speakAs('counsel', statement, () => {
-          console.log('[Courtroom] ⏭️ Speech finished — ending phase now...');
-          handleEndPhase();
-        });
-      } else {
-        console.log('[Courtroom] 🔊 Speaking text...');
-        speakAs('counsel', statement);
-      }
+      // Speaking is decoupled from advancing the phase — the auto-rest
+      // countdown (started right after this function returns, sized to an
+      // estimated read time) is the sole mechanism for moving on
+      // automatically. This used to advance the phase via a callback when
+      // TTS playback finished speaking, for opening statements only —
+      // which raced with the countdown (whichever finished first "won",
+      // and the other could fire again later against a stale phase) and
+      // never applied to closing arguments at all.
+      console.log('[Courtroom] 🔊 Speaking text...');
+      speakAs('counsel', statement);
     } catch (error) {
       console.error('[Courtroom] ❌ Error in handleMakeStatement:', error);
       // Still update UI even if DB save fails
@@ -1021,6 +1216,10 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     // Opening statements don't require turnState - it's initialized later
     console.log('[Courtroom] ✅ All checks passed - Generating opening statement...');
     setIsProsecutionThinking(true);
+    // Tracked here (not scoped inside try/catch) so the finally block can
+    // size the auto-rest countdown off whatever statement actually ended
+    // up in the transcript, real or fallback.
+    let finalStatementText = '';
     
     // Add timeout to prevent infinite hanging
     const timeoutPromise = new Promise((_, reject) => {
@@ -1077,6 +1276,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
       console.log('[Courtroom] ✅ Opening statement received, length:', openingStatement.length);
       console.log('[Courtroom] 📢 Calling handleMakeStatement...');
+      finalStatementText = openingStatement;
       
       // Also add timeout for handleMakeStatement
       await Promise.race([
@@ -1093,6 +1293,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       const fallback = aiRole === 'prosecution'
         ? `Good morning, Your Honor. The prosecution is ready to present its case. We will show that the defendant is guilty beyond a reasonable doubt.`
         : `Good morning, Your Honor. The defense is ready to present its case. We will show that the evidence does not support a finding of guilt beyond a reasonable doubt.`;
+      finalStatementText = fallback;
       try {
         // Use a simpler version that doesn't require DB
         const fallbackEvent: TrialEvent = {
@@ -1115,6 +1316,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     } finally {
       setIsProsecutionThinking(false);
       console.log('[Courtroom] ✅ Opening statement generation complete (finally block executed)');
+      startAutoRestCountdown(estimateReadTimeSeconds(finalStatementText));
     }
   };
 
@@ -1132,6 +1334,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
 
     setIsProsecutionThinking(true);
+    let finalStatementText = '';
 
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Closing argument generation timeout after 60 seconds')), 60000);
@@ -1171,11 +1374,13 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           setTimeout(() => reject(new Error('handleMakeStatement timeout after 30 seconds')), 30000);
         })
       ]);
+      finalStatementText = closingArgument;
     } catch (error) {
       console.error('[Courtroom] ❌ Failed to generate closing argument:', error);
       const fallback = aiRole === 'prosecution'
         ? `Your Honor, members of the jury — the evidence and testimony you've heard today prove beyond a reasonable doubt that the defendant is guilty. We ask you to return a guilty verdict.`
         : `Your Honor, members of the jury — the prosecution has not met its burden of proof. The evidence and testimony leave real, reasonable doubt, and we ask you to return a verdict of not guilty.`;
+      finalStatementText = fallback;
       try {
         const fallbackEvent: TrialEvent = {
           id: `temp-${Date.now()}`,
@@ -1196,6 +1401,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       }
     } finally {
       setIsProsecutionThinking(false);
+      startAutoRestCountdown(estimateReadTimeSeconds(finalStatementText));
     }
   };
 
@@ -1535,9 +1741,27 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   const handleRestPhase = async () => {
     if (!turnState) return;
 
+    // Cancel any pending auto-rest countdown immediately — whichever path
+    // triggered this (manual click, phase timeout, or the countdown
+    // itself finishing) is about to advance the phase, so there's nothing
+    // left to count down toward.
+    cancelAutoRestCountdown();
+
+    // Event type by phase, not hardcoded — this used to always tag the
+    // "rests" event as 'witness_examination' even during an opening/closing
+    // statement phase.
+    const config = trialDuration ? getTrialConfig(trialDuration) : null;
+    const phaseInfo = config?.phases.find(p => p.number === currentPhase);
+    const phaseNameLower = phaseInfo?.name.toLowerCase() || '';
+    const eventType: EventType = phaseNameLower.includes('closing')
+      ? 'closing'
+      : phaseNameLower.includes('opening')
+      ? 'opening'
+      : 'witness_examination';
+
     const event = await db.trialEvents.addEvent({
       session_id: session.id,
-      event_type: 'witness_examination',
+      event_type: eventType,
       speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
       speaker_name: turnState.current_turn === 'prosecution'
         ? effectiveProsecutorName
@@ -1548,8 +1772,23 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     });
 
     setEvents([...events, event]);
+    // Resting always hands off to the next phase immediately, with no
+    // time-based condition — the only gate handleNextPhase applies is the
+    // mandatory-statement one, and the "rests" event just added always
+    // satisfies it (speaker_role + phase match), even if nothing else was
+    // said this phase.
     await handleNextPhase();
   };
+  // Keep the ref used by the auto-rest countdown pointed at the latest
+  // handleRestPhase on every render.
+  handleRestPhaseRef.current = handleRestPhase;
+
+  // Safety net: if the phase changes through some other path while a
+  // countdown is running, don't leave it ticking toward a rest call for a
+  // phase that's no longer current.
+  useEffect(() => {
+    cancelAutoRestCountdown();
+  }, [currentPhase]);
 
   const handleVerdict = async () => {
     try {
@@ -1624,6 +1863,11 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   // already been acknowledged (device handed to the right player).
   const turnHandoffKey = turnState ? `${currentPhase}-${turnState.current_turn}` : null;
   const pendingHandoff = sameDevicePlay && awaitingUserInput && turnHandoffKey !== null && deviceRevealedFor !== turnHandoffKey;
+  // Whether it's actually appropriate for the human at this device to take
+  // an action right now — used to disable (not hide) the action buttons
+  // rather than letting them silently do nothing, or worse, let a human
+  // act on the AI's behalf, when it isn't their turn.
+  const isPlayerTurn = (turnState?.current_turn === playerRole) || sameDevicePlay;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
@@ -1790,7 +2034,22 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                 </div>
               )}
               
-              {!isProsecutionThinking && !sameDevicePlay && turnState?.current_turn === aiRole && (
+              {!isProsecutionThinking && autoRestSecondsLeft !== null && (
+                <div className="border-t border-slate-700 p-4">
+                  <button
+                    onClick={toggleAutoRestPause}
+                    className="w-full text-center text-slate-300 py-2 hover:text-white transition-colors flex items-center justify-center gap-2"
+                    title={autoRestPaused ? 'Tap to resume' : 'Tap to pause'}
+                  >
+                    {autoRestPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                    {autoRestPaused
+                      ? <span>Paused — {aiRole === 'prosecution' ? 'prosecution' : 'defense'} was about to rest ({formatTime(autoRestSecondsLeft)} left). Tap to resume.</span>
+                      : <span>{aiRole === 'prosecution' ? 'Prosecution' : 'Defense'} will rest automatically in {formatTime(autoRestSecondsLeft)} — tap to pause.</span>}
+                  </button>
+                </div>
+              )}
+
+              {!isProsecutionThinking && autoRestSecondsLeft === null && !sameDevicePlay && turnState?.current_turn === aiRole && (
                 <div className="border-t border-slate-700 p-4">
                   <div className="text-center text-slate-400 py-2">
                     Waiting for {aiRole === 'prosecution' ? 'prosecution' : 'the defense'} to act...
@@ -1871,21 +2130,20 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                          <Send className="w-5 h-5" />
                          Submit
                        </button>
-                        {(turnState?.current_turn === playerRole || sameDevicePlay) && (
-                           <button
-                             onClick={handleRestPhase}
-                             className="flex-1 sm:flex-none justify-center px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                           >
-                             <SkipForward className="w-5 h-5" />
-                             Rest
-                           </button>
-                        )}
+                        <button
+                           onClick={handleRestPhase}
+                           disabled={!isPlayerTurn}
+                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+                         >
+                           <SkipForward className="w-5 h-5" />
+                           Rest
+                         </button>
                        {turnState?.current_turn !== 'judge' && (
                          <button
                            onClick={() => setShowObjectionSelector(true)}
-                           disabled={isProcessingObjection}
-                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
-                           title="Object"
+                           disabled={isProcessingObjection || (isPlayerTurn && !sameDevicePlay)}
+                           title={isPlayerTurn && !sameDevicePlay ? "You can't object during your own turn" : "Object"}
+                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
                          >
                            <AlertCircle className="w-5 h-5" />
                            Object
@@ -1894,7 +2152,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                        {turnState && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect') && !turnState.current_witness_id && (
                          <button
                            onClick={() => setShowWitnessSelector(true)}
-                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                           disabled={!isPlayerTurn}
+                           title={!isPlayerTurn ? "Not your turn to call a witness" : "Call Witness"}
+                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
                          >
                            <User className="w-4 h-4" />
                            Call Witness
@@ -1905,12 +2165,18 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                  </div>
                </div>
 
-      {/* Floating Defence Button */}
+      {/* Floating Defence Button — vertically draggable so it can be moved
+          off of the Rest/Object buttons it otherwise sits on top of. */}
       {turnState && turnState.current_turn !== 'judge' && (
         <button
-          onClick={() => setShowDefenceModal(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-40"
-          title="Defence Actions"
+          onClick={handleFloatingButtonClick}
+          onPointerDown={handleFloatingButtonPointerDown}
+          onPointerMove={handleFloatingButtonPointerMove}
+          onPointerUp={handleFloatingButtonPointerUp}
+          onPointerCancel={handleFloatingButtonPointerUp}
+          style={{ bottom: `${24 + floatingButtonOffset}px`, touchAction: 'none' }}
+          className="fixed right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-40 cursor-grab active:cursor-grabbing select-none"
+          title="Defence Actions (drag to move)"
         >
           <Scale className="w-6 h-6" />
         </button>
@@ -2024,8 +2290,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                           handleCallWitness(witness);
                           setShowDefenceModal(false);
                         }}
-                        className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-                        disabled={!isWitnessPhase(phase) || turnState?.current_witness_id !== null}
+                        className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                        disabled={!isWitnessPhase(phase) || turnState?.current_witness_id !== null || !isPlayerTurn}
                       >
                         <div className="font-semibold text-white">{witness.name}</div>
                         <div className="text-sm text-slate-400 mt-1">{witness.role}</div>
@@ -2047,6 +2313,11 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                       A witness is currently being examined. Rest first to call a new witness.
                     </div>
                   )}
+                  {!isPlayerTurn && (
+                    <div className="text-center py-4 text-slate-400 text-sm">
+                      It isn't your turn to call a witness right now.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2064,7 +2335,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                           handleSubmitEvidence(item);
                           setShowDefenceModal(false);
                         }}
-                        className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+                        disabled={!isPlayerTurn}
+                        className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
                       >
                         <div className="font-semibold text-white">{item.title}</div>
                         <div className="text-sm text-slate-400 mt-1">{item.evidence_type.replace('_', ' ')}</div>
@@ -2075,6 +2347,11 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                         )}
                       </button>
                     ))
+                  )}
+                  {!isPlayerTurn && evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).length > 0 && (
+                    <div className="text-center py-2 text-slate-400 text-sm">
+                      It isn't your turn to submit evidence right now.
+                    </div>
                   )}
                 </div>
               )}

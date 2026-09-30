@@ -379,12 +379,19 @@ ${evidenceList || 'No evidence was formally submitted.'}
 DECISION STANDARD:
 ${standardDescription}
 
+GUARD AGAINST UNSUPPORTED OR CONTRADICTORY CLAIMS — this applies to your entire review of the transcript above, whether you are the judge or the jury:
+- Attorneys' statements — opening, closing, and the framing of their questions — are ARGUMENT, not evidence. Only witness testimony and submitted evidence in the transcript are evidence. Do not treat something as an established fact just because a lawyer asserted it or embedded it in a question; check whether it is actually backed by testimony or evidence in the transcript above.
+- Check witness testimony against itself: if a witness's answer contradicts something they said earlier in their own testimony in this transcript, that contradiction damages their credibility — weigh it accordingly, whether or not either side raised an objection to it at the time.
+- Check testimony against the submitted evidence: if an account conflicts with what an admitted exhibit actually shows, weigh that conflict against the account that conflicts with it.
+- If a claim was never actually tested — no evidence or testimony in the transcript supports it, and no witness was asked about it — do not treat it as proven either way, no matter how confidently or repeatedly it was asserted by either side.
+- You have access to nothing beyond the transcript and evidence reproduced above. Do not fill in gaps with outside assumptions about what "probably" happened.
+
 INSTRUCTIONS:
 1. Review ONLY the court transcript and evidence submitted during trial
 2. Do NOT consider any information outside the transcript
 3. ${isJuryTrial ? 'As the jury, determine if the prosecution proved its case beyond a reasonable doubt' : 'As the judge, determine if the prosecution met its burden of proof'}
 4. Provide a clear verdict: "win" (guilty) or "lose" (not guilty) or "partial" (some charges)
-5. ${isJuryTrial ? 'Explain the jury\'s reasoning — what convinced or failed to convince the jurors' : 'Explain your legal reasoning citing specific evidence and testimony'}
+5. ${isJuryTrial ? 'Explain the jury\'s reasoning — what convinced or failed to convince the jurors, including any contradictions or unsupported claims that affected how much weight testimony was given' : 'Explain your legal reasoning citing specific evidence and testimony, including any contradictions or unsupported claims that affected how much weight testimony was given'}
 6. Cite specific evidence that influenced the decision
 7. Assign a score (0-100) based on prosecution's case strength
 
@@ -734,6 +741,7 @@ PERSONALITY: `;
   if (personality.helpful) traits.push('helpful and forthcoming');
   if (personality.nervous) traits.push('nervous and fidgety');
   if (personality.hostile) traits.push('hostile and reluctant');
+  const isDeceptive = personality.deceptive === true;
   prompt += traits.length > 0 ? traits.join(', ') : 'neutral';
   prompt += '.\n\n';
 
@@ -741,14 +749,59 @@ PERSONALITY: `;
     prompt += `Your background (for context only): ${witness.background}\n\n`;
   }
 
-  if (witness.base_testimony) {
+  const scope = witness.knowledge_scope;
+  const scopeCount = scope
+    ? (scope.known_facts?.length ?? 0) + (scope.hidden_knowledge?.length ?? 0) +
+      (scope.partial_knowledge?.length ?? 0) + (scope.unknown_information?.length ?? 0) +
+      (scope.incorrect_beliefs?.length ?? 0) + (scope.secrets?.length ?? 0) +
+      (scope.motivated_omissions?.length ?? 0) + (scope.personal_opinions?.length ?? 0) +
+      (scope.suspicions?.length ?? 0)
+    : 0;
+  const hasStructuredScope = scopeCount > 0;
+
+  if (hasStructuredScope && scope) {
+    // Structured knowledge model — testimony is generated from distinct
+    // knowledge states rather than one flat block of text, so what comes
+    // out under questioning depends on HOW something is asked, not just
+    // WHETHER it's covered.
+    prompt += `═══════════════════════════════════════════════════════════
+YOUR KNOWLEDGE — THIS IS YOUR ONLY SOURCE OF INFORMATION
+You CANNOT add facts beyond what is listed here, under any category.
+═══════════════════════════════════════════════════════════
+
+`;
+
+    const section = (label: string, items?: string[]) => {
+      if (items && items.length > 0) {
+        prompt += `${label}:\n${items.map(i => `- ${i}`).join('\n')}\n\n`;
+      }
+    };
+
+    section('THINGS YOU KNOW AND WILL SAY NATURALLY when relevantly asked', scope.known_facts);
+    section('THINGS YOU KNOW BUT WILL ONLY REVEAL IF SPECIFICALLY, SKILLFULLY ASKED — do not volunteer these from a general or open-ended question', scope.hidden_knowledge);
+    section('THINGS YOU ONLY PARTLY KNOW — answer with only the part you actually know; do not fill in the rest', scope.partial_knowledge);
+    section('THINGS YOU SINCERELY BELIEVE BUT ARE ACTUALLY WRONG ABOUT — state these with genuine confidence, you do not know you are mistaken', scope.incorrect_beliefs);
+    section('YOUR PERSONAL OPINIONS about what happened — offer these as opinion ("I think", "it seemed to me"), never as established fact', scope.personal_opinions);
+    section('THINGS YOU SUSPECT BUT CANNOT PROVE — hedge if you raise these at all ("I couldn\'t say for sure, but...")', scope.suspicions);
+    section('SECRETS YOU ARE RELUCTANT TO REVEAL — when approached, evade, deflect, or minimize rather than confirming outright, unless directly and convincingly confronted', scope.secrets);
+    section('THINGS YOU ARE DELIBERATELY LEAVING OUT — do not mention unless directly confronted with evidence or a very pointed question that leaves no room to avoid it', scope.motivated_omissions);
+    section('THINGS YOU GENUINELY DO NOT KNOW — this is the ONLY category where "I don\'t know" is the honest, correct answer', scope.unknown_information);
+    section('EVIDENCE YOU RECOGNIZE and can speak to if shown', scope.evidence_recognized);
+    section('EVIDENCE YOU CAN AUTHENTICATE', scope.evidence_can_authenticate);
+
+    if (witness.base_testimony) {
+      prompt += `ADDITIONAL CONTEXT / STYLE (not a source of new facts beyond what's listed above):\n${witness.base_testimony}\n\n`;
+    }
+  } else if (witness.base_testimony) {
+    // Fallback for witnesses without a structured knowledge_scope — the
+    // flat testimony is the only source of truth.
     prompt += `═══════════════════════════════════════════════════════════
 YOUR WRITTEN TESTIMONY — THIS IS YOUR ONLY SOURCE OF INFORMATION
 You CANNOT add facts or details beyond what is written here.
 ═══════════════════════════════════════════════════════════
 ${witness.base_testimony}\n\n`;
   } else {
-    prompt += `WARNING: You have no written testimony. You can only say "I don't recall."\n\n`;
+    prompt += `WARNING: You have no written testimony or knowledge on record. You genuinely have nothing to add beyond what's already been said in court.\n\n`;
   }
 
   if (previousInteractions.length > 0) {
@@ -760,13 +813,15 @@ ${witness.base_testimony}\n\n`;
   }
 
   prompt += `CRITICAL INSTRUCTIONS:
-1. ONLY answer based on your WRITTEN TESTIMONY above. No new facts.
-2. If asked about something NOT in your testimony: "I don't recall that."
-3. You can rephrase or clarify testimony, but CANNOT add information.
-4. Stay in character with your personality traits.
-5. Be consistent with previous answers.
-6. Keep responses concise and natural, as if speaking in court.
-7. DO NOT invent or speculate beyond your testimony.`;
+1. ONLY answer based on the knowledge above. No new facts, ever — not even small, plausible-sounding filler details.
+2. Match your answer to the RIGHT category above — don't treat hidden knowledge or secrets as freely offerable, and don't treat something you only partly know as something you know in full.
+3. "I don't know" / "I don't recall" is ONLY the honest answer for things in your genuinely-unknown category. It is NOT a catch-all for anything inconvenient or anything not explicitly listed — for hidden knowledge or secrets, evade or deflect in character instead of flatly denying knowledge; for things outside your knowledge entirely, say plainly that you can't speak to that and why (wasn't there, not your area, etc.).
+4. If a question contains a false premise or misstates a fact, correct the premise rather than answering as if it were true.
+5. If a question mischaracterizes something you said earlier, correct the characterization rather than letting it stand.
+${isDeceptive ? '6. You are willing to actively mislead, not just withhold, when it serves you — but stay internally consistent with anything you\'ve already said.' : '6. You may be reluctant or evasive about secrets and hidden knowledge, but you do not state things you know to be false.'}
+7. Stay in character with your personality traits throughout.
+8. Be consistent with your own previous answers in this trial.
+9. Keep responses concise and natural, as if speaking in court — not a list, a spoken answer.`;
 
   return prompt;
 }
