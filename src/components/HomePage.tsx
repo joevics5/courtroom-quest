@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Volume2, VolumeX, X } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playGavelTap } from '../lib/soundEffects';
-import { HERO_VIDEO, HERO_POSTER } from '../lib/heroAssets';
+import HeroBackground from './HeroBackground';
 
 interface HomePageProps {
   /** Starts play: signs in as a guest if needed, then opens the case dashboard */
@@ -17,7 +17,6 @@ const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', '
 
 export default function HomePage({ onChooseCase, onOpenSettings, onSignIn, hasAccount }: HomePageProps) {
   const [soundOn, setSoundOn] = useState(false);
-  const [videoFailed, setVideoFailed] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [busy, setBusy] = useState<'play' | 'settings' | null>(null);
 
@@ -44,23 +43,7 @@ export default function HomePage({ onChooseCase, onOpenSettings, onSignIn, hasAc
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-[#0b0d14]">
-      {/* Background: looping muted video, with the poster as instant/fallback image */}
-      {videoFailed ? (
-        <img src={HERO_POSTER} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover" />
-      ) : (
-        <video
-          className="absolute inset-0 w-full h-full object-cover"
-          src={HERO_VIDEO}
-          poster={HERO_POSTER}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          onError={() => setVideoFailed(true)}
-        />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/15 to-black/85" />
+      <HeroBackground overlay="from-black/65 via-black/15 to-black/85" />
 
       <div className="relative z-10 min-h-[100dvh] flex flex-col px-5" style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
         {/* Top bar */}

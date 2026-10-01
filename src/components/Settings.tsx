@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { ArrowLeft, X, Feather, Scale as ScaleIcon, Flame, Check } from 'lucide-react';
 import { db } from '../lib/database';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { getPublicName } from '../lib/userName';
 import { DIFFICULTY_INFO } from '../lib/trialConfig';
 import type { Difficulty, UserProfile } from '../types';
 
@@ -39,6 +42,38 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const tiers: Difficulty[] = ['easy', 'medium', 'hard'];
+  const { user, signOut } = useAuth();
+  const isGuest = !!user?.is_anonymous;
+  const [nickname, setNickname] = useState(user?.user_metadata?.nickname || '');
+  const [nameStatus, setNameStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [nameError, setNameError] = useState('');
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+
+  const handleSaveNickname = async () => {
+    const value = nickname.trim().replace(/\s+/g, ' ');
+    if (value.length < 2 || value.length > 20) {
+      setNameError('Use 2–20 characters.');
+      setNameStatus('error');
+      return;
+    }
+    if (!/^[A-Za-z0-9 _.-]+$/.test(value)) {
+      setNameError('Letters, numbers, spaces, _ - . only.');
+      setNameStatus('error');
+      return;
+    }
+    setNameStatus('saving');
+    setNameError('');
+    const { error } = await supabase.auth.updateUser({ data: { nickname: value } });
+    if (error) {
+      console.error('Failed to save nickname:', error);
+      setNameError('Could not save. Try again.');
+      setNameStatus('error');
+      return;
+    }
+    setNickname(value);
+    setNameStatus('saved');
+    setTimeout(() => setNameStatus('idle'), 2000);
+  };
 
   const handleSelect = async (tier: Difficulty) => {
     setSelected(tier);
@@ -112,6 +147,65 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
             <p className="text-green-400 text-sm mt-4 flex items-center gap-1">
               <Check className="w-4 h-4" /> Saved
             </p>
+          )}
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mt-4">
+          <h2 className="text-white font-semibold mb-1">Nickname</h2>
+          <p className="text-white/50 text-sm mb-4">
+            Shown on leaderboards and as your name in court. Your email is never shown. Right now you appear as <span className="text-white/80 font-semibold">{getPublicName(user)}</span>.
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={nickname}
+              onChange={e => { setNickname(e.target.value); if (nameStatus !== 'idle') setNameStatus('idle'); }}
+              maxLength={20}
+              placeholder="Pick a nickname"
+              className="flex-1 min-w-0 rounded-lg bg-black/40 border border-white/15 px-3 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500"
+            />
+            <button
+              onClick={handleSaveNickname}
+              disabled={nameStatus === 'saving' || !nickname.trim()}
+              className="rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold px-4"
+            >
+              {nameStatus === 'saving' ? '…' : 'Save'}
+            </button>
+          </div>
+          {nameStatus === 'saved' && (
+            <p className="text-green-400 text-sm mt-3 flex items-center gap-1"><Check className="w-4 h-4" /> Saved</p>
+          )}
+          {nameStatus === 'error' && <p className="text-red-400 text-sm mt-3">{nameError}</p>}
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mt-4">
+          <h2 className="text-white font-semibold mb-1">Account</h2>
+          {isGuest && (
+            <p className="text-amber-300/90 text-sm mb-4">
+              You're playing as a guest. Signing out will permanently lose your progress and wins.
+            </p>
+          )}
+          {!confirmSignOut ? (
+            <button
+              onClick={() => (isGuest ? setConfirmSignOut(true) : signOut())}
+              className="rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold px-4 py-2.5"
+            >
+              Sign out
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => signOut()}
+                className="rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold px-4 py-2.5"
+              >
+                Yes, lose my progress
+              </button>
+              <button
+                onClick={() => setConfirmSignOut(false)}
+                className="rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold px-4 py-2.5"
+              >
+                Cancel
+              </button>
+            </div>
           )}
         </div>
       </div>

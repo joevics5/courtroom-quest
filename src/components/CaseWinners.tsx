@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Trophy, X } from 'lucide-react';
 import { db } from '../lib/database';
+import { maskPublicName } from '../lib/userName';
 import type { CaseWinner } from '../types';
 
 interface CaseWinnersProps {
@@ -81,7 +82,7 @@ export default function CaseWinners({ caseId, caseTitle, onClose }: CaseWinnersP
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-white font-semibold">{winner.username}</span>
+                          <span className="text-white font-semibold">{maskPublicName(winner.username)}</span>
                           <span className="text-xs px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30">
                             {winner.level_achieved}
                           </span>

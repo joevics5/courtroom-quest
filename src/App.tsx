@@ -18,7 +18,7 @@ import PreTrialScript from './components/PreTrialScript';
 import SubscriptionGate, { getTrialLimit, canCreateCustomCase } from './components/SubscriptionGate';
 import { db } from './lib/database';
 import { getLevelForWins } from './lib/levels';
-import { getUserDisplayName } from './lib/userName';
+import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import { didPlayerWin } from './lib/verdictUtils';
 import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
@@ -63,6 +63,15 @@ function AppContent() {
   const [subscriptionGateFeature, setSubscriptionGateFeature] = useState('');
   const [subscriptionGateRequired, setSubscriptionGateRequired] = useState<SubscriptionTier>('basic');
   const [showAuth, setShowAuth] = useState(false);
+
+  // After signing out, drop back to a clean state so the next visitor
+  // doesn't inherit an open popup or a leftover screen.
+  useEffect(() => {
+    if (!user) {
+      setShowSettingsPopup(false);
+      setView('landing');
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -584,7 +593,7 @@ function AppContent() {
         await db.caseWinners.addWinner({
           case_id: currentCase.id,
           user_id: user.id,
-          username: user.email || 'Anonymous',
+          username: getPublicName(user),
           level_achieved: levelInfo.title,
           verdict_score: verdict.score || 0
         });
@@ -630,6 +639,7 @@ function AppContent() {
           onPlayFeaturedCase={(caseId) => handleSelectCase(caseId, false)}
           onOpenSettings={() => setView('settings')}
           onOpenAdmin={isAdmin ? handleOpenAdmin : undefined}
+          onBackToHome={() => setShowHome(true)}
         />
       )}
 
