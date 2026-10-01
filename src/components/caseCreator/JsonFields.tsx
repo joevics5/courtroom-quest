@@ -158,7 +158,7 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
 export function Fields({ value, onChange, blank, path = '' }: { value: Record<string, any>; onChange: (v: any) => void; blank?: (path: string) => any; path?: string }) {
   return (
     <div className="space-y-3">
-      {Object.entries(value ?? {}).map(([k, v]) => (
+      {Object.entries(value ?? {}).filter(([k]) => !k.startsWith('_')).map(([k, v]) => (
         <Field
           key={k} name={k} value={v} blank={blank} path={path ? `${path}.${k}` : k}
           onChange={(nv) => onChange({ ...value, [k]: nv })}

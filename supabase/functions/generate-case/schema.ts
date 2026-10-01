@@ -159,16 +159,35 @@ export const AnalysisSchema = obj({
 export type Core = z.infer<typeof CoreSchema>;
 export type Analysis = z.infer<typeof AnalysisSchema>;
 
+// ---------- difficulty tiers (keep in sync with src/lib/caseCreator/tiers.ts) ----------
+export type Tier = "easy" | "medium" | "hard";
+type Range = [number, number];
+export const TIERS: Record<Tier, {
+  witnesses: Range; evidence: Range; facts: Range; timeline: Range; loopholes: Range;
+  redHerrings: Range; contradictions: Range; objections: Range; hidden: Range;
+}> = {
+  easy:   { witnesses: [3, 5],  evidence: [3, 5],  facts: [8, 12],  timeline: [6, 8],   loopholes: [3, 4],  redHerrings: [1, 2], contradictions: [3, 4], objections: [4, 6], hidden: [1, 1] },
+  medium: { witnesses: [6, 8],  evidence: [6, 8],  facts: [12, 18], timeline: [8, 12],  loopholes: [5, 7],  redHerrings: [2, 3], contradictions: [4, 6], objections: [5, 7], hidden: [2, 3] },
+  hard:   { witnesses: [9, 12], evidence: [9, 12], facts: [18, 26], timeline: [10, 16], loopholes: [8, 12], redHerrings: [3, 5], contradictions: [6, 9], objections: [6, 8], hidden: [3, 4] },
+};
+export const tierOf = (d?: string): Tier => (d === "easy" || d === "hard" ? d : "medium");
+const rng = (r: Range) => (r[0] === r[1] ? `${r[0]}` : `${r[0]}-${r[1]}`);
+
 // ---------- validation ----------
+// lenient = improving an existing case: never fail because there are MORE items than the tier maximum
+// (existing witnesses/evidence are kept), only because there are too few.
 const codes = (xs: { code?: string; id?: string }[], key: "code" | "id") =>
   new Set(xs.map((x) => (x as any)[key]).filter(Boolean));
 
-export function validateCore(c: Core): string[] {
+export function validateCore(c: Core, lenient = false): string[] {
   const e: string[] = [];
+  const t = TIERS[tierOf(c.case.difficulty)];
+  const label = tierOf(c.case.difficulty);
   if (!c.case.title) e.push("case.title is empty");
   if (!c.case.description) e.push("case.description is empty");
-  if (c.facts.length < 8) e.push(`need at least 8 facts (got ${c.facts.length})`);
-  if (c.witnesses.length < 4) e.push(`need at least 4 witnesses (got ${c.witnesses.length})`);
+  if (c.facts.length < t.facts[0]) e.push(`${label} difficulty needs at least ${t.facts[0]} facts (got ${c.facts.length})`);
+  if (c.witnesses.length < t.witnesses[0] || (!lenient && c.witnesses.length > t.witnesses[1]))
+    e.push(`${label} difficulty needs ${rng(t.witnesses)} witnesses (got ${c.witnesses.length})`);
   const factIds = codes(c.facts as any, "id");
   if (factIds.size !== c.facts.length) e.push("fact ids must be unique and non-empty (F1, F2, ...)");
   const wCodes = codes(c.witnesses as any, "code");
@@ -179,7 +198,7 @@ export function validateCore(c: Core): string[] {
     if (w.secret.knowledge.length < 3) e.push(`witness ${w.code} needs at least 3 knowledge entries`);
     for (const k of w.secret.knowledge) if (!factIds.has(k.fact_id)) missing.add(`${w.code}->${k.fact_id}`);
   }
-  for (const t of c.timeline) for (const f of t.fact_ids) if (!factIds.has(f)) missing.add(`timeline->${f}`);
+  for (const tl of c.timeline) for (const f of tl.fact_ids) if (!factIds.has(f)) missing.add(`timeline->${f}`);
   for (const [name, th] of Object.entries(c.theories)) {
     for (const f of (th as any).supporting_fact_ids) if (!factIds.has(f)) missing.add(`${name} theory->${f}`);
     if (!(th as any).core_claim) e.push(`${name} theory has no core_claim`);
@@ -187,13 +206,16 @@ export function validateCore(c: Core): string[] {
   if (missing.size) e.push(`references to fact ids that do not exist: ${[...missing].slice(0, 12).join(", ")}`);
   if (!c.witnesses.some((w) => w.secret.knowledge.some((k) => k.state === "hidden")))
     e.push("at least one witness must hold hidden knowledge");
-  if (c.timeline.length < 6) e.push(`timeline too short (${c.timeline.length}); need at least 6 events`);
+  if (c.timeline.length < t.timeline[0]) e.push(`timeline too short (${c.timeline.length}); need at least ${t.timeline[0]} events`);
   return e;
 }
 
-export function validateAnalysis(a: Analysis, core: Core): string[] {
+export function validateAnalysis(a: Analysis, core: Core, lenient = false): string[] {
   const e: string[] = [];
-  if (a.evidence.length < 5) e.push(`need at least 5 evidence items (got ${a.evidence.length})`);
+  const label = tierOf(core.case.difficulty);
+  const t = TIERS[label];
+  if (a.evidence.length < t.evidence[0] || (!lenient && a.evidence.length > t.evidence[1]))
+    e.push(`${label} difficulty needs ${rng(t.evidence)} evidence items (got ${a.evidence.length})`);
   const eCodes = codes(a.evidence as any, "code");
   if (eCodes.size !== a.evidence.length) e.push("evidence codes must be unique and non-empty (E1, E2, ...)");
   const wCodes = codes(core.witnesses as any, "code");
@@ -212,16 +234,18 @@ export function validateAnalysis(a: Analysis, core: Core): string[] {
     for (const w of l.witness_codes) if (!wCodes.has(w)) bad.add(`${l.id}->${w}`);
   }
   for (const side of ["prosecution", "defence"])
-    if (loopholeSides[side] < 5) e.push(`need at least 5 ${side} loopholes (got ${loopholeSides[side]})`);
+    if (loopholeSides[side] < t.loopholes[0])
+      e.push(`${label} difficulty needs ${rng(t.loopholes)} ${side} loopholes (got ${loopholeSides[side]})`);
   for (const r of a.red_herrings) {
     for (const c of r.evidence_codes) if (!eCodes.has(c)) bad.add(`${r.id}->${c}`);
     for (const w of r.witness_codes) if (!wCodes.has(w)) bad.add(`${r.id}->${w}`);
   }
-  if (a.red_herrings.length < 2) e.push("need at least 2 red herrings");
-  if (a.contradictions.length < 3) e.push("need at least 3 contradictions");
-  if (a.objections.length < 4) e.push("need at least 4 objections");
+  if (a.red_herrings.length < t.redHerrings[0]) e.push(`need at least ${t.redHerrings[0]} red herrings`);
+  if (a.contradictions.length < t.contradictions[0]) e.push(`need at least ${t.contradictions[0]} contradictions`);
+  if (a.objections.length < t.objections[0]) e.push(`need at least ${t.objections[0]} objections`);
   if (bad.size) e.push(`references to codes that do not exist: ${[...bad].slice(0, 12).join(", ")}`);
-  if (!a.evidence.some((x) => x.is_hidden)) e.push("at least one evidence item should be hidden (discoverable via investigation)");
+  const hidden = a.evidence.filter((x) => x.is_hidden).length;
+  if (hidden < t.hidden[0]) e.push(`at least ${t.hidden[0]} evidence item(s) must be hidden (discoverable via investigation)`);
   return e;
 }
 

@@ -1,13 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Sparkles, Save, Loader2, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Fields, ListEditor } from './caseCreator/JsonFields';
 import { BLANKS, BLANK_EVIDENCE, BLANK_WITNESS } from '../lib/caseCreator/blank';
-import { EMPTY_ANALYSIS, draftToCore, generateAnalysis, generateCore, toDraft } from '../lib/caseCreator/api';
+import {
+  EMPTY_ANALYSIS, applyExistingAnalysis, applyExistingCore, draftToCore, generateAnalysis, generateCore, toDraft,
+} from '../lib/caseCreator/api';
+import type { ImproveExtras } from '../lib/caseCreator/api';
+import { loadExistingCase } from '../lib/caseCreator/load';
+import { TIERS, rangeText, tierOf } from '../lib/caseCreator/tiers';
 import { validateDraft } from '../lib/caseCreator/validate';
 import { saveDraft } from '../lib/caseCreator/save';
 import type { Draft, GenerateOptions } from '../lib/caseCreator/types';
 
 interface Props {
+  /** When set, loads this case so it can be edited and improved instead of creating a new one. */
+  existingCaseId?: string;
   onBack: () => void;
   onSaved?: (caseId: string) => void;
 }
@@ -30,27 +37,55 @@ const nestedBlank = (path: string) => {
   return null;
 };
 
-export default function AdminCaseCreator({ onBack, onSaved }: Props) {
+export default function AdminCaseCreator({ existingCaseId, onBack, onSaved }: Props) {
   const [story, setStory] = useState('');
   const [opts, setOpts] = useState<GenerateOptions>({ jurisdiction: '', case_type: '', difficulty: '', duration: '', special: '' });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [tab, setTab] = useState<Tab>('case');
   const [busy, setBusy] = useState<null | 'core' | 'analysis' | 'save'>(null);
+  const [loading, setLoading] = useState(!!existingCaseId);
+  const [improve, setImprove] = useState<ImproveExtras | null>(null);
+  const [instructions, setInstructions] = useState('');
+  const [needsAnalysis, setNeedsAnalysis] = useState(false);
+  const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
+  const isExisting = !!existingCaseId;
   const [error, setError] = useState<string | null>(null);
   const [serverWarnings, setServerWarnings] = useState<string[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
 
   const check = useMemo(() => (draft ? validateDraft(draft) : { errors: [], warnings: [] }), [draft]);
-  const analysisMissing = !!draft && draft.evidence.length === 0;
+  const analysisMissing = !!draft && needsAnalysis;
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => (d ? { ...d, [key]: value } : d));
+
+  useEffect(() => {
+    if (!existingCaseId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { draft: loaded, context } = await loadExistingCase(existingCaseId);
+        if (cancelled) return;
+        setDraft(loaded);
+        setImprove({ existing: context, instructions: '' });
+        setOpts((o) => ({ ...o, difficulty: loaded.case.difficulty || '' }));
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [existingCaseId]);
+
+  const extras = (): ImproveExtras | undefined => (improve ? { existing: improve.existing, instructions } : undefined);
 
   const runAnalysis = async (base: Draft) => {
     setBusy('analysis');
     setError(null);
     try {
-      const res = await generateAnalysis(base.source_story, opts, draftToCore(base));
+      const res = await generateAnalysis(base.source_story, opts, draftToCore(base), extras());
       setServerWarnings((w) => [...w, ...res.warnings]);
-      setDraft(toDraft(base.source_story, draftToCore(base), res.data));
+      setDraft(base._case_id ? applyExistingAnalysis(base, res.data) : toDraft(base.source_story, draftToCore(base), res.data));
+      setNeedsAnalysis(false);
     } catch (e) {
       setError(`Evidence & analysis failed: ${e instanceof Error ? e.message : String(e)}. Your case and witnesses are kept; use "Retry evidence & analysis".`);
     } finally {
@@ -69,6 +104,7 @@ export default function AdminCaseCreator({ onBack, onSaved }: Props) {
       setServerWarnings(res.warnings);
       base = toDraft(story, res.data, EMPTY_ANALYSIS);
       setDraft(base);
+      setNeedsAnalysis(true);
       setTab('case');
     } catch (e) {
       setError(`Case generation failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -78,15 +114,38 @@ export default function AdminCaseCreator({ onBack, onSaved }: Props) {
     await runAnalysis(base);
   };
 
+  const runImprove = async () => {
+    if (!draft || !improve) return;
+    setError(null);
+    setServerWarnings([]);
+    setBusy('core');
+    let merged: Draft;
+    try {
+      const res = await generateCore(draft.source_story, opts, extras());
+      setServerWarnings(res.warnings);
+      merged = applyExistingCore(draft, res.data);
+      setDraft(merged);
+      setNeedsAnalysis(true);
+      setTab('case');
+    } catch (e) {
+      setError(`Improvement failed: ${e instanceof Error ? e.message : String(e)}. Nothing was changed.`);
+      setBusy(null);
+      return;
+    }
+    await runAnalysis(merged);
+  };
+
   const save = async () => {
     if (!draft) return;
     if (check.errors.length) { setError('Fix the errors listed above before saving.'); return; }
+    if (isExisting && !confirm('Update this live case with your changes? Witnesses or evidence you deleted here are removed (unless players have already used them).')) return;
     setBusy('save');
     setError(null);
     try {
-      const id = await saveDraft(draft);
-      setSavedId(id);
-      onSaved?.(id);
+      const res = await saveDraft(draft);
+      setSaveWarnings(res.warnings);
+      setSavedId(res.caseId);
+      onSaved?.(res.caseId);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -106,13 +165,19 @@ export default function AdminCaseCreator({ onBack, onSaved }: Props) {
         <div className="flex items-center gap-3 mb-6">
           <div className="w-11 h-11 bg-amber-600 rounded-full flex items-center justify-center"><Sparkles className="w-5 h-5 text-white" /></div>
           <div>
-            <h1 className="text-2xl font-bold text-white">AI Case Creator</h1>
-            <p className="text-slate-400 text-sm">Paste a story, review every field, then save to the database.</p>
+            <h1 className="text-2xl font-bold text-white">{isExisting ? 'Improve Case' : 'AI Case Creator'}</h1>
+            <p className="text-slate-400 text-sm">
+              {isExisting ? 'Edit any field, or let the AI deepen this case. Nothing changes until you save.' : 'Paste a story, review every field, then save to the database.'}
+            </p>
           </div>
         </div>
 
         {/* INPUT */}
-        {!draft && (
+        {loading && (
+          <div className="flex items-center gap-2 text-slate-300 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading case…</div>
+        )}
+
+        {!draft && !isExisting && (
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 sm:p-6 space-y-4">
             <div>
               <label className="block text-sm text-slate-300 mb-1">Case story</label>
@@ -141,6 +206,9 @@ export default function AdminCaseCreator({ onBack, onSaved }: Props) {
                 {['10 minutes', '30 minutes', '60 minutes'].map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
+            <p className="text-xs text-slate-500">
+              Easy: 3-5 witnesses &amp; evidence · Medium: 6-8 · Hard: 9-12. Leave difficulty on “let AI decide” and it picks one from the story.
+            </p>
             <textarea
               value={opts.special} onChange={(e) => setOpts({ ...opts, special: e.target.value })} rows={2}
               placeholder="Special requirements (optional), e.g. 'one witness must lie', 'bench trial only', 'keep it to 5 witnesses'"
@@ -166,9 +234,10 @@ export default function AdminCaseCreator({ onBack, onSaved }: Props) {
         {/* SAVED */}
         {savedId && (
           <div className="mt-4 bg-green-900/30 border border-green-700 text-green-200 rounded-lg p-4 text-sm">
-            <div className="flex items-center gap-2 font-medium"><CheckCircle2 className="w-4 h-4" /> Case saved as a preset case.</div>
+            <div className="flex items-center gap-2 font-medium"><CheckCircle2 className="w-4 h-4" /> {isExisting ? 'Case updated.' : 'Case saved as a preset case.'}</div>
+            {saveWarnings.map((m, i) => <p key={i} className="mt-2 text-amber-300 text-xs">• {m}</p>)}
             <div className="mt-3 flex gap-2">
-              <button onClick={reset} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded">Create another</button>
+              {!isExisting && <button onClick={reset} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded">Create another</button>}
               <button onClick={onBack} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded">Back to Admin Panel</button>
             </div>
           </div>
@@ -177,6 +246,35 @@ export default function AdminCaseCreator({ onBack, onSaved }: Props) {
         {/* REVIEW */}
         {draft && !savedId && (
           <div className="mt-4 space-y-4">
+            {isExisting && (
+              <div className="bg-slate-800 border border-amber-700/50 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2 text-amber-400 text-sm font-semibold"><Sparkles className="w-4 h-4" /> Improve with AI</div>
+                <p className="text-xs text-slate-400">
+                  Keeps every existing witness and evidence item, fills in the hidden layers (facts, timeline, witness knowledge, loopholes) and adds
+                  what the target difficulty needs ({tierOf(opts.difficulty)}: {rangeText(TIERS[tierOf(opts.difficulty)].witnesses)} witnesses, {rangeText(TIERS[tierOf(opts.difficulty)].evidence)} evidence).
+                  You review everything before it is saved.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <select value={opts.difficulty} onChange={(e) => setOpts({ ...opts, difficulty: e.target.value })} className={selectCls}>
+                    {['easy', 'medium', 'hard'].map((t) => <option key={t} value={t}>Target difficulty: {t}</option>)}
+                  </select>
+                  <input value={opts.jurisdiction} onChange={(e) => setOpts({ ...opts, jurisdiction: e.target.value })} placeholder="Jurisdiction (optional)" className={selectCls} />
+                </div>
+                <textarea
+                  value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={3}
+                  placeholder="What should it improve? e.g. 'add two more witnesses', 'make the timeline contradictory', 'the defence side is too weak'"
+                  className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  onClick={runImprove} disabled={busy !== null}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+                >
+                  {busy === 'core' || busy === 'analysis' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {busy === 'core' ? 'Step 1/2: improving case & witnesses…' : busy === 'analysis' ? 'Step 2/2: improving evidence…' : 'Improve with AI'}
+                </button>
+              </div>
+            )}
+
             {analysisMissing && (
               <div className="bg-amber-900/30 border border-amber-700 text-amber-100 rounded-lg p-3 text-sm flex items-center justify-between gap-3">
                 <span>{busy === 'analysis' ? 'Building evidence & analysis…' : 'Evidence & analysis have not been generated yet.'}</span>
@@ -282,15 +380,15 @@ export default function AdminCaseCreator({ onBack, onSaved }: Props) {
                 onClick={save} disabled={busy !== null || check.errors.length > 0}
                 className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium"
               >
-                {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save case to database
+                {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {isExisting ? 'Save changes' : 'Save case to database'}
               </button>
               <button
-                onClick={() => { if (confirm('Discard this draft?')) reset(); }} disabled={busy !== null}
+                onClick={() => { if (confirm(isExisting ? 'Discard your unsaved changes?' : 'Discard this draft?')) { if (isExisting) onBack(); else reset(); } }} disabled={busy !== null}
                 className="px-4 py-2.5 text-slate-300 hover:text-white"
               >
                 Discard draft
               </button>
-              <span className="text-xs text-slate-500">Saved as a preset case. Admin-only fields go to separate protected tables.</span>
+              <span className="text-xs text-slate-500">{isExisting ? 'Updates this case in place; player history stays linked.' : 'Saved as a preset case. Admin-only fields go to separate protected tables.'}</span>
             </div>
           </div>
         )}

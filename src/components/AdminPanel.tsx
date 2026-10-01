@@ -16,6 +16,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [showForm, setShowForm] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
+  const [creatorCaseId, setCreatorCaseId] = useState<string | undefined>(undefined);
   const [editingCaseId, setEditingCaseId] = useState<string>('');
 
   const [formData, setFormData] = useState({
@@ -93,7 +94,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   };
 
   if (showCreator) {
-    return <AdminCaseCreator onBack={() => { setShowCreator(false); loadPresetCases(); }} />;
+    return <AdminCaseCreator key={creatorCaseId ?? 'new'} existingCaseId={creatorCaseId} onBack={() => { setShowCreator(false); setCreatorCaseId(undefined); loadPresetCases(); }} />;
   }
 
   if (showEditor && editingCaseId) {
@@ -130,7 +131,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
             <h2 className="text-xl font-semibold text-white">Preset Cases</h2>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
-              onClick={() => setShowCreator(true)}
+              onClick={() => { setCreatorCaseId(undefined); setShowCreator(true); }}
               className="flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
             >
               <Sparkles className="w-4 h-4" />
@@ -266,6 +267,13 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                         </div>
                       </div>
                       <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => { setCreatorCaseId(caseItem.id); setShowCreator(true); }}
+                          title="Improve with AI"
+                          className="p-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleEdit(caseItem)}
                           className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"

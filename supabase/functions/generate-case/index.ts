@@ -8,7 +8,7 @@ import {
   AnalysisSchema, CoreSchema, stripDanglingAnalysis, stripDanglingCore, validateAnalysis, validateCore,
 } from "./schema.ts";
 import type { Core } from "./schema.ts";
-import { ANALYSIS_SYSTEM, CORE_SYSTEM, buildUser } from "./prompts.ts";
+import { analysisSystem, buildUser, coreSystem } from "./prompts.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -76,16 +76,25 @@ function parseJson(text: string): unknown {
   return JSON.parse(t);
 }
 
-async function runStage(stage: "core" | "analysis", story: string, options: Record<string, string>, core?: Core) {
+const DIFF_OVERRIDE: Record<string, string> = { easy: "easy", medium: "medium", hard: "hard", expert: "hard" };
+
+async function runStage(
+  stage: "core" | "analysis", story: string, options: Record<string, string>, core?: Core,
+  existing?: any, instructions?: string,
+) {
   const started = Date.now();
-  const system = stage === "core" ? CORE_SYSTEM : ANALYSIS_SYSTEM;
+  const improving = !!existing;
+  const requested = DIFF_OVERRIDE[String(options.difficulty ?? "").toLowerCase()];
+  const system = stage === "core"
+    ? coreSystem(requested, improving)
+    : analysisSystem(core?.case.difficulty ?? requested, improving);
   let errors: string[] = [];
   let best: { data: any; errors: string[]; model: string } | null = null;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const remaining = BUDGET_MS - (Date.now() - started);
     if (attempt > 1 && remaining < 30_000) break;
-    const user = buildUser(stage, story, options, core, attempt > 1 ? errors : undefined);
+    const user = buildUser(stage, story, options, core, attempt > 1 ? errors : undefined, existing, instructions);
     const { text, model, finishReason } = await callGemini(system, user, Math.min(120_000, remaining));
 
     let parsed: any;
@@ -99,7 +108,8 @@ async function runStage(stage: "core" | "analysis", story: string, options: Reco
       ];
       continue;
     }
-    errors = stage === "core" ? validateCore(parsed) : validateAnalysis(parsed, core!);
+    if (stage === "core" && requested) parsed.case.difficulty = requested; // the admin's choice wins
+    errors = stage === "core" ? validateCore(parsed, improving) : validateAnalysis(parsed, core!, improving);
     if (!best || errors.length < best.errors.length) best = { data: parsed, errors, model };
     if (errors.length === 0) break;
   }
@@ -131,7 +141,9 @@ Deno.serve(async (req: Request) => {
       core = parsed.data;
     }
 
-    const result = await runStage(stage, story, options, core);
+    const existing = body.existing && typeof body.existing === "object" ? body.existing : undefined;
+    const instructions = String(body.instructions ?? "").slice(0, 4000);
+    const result = await runStage(stage, story, options, core, existing, instructions);
     return json(result);
   } catch (error) {
     console.error("generate-case error:", error);

@@ -1,4 +1,5 @@
 import type { Draft } from './types';
+import { TIERS, rangeText, tierOf } from './tiers';
 
 /** Live checks shown while the admin edits. Returns human-readable problems (empty = clean). */
 export function validateDraft(d: Draft): { errors: string[]; warnings: string[] } {
@@ -7,10 +8,16 @@ export function validateDraft(d: Draft): { errors: string[]; warnings: string[] 
 
   if (!d.case.title.trim()) errors.push('Case title is empty.');
   if (!d.case.description.trim()) errors.push('Public description is empty.');
-  if (d.witnesses.length < 4) errors.push(`Need at least 4 witnesses (have ${d.witnesses.length}).`);
-  if (d.evidence.length < 5) errors.push(`Need at least 5 evidence items (have ${d.evidence.length}).`);
-  if (d.witnesses.length > 12) warnings.push(`${d.witnesses.length} witnesses is a lot; most cases work best with 6-8.`);
-  if (d.evidence.length > 14) warnings.push(`${d.evidence.length} evidence items is a lot; most cases work best with 6-12.`);
+  // Hard floor: below this the case cannot be played. The tier range is only advice.
+  if (d.witnesses.length < 3) errors.push(`Need at least 3 witnesses (have ${d.witnesses.length}).`);
+  if (d.evidence.length < 3) errors.push(`Need at least 3 evidence items (have ${d.evidence.length}).`);
+  const tier = tierOf(d.case.difficulty);
+  const t = TIERS[tier];
+  const outside = (n: number, r: [number, number]) => n < r[0] || n > r[1];
+  if (outside(d.witnesses.length, t.witnesses))
+    warnings.push(`${tier} cases usually have ${rangeText(t.witnesses)} witnesses (you have ${d.witnesses.length}).`);
+  if (d.evidence.length > 0 && outside(d.evidence.length, t.evidence))
+    warnings.push(`${tier} cases usually have ${rangeText(t.evidence)} evidence items (you have ${d.evidence.length}).`);
 
   const dup = (codes: string[], label: string) => {
     const seen = new Set<string>();
@@ -54,8 +61,8 @@ export function validateDraft(d: Draft): { errors: string[]; warnings: string[] 
   const pros = d.loopholes.filter((l) => l.side === 'prosecution').length;
   const def = d.loopholes.filter((l) => l.side === 'defence').length;
   if (d.evidence.length > 0) {
-    if (pros < 5) warnings.push(`Only ${pros} prosecution loopholes (aim for 5+).`);
-    if (def < 5) warnings.push(`Only ${def} defence loopholes (aim for 5+).`);
+    if (pros < t.loopholes[0]) warnings.push(`Only ${pros} prosecution loopholes (${tier} cases aim for ${rangeText(t.loopholes)}).`);
+    if (def < t.loopholes[0]) warnings.push(`Only ${def} defence loopholes (${tier} cases aim for ${rangeText(t.loopholes)}).`);
     const hidden = d.evidence.filter((e) => e.is_hidden).length;
     if (hidden > 0)
       warnings.push(`${hidden} evidence item(s) are marked hidden. Players cannot discover hidden evidence in the app yet, so untick "Is hidden" on any you want visible now.`);

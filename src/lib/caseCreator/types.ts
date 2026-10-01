@@ -4,6 +4,8 @@
 export type KnowledgeState = 'knows' | 'partial' | 'hidden' | 'believes_falsely' | 'lying' | 'unknown';
 
 export interface DraftWitness {
+  /** DB row id when this witness already exists (hidden in the editor) */
+  _id?: string;
   code: string;
   name: string;
   age: number | null;
@@ -30,10 +32,16 @@ export interface DraftWitness {
     motivated_omissions: string[];
     limitations: string[];
     sample_questions: { prosecution: string[]; defence: string[]; damaging: string[] };
+    /** Kept from older cases so improving them never drops what the witness could already recognise */
+    evidence_recognized?: string[];
+    evidence_can_authenticate?: string[];
   };
 }
 
 export interface DraftEvidence {
+  /** DB row id and exhibit label when this item already exists (hidden in the editor) */
+  _id?: string;
+  _exhibit_label?: string;
   code: string;
   title: string;
   evidence_type: string;
@@ -71,6 +79,8 @@ export interface DraftEvidence {
 }
 
 export interface Draft {
+  /** Set when improving an existing case; saveDraft then updates instead of inserting */
+  _case_id?: string;
   source_story: string;
   case: {
     title: string; subtitle: string; case_type: string; difficulty: string; defendant_name: string;

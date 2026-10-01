@@ -1,4 +1,26 @@
 // Prompts for the two-stage case generator. Output is strict JSON.
+import { TIERS, tierOf } from "./schema.ts";
+
+const rng = (r: [number, number]) => (r[0] === r[1] ? `${r[0]}` : `${r[0]}-${r[1]}`);
+
+// Counts the model must hit, by difficulty. If difficulty is unknown the model picks one and follows its row.
+function tierBlock(difficulty?: string): string {
+  const row = (name: "easy" | "medium" | "hard") => {
+    const t = TIERS[name];
+    return `${name.toUpperCase()}: ${rng(t.witnesses)} witnesses, ${rng(t.evidence)} evidence items (at least ${t.hidden[0]} hidden), ${rng(t.facts)} facts, ${rng(t.timeline)} timeline events, ${rng(t.loopholes)} loopholes PER SIDE, ${rng(t.redHerrings)} red herrings, ${rng(t.contradictions)} contradictions, ${rng(t.objections)} objections`;
+  };
+  if (difficulty) {
+    const d = tierOf(difficulty);
+    return `DIFFICULTY IS ${d.toUpperCase()}. Required counts: ${row(d).split(": ")[1]}. Harder = more layers and subtler contradictions; easier = clearer, fewer moving parts.`;
+  }
+  return `Choose the difficulty (easy, medium or hard) from the story's complexity, set case.difficulty to it, and follow that row exactly:\n${row("easy")}\n${row("medium")}\n${row("hard")}`;
+}
+
+const IMPROVE = `IMPROVEMENT MODE: an EXISTING CASE is provided. It is already live, so:
+- Keep every existing witness and evidence item. Use the same name/title and the same role; you may polish their text and fill in all hidden layers (knowledge, secrets, interpretations, prompts).
+- Do not contradict facts already established in the existing case text.
+- Add new witnesses/evidence only to reach the required counts or to follow the admin's instructions. If the existing case already has more than the required maximum, keep them all.
+- Follow the admin's instructions first where they do not break the rules above.`;
 
 const PRINCIPLES = `You are the Case Architect for COURTROOM QUEST, an interactive courtroom game.
 Core principle: "Every case has a loophole. Find it. Argue it. Win the court."
@@ -35,9 +57,12 @@ const WITNESS_SHAPE = `{
   }
 }`;
 
-export const CORE_SYSTEM = `${PRINCIPLES}
+export const coreSystem = (difficulty?: string, improving = false) => `${PRINCIPLES}
 
 STAGE 1 of 2: create the case bible and the witnesses. Evidence comes in stage 2.
+
+${tierBlock(difficulty)}
+${improving ? "\n" + IMPROVE + "\n" : ""}
 
 Return this JSON shape:
 {
@@ -68,11 +93,11 @@ Return this JSON shape:
 }
 
 Requirements:
-- 12-25 atomic facts (F1, F2, ...) covering events, relationships, money, access, timing, and the misleading elements. Facts are the single source of truth every witness knowledge entry points to.
-- 8-14 timeline events with opportunities for contradiction (disputed/uncertain events, witnesses who believe different things).
-- Witnesses: 6-8 unless the case clearly warrants fewer (never below 4). Each has 4-10 knowledge entries. Include at least one each of: a witness holding hidden knowledge, one with a false belief, one biased, one who genuinely knows little but is still useful, and (if it fits the case) one who lies or withholds. Mix states across witnesses; no witness should hold every fact.
+- Facts (F1, F2, ...) cover events, relationships, money, access, timing, and the misleading elements, at the count for the difficulty. Facts are the single source of truth every witness knowledge entry points to.
+- Timeline events at the count for the difficulty, with opportunities for contradiction (disputed/uncertain events, witnesses who believe different things).
+- Witnesses: exactly the count for the difficulty. Each has 4-10 knowledge entries (3-6 for easy). Include, as far as the count allows: a witness holding hidden knowledge, one with a false belief, one biased, one who genuinely knows little but is still useful, and (if it fits the case) one who lies or withholds. Mix states across witnesses; no witness should hold every fact.
 - Theories: neither clearly superior. The alternative theory must be plausible.
-- Respect the requested difficulty (harder = more layers, subtler contradictions).`;
+- Set case.estimated_minutes to fit: easy ~10-15, medium ~30, hard ~60.`;
 
 const EVIDENCE_SHAPE = `{
   "code": "E1", "title": "", "evidence_type": "documents|photographs|images|physical_evidence|digital_evidence|expert_reports|confessions_statements|timeline_logs|witness_testimony|audio_recordings|story",
@@ -97,8 +122,10 @@ const EVIDENCE_SHAPE = `{
   }
 }`;
 
-export const ANALYSIS_SYSTEM = `${PRINCIPLES}
+export const analysisSystem = (difficulty?: string, improving = false) => `${PRINCIPLES}
 
+${tierBlock(difficulty)}
+${improving ? "\n" + IMPROVE + "\n" : ""}
 STAGE 2 of 2: you are given the story, the options and the stage 1 case bible (facts, timeline, theories, witnesses). Create the evidence and the analysis layer. Use ONLY the existing fact ids (F..) and witness codes (W..). Do not change stage 1 content.
 
 Return this JSON shape:
@@ -119,17 +146,15 @@ Return this JSON shape:
 }
 
 Requirements:
-- Evidence: 6-12 items unless the case clearly warrants fewer (never below 5). Mix types (documents, digital messages, photos, logs, physical, expert, statements). Include direct, circumstantial, ambiguous, misleading and background items. At least 2 are is_hidden (found only by investigation), with different difficulties.
+- Evidence: exactly the count for the difficulty. Mix types (documents, digital messages, photos, logs, physical, expert, statements) as far as the count allows. Include direct, circumstantial, ambiguous, misleading and background items where there is room. The required number of items are is_hidden (found only by investigation); for hard cases give them different difficulties.
 - Every evidence item is open to a different reading by each side. Fill both interpretations and an alternative.
 - Documents must have real, specific "content" (full text) with concrete details and the small inconsistencies the case relies on. Phone/chat/email/bank items are "digital_evidence" or "documents" with kind "screenshot" or "document".
 - Visual evidence (photos, screenshots, scans, floor plans, ID cards, statements) gets a generation prompt. Pure text items use kind "none" or "document" with the content already written.
 - Every witness should connect to at least one evidence item (created, knows, authenticates, explains, challenges). Every evidence item names who can authenticate it.
-- Loopholes: at least 5 per side (8-12 per side if difficulty is hard). A loophole is an argumentative opportunity, never an automatic win. Each is discoverable through more than one route where possible.
-- Red herrings: 2-4, plausible with legitimate explanations.
-- Contradictions: 4-8 including at least one witness-vs-evidence, one witness-vs-witness and one self-contradiction.
-- Objections: 5-8 appropriate to the jurisdiction, tied to this case's actual questions.
-- Investigation: at least 2 discoveries at each of easy, medium, hard; expert only if difficulty is hard.
-- Verdict issues: 3-6.`;
+- Loopholes: the per-side count for the difficulty. A loophole is an argumentative opportunity, never an automatic win. Each is discoverable through more than one route where possible.
+- Red herrings, contradictions, objections: at the counts for the difficulty. Red herrings are plausible with legitimate explanations. Contradictions include, where the count allows, one witness-vs-evidence, one witness-vs-witness and one self-contradiction. Objections fit the jurisdiction and this case's actual questions.
+- Investigation: at least 2 discoveries each at easy and medium level (1 each for easy cases), plus hard/expert discoveries only for hard cases.
+- Verdict issues: 3-6 (2-3 for easy).`;
 
 export function buildUser(
   stage: "core" | "analysis",
@@ -137,12 +162,19 @@ export function buildUser(
   options: Record<string, string>,
   core?: unknown,
   errors?: string[],
+  existing?: any,
+  instructions?: string,
 ): string {
   const opts = Object.entries(options)
     .filter(([, v]) => v && String(v).trim())
     .map(([k, v]) => `${k}: ${v}`)
     .join("\n");
   let msg = `CASE STORY:\n${story}\n\nOPTIONS:\n${opts || "(none; use sensible defaults)"}`;
+  if (existing) {
+    const shown = stage === "analysis" ? { evidence: existing.evidence } : existing;
+    msg += `\n\nEXISTING CASE (already live; keep these, see improvement rules):\n${JSON.stringify(shown)}`;
+  }
+  if (instructions?.trim()) msg += `\n\nADMIN INSTRUCTIONS FOR THIS IMPROVEMENT:\n${instructions.trim()}`;
   if (stage === "analysis") {
     msg += `\n\nSTAGE 1 CASE BIBLE (authoritative; reference only these ids/codes):\n${JSON.stringify(core)}`;
   }

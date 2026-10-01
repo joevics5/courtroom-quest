@@ -44,3 +44,12 @@ export const BLANKS: Record<string, () => any> = {
   knowledge: () => ({ fact_id: '', state: 'knows', text: '', reveal_trigger: '' }),
   'secret.witnesses': () => ({ witness_code: '', role: 'knows' }),
 };
+
+export const BLANK_TRUTH = () => ({
+  summary: '', who_did_what: '', motive: '', key_moments: [] as string[],
+  misleading_elements: [] as string[], missing_evidence: [] as string[],
+});
+export const BLANK_THEORY = () => ({
+  core_claim: '', supporting_fact_ids: [] as string[], weak_points: [] as string[], assumptions: [] as string[],
+  facts_opponent_can_exploit: [] as string[], evidence_that_would_strengthen: [] as string[], evidence_that_would_weaken: [] as string[],
+});
