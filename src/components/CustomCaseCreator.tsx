@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Trash2, Upload, Edit as EditIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/database';
 import type { CaseType, EvidenceType } from '../types';
+import { exhibitLabel } from '../lib/exhibitLabel';
 
 interface CustomCaseCreatorProps {
   onComplete: (caseId: string) => void;
@@ -93,7 +94,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
   const addEvidence = () => {
     const nextIndex = evidenceItems.length;
-    const label = `Exhibit ${String.fromCharCode(65 + nextIndex)}`;
+    const label = exhibitLabel(nextIndex);
 
     setEvidenceItems([...evidenceItems, {
       title: '',
@@ -391,7 +392,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                       <div className="flex items-center justify-between mb-3">
                         <input
                           type="text"
-                          value={item.exhibitLabel || `Exhibit ${String.fromCharCode(65 + index)}`}
+                          value={item.exhibitLabel || exhibitLabel(index)}
                           onChange={(e) => updateExhibitLabel(index, e.target.value)}
                           className="text-sm font-medium text-blue-400 bg-transparent border-b border-transparent hover:border-blue-400 focus:border-blue-400 focus:outline-none px-1"
                           placeholder="Exhibit label"

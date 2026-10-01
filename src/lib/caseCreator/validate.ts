@@ -56,7 +56,9 @@ export function validateDraft(d: Draft): { errors: string[]; warnings: string[] 
   if (d.evidence.length > 0) {
     if (pros < 5) warnings.push(`Only ${pros} prosecution loopholes (aim for 5+).`);
     if (def < 5) warnings.push(`Only ${def} defence loopholes (aim for 5+).`);
-    if (!d.evidence.some((e) => e.is_hidden)) warnings.push('No hidden evidence; nothing to find during investigation.');
+    const hidden = d.evidence.filter((e) => e.is_hidden).length;
+    if (hidden > 0)
+      warnings.push(`${hidden} evidence item(s) are marked hidden. Players cannot discover hidden evidence in the app yet, so untick "Is hidden" on any you want visible now.`);
   }
   if (!d.witnesses.some((w) => w.secret.knowledge.some((k) => k.state === 'hidden')))
     warnings.push('No witness holds hidden knowledge.');

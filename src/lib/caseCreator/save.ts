@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { exhibitLabel } from '@/lib/exhibitLabel';
 import type { Draft, DraftEvidence, DraftWitness } from './types';
 
 // The generated tables (case_secrets etc.) are newer than the generated Supabase types.
@@ -11,8 +12,6 @@ const int = (v: unknown): number | null => {
 const withTrigger = (text: string, trigger: string, label: string) =>
   trigger?.trim() ? `${text} (${label}: ${trigger.trim()})` : text;
 
-/** Exhibit A, B, ... Z, then 27, 28 ... */
-const exhibitLabel = (i: number) => `Exhibit ${i < 26 ? String.fromCharCode(65 + i) : i + 1}`;
 
 /**
  * Turns the fact-ID knowledge model into the flat categories the trial engine's
