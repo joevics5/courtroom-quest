@@ -131,6 +131,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
    const [timerActive, setTimerActive] = useState(false);
@@ -585,7 +586,10 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   };
 
   const handleSubmit = async () => {
-    if (!input.trim() || !turnState || !awaitingUserInput) return;
+    if (!input.trim() || !turnState || isProcessing) return;
+    const witnessExamNow = !!turnState.current_witness_id &&
+      (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect');
+    if (!awaitingUserInput && !witnessExamNow) return;
 
     setIsProcessing(true);
     try {
@@ -1536,6 +1540,11 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       console.error('Failed to get witness response:', error);
     } finally {
       setIsProcessing(false);
+      // Even if the witness response failed, keep the examiner's box open
+      // so they can ask again (until they rest or time runs out).
+      if (turnState.current_turn === playerRole || sameDevicePlay) {
+        setAwaitingUserInput(true);
+      }
     }
   };
 
@@ -1873,6 +1882,27 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   // act on the AI's behalf, when it isn't their turn.
   const isPlayerTurn = (turnState?.current_turn === playerRole) || sameDevicePlay;
 
+  // Witness examination (direct/cross/redirect) with a witness on the
+  // stand: the examiner's text box stays open for as many questions as
+  // they want until they Rest or the phase clock runs out. It is derived
+  // from the actual conditions rather than relying solely on the
+  // awaitingUserInput flag, and it is NOT locked while a witness answer is
+  // being generated (only Submit is) — locking it blurred the field and
+  // looked like the box had gone inactive after a single question.
+  const inWitnessExam = !!turnState?.current_witness_id &&
+    (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect');
+  const phaseClockLeft = phaseTimeRemaining[currentPhase];
+  const clockRunning = practiceMode || phaseClockLeft === undefined || phaseClockLeft > 0;
+  const inputOpen = (awaitingUserInput || (inWitnessExam && isPlayerTurn && !judgeInstructionPending && clockRunning)) && !pendingHandoff;
+
+  // Put the cursor back in the box after each question finishes so the
+  // next one can be typed straight away (the keyboard stays up on mobile).
+  useEffect(() => {
+    if (!isProcessing && inWitnessExam && isPlayerTurn && inputOpen) {
+      inputRef.current?.focus();
+    }
+  }, [isProcessing, inWitnessExam, isPlayerTurn, inputOpen]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
       {/* Fixed Header - Non-scrolling */}
@@ -2094,6 +2124,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                      <div className="relative w-full sm:flex-1">
                        <textarea
+                         ref={inputRef}
                          value={input}
                          onChange={(e) => setInput(e.target.value)}
                          onKeyDown={(e) => {
@@ -2107,7 +2138,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                              ? "Ask a question to the witness... (Shift+Enter for a new line)"
                              : "Type your statement or question... (Shift+Enter for a new line)"
                          }
-                         disabled={isProcessing || !awaitingUserInput || pendingHandoff}
+                         disabled={!inputOpen}
                          rows={2}
                          className="w-full px-4 py-3 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base resize-y min-h-[3rem] max-h-40"
                        />
@@ -2115,7 +2146,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                          <button
                            type="button"
                            onClick={() => isListening ? stopListening() : startListening()}
-                           disabled={isProcessing || !awaitingUserInput || pendingHandoff}
+                           disabled={isProcessing || !inputOpen}
                            title={isListening ? 'Stop recording' : 'Speak your statement'}
                            className={`absolute right-2 top-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                              isListening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
@@ -2128,7 +2159,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                      <div className="flex gap-2 flex-wrap">
                        <button
                          onClick={handleSubmit}
-                         disabled={!input.trim() || isProcessing || !awaitingUserInput || pendingHandoff}
+                         disabled={!input.trim() || isProcessing || !inputOpen}
                          className="flex-1 sm:flex-none justify-center px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
                        >
                          <Send className="w-5 h-5" />
