@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Feather, Scale as ScaleIcon, Flame, Check } from 'lucide-react';
+import { ArrowLeft, X, Feather, Scale as ScaleIcon, Flame, Check } from 'lucide-react';
 import { db } from '../lib/database';
 import { DIFFICULTY_INFO } from '../lib/trialConfig';
 import type { Difficulty, UserProfile } from '../types';
@@ -9,6 +9,8 @@ interface Props {
   userProfile: UserProfile;
   onBack: () => void;
   onProfileUpdated: (profile: UserProfile) => void;
+  /** Render as a compact popup body (no full-page chrome) — used from the home screen */
+  popup?: boolean;
 }
 
 const TIER_STYLE: Record<Difficulty, { icon: typeof Feather; accent: string; ring: string; glow: string }> = {
@@ -32,7 +34,7 @@ const TIER_STYLE: Record<Difficulty, { icon: typeof Feather; accent: string; rin
   }
 };
 
-export default function Settings({ userId, userProfile, onBack, onProfileUpdated }: Props) {
+export default function Settings({ userId, userProfile, onBack, onProfileUpdated, popup = false }: Props) {
   const [selected, setSelected] = useState<Difficulty>(userProfile.difficulty || 'medium');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -55,12 +57,18 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 sm:p-6">
+    <div className={popup ? 'p-4 sm:p-6' : 'min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 sm:p-6'}>
       <div className="max-w-2xl mx-auto">
-        <button onClick={onBack} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-6 text-sm">
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
+        {popup ? (
+          <button onClick={onBack} aria-label="Close settings" className="ml-auto flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors mb-2">
+            <X className="w-5 h-5" />
+          </button>
+        ) : (
+          <button onClick={onBack} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-6 text-sm">
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+        )}
 
         <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
         <p className="text-white/60 text-sm mb-8">These apply to every case you play until you change them.</p>

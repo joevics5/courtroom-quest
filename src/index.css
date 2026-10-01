@@ -80,3 +80,18 @@
     .animate-stamp-slam { animation: none; }
   }
 }
+
+/* Chunky comic display face for the game-style home + loading screens */
+.font-game {
+  font-family: 'Bangers', Impact, 'Arial Black', sans-serif;
+  letter-spacing: 0.03em;
+}
+/* Gold gradient lettering for the logo */
+.logo-gold {
+  background: linear-gradient(180deg, #fff3a8 0%, #FFD43B 45%, #d99a00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.6));
+}

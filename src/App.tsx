@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
 import HomePage from './components/HomePage';
+import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './components/LandingPage';
 import CaseBoard from './components/CaseBoard';
 import CaseSelection from './components/CaseSelection';
@@ -44,7 +45,10 @@ type AppView =
   | 'admin';
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, loading: authLoading, signInAsGuest } = useAuth();
+  const [bootDone, setBootDone] = useState(false);
+  const [showHome, setShowHome] = useState(true);
+  const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [view, setView] = useState<AppView>('landing');
   const [currentSession, setCurrentSession] = useState<CaseSession | null>(null);
   const [currentCase, setCurrentCase] = useState<Case | null>(null);
@@ -114,11 +118,68 @@ function AppContent() {
     }
   }, [view, userProfile]);
 
+  // Instant play: tapping a button on the home screen starts a guest
+  // account when nobody is signed in. If guest sign-in isn't available
+  // (e.g. not enabled in Supabase yet) fall back to the normal sign-in page.
+  const ensurePlayer = async (): Promise<boolean> => {
+    if (user) return true;
+    const { error } = await signInAsGuest();
+    if (error) {
+      console.error('Guest sign-in failed, falling back to sign-in page:', error);
+      setShowHome(false);
+      setShowAuth(true);
+      return false;
+    }
+    return true;
+  };
+
+  const homeScreen = (
+    <>
+      <HomePage
+        hasAccount={!!user && !user.is_anonymous}
+        onChooseCase={async () => {
+          if (await ensurePlayer()) setShowHome(false);
+        }}
+        onOpenSettings={async () => {
+          if (await ensurePlayer()) setShowSettingsPopup(true);
+        }}
+        onSignIn={() => {
+          setShowHome(false);
+          setShowAuth(true);
+        }}
+      />
+      {showSettingsPopup && user && userProfile && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75" onClick={() => setShowSettingsPopup(false)}>
+          <div
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-white/10"
+            onClick={e => e.stopPropagation()}
+          >
+            <Settings
+              popup
+              userId={user.id}
+              userProfile={userProfile}
+              onBack={() => setShowSettingsPopup(false)}
+              onProfileUpdated={setUserProfile}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (!bootDone) {
+    return <LoadingScreen authReady={!authLoading} onDone={() => setBootDone(true)} />;
+  }
+
   if (!user) {
     if (showAuth) {
       return <Auth onBack={() => setShowAuth(false)} />;
     }
-    return <HomePage onSignIn={() => setShowAuth(true)} />;
+    return homeScreen;
+  }
+
+  if (showHome) {
+    return homeScreen;
   }
 
   if (!userProfile) {

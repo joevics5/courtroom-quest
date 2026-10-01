@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signInAsGuest: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -51,12 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  // Instant play: a real Supabase account with no email/password, so RLS
+  // and saved progress work exactly as for a normal user. Requires
+  // "Anonymous sign-ins" to be enabled in the Supabase dashboard.
+  const signInAsGuest = async () => {
+    const { error } = await supabase.auth.signInAnonymously();
+    return { error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInAsGuest, signOut }}>
       {children}
     </AuthContext.Provider>
   );
