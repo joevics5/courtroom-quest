@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Trophy, RefreshCw, Briefcase, Play } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/database';
+import ScreenShell from './ScreenShell';
 import CaseWinners from './CaseWinners';
 import type { Case } from '../types';
 
@@ -98,67 +99,39 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-          <button
-            onClick={loadCases}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Load Cases
-          </button>
-        </div>
-
-
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Case Board
-          </h1>
-          <p className="text-slate-400 mb-4">
-            Your legal practice dashboard. New opportunities and ongoing cases at a glance.
-          </p>
-
-          <div className="flex gap-2">
+    <ScreenShell
+      title="CASE BOARD"
+      subtitle="New opportunities and ongoing cases at a glance."
+      onBack={onBack}
+      maxWidth="max-w-6xl"
+      right={
+        <button
+          onClick={loadCases}
+          disabled={loading}
+          aria-label="Refresh cases"
+          className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white disabled:opacity-50"
+        >
+          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      }
+    >
+      <div>
+        <div className="flex gap-2 flex-wrap mb-6">
+          {([
+            ['all', `All (${cases.length + ongoingCases.length})`],
+            ['new', `New (${cases.length})`],
+            ['ongoing', `Ongoing (${ongoingCases.length})`]
+          ] as const).map(([key, label]) => (
             <button
-              onClick={() => setSortBy('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                sortBy === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              key={key}
+              onClick={() => setSortBy(key)}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${
+                sortBy === key ? 'bg-[#FFD43B] text-black' : 'bg-white/10 text-white/70 hover:bg-white/15'
               }`}
             >
-              All Cases ({cases.length + ongoingCases.length})
+              {label}
             </button>
-            <button
-              onClick={() => setSortBy('new')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                sortBy === 'new'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              New Cases ({cases.length})
-            </button>
-            <button
-              onClick={() => setSortBy('ongoing')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                sortBy === 'ongoing'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              Ongoing Cases ({ongoingCases.length})
-            </button>
-          </div>
+          ))}
         </div>
 
         {loading ? (
@@ -168,7 +141,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
             <p className="text-slate-400 mb-4">No cases available</p>
             <button
               onClick={loadCases}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
             >
               Refresh Cases
             </button>
@@ -179,7 +152,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
             {sortBy !== 'new' && ongoingCases.map((ongoingCase) => (
               <div
                 key={`ongoing-${ongoingCase.session_id}`}
-                className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-lg p-6"
+                className="bg-black/65 border border-[#F2B705]/50 rounded-2xl p-5 backdrop-blur-sm"
               >
                 <div className="mb-4">
                   <div className="flex items-center justify-between">
@@ -218,7 +191,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
 
                 <button
                   onClick={() => (onContinueCase || onSelectCase)(ongoingCase.id)}
-                  className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors font-medium"
+                  className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                 >
                   Continue Case
                 </button>
@@ -229,10 +202,10 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
             {sortBy !== 'ongoing' && cases.map((caseItem) => (
               <div
                 key={`new-${caseItem.id}`}
-                className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-slate-600 transition-all group"
+                className="bg-black/65 border border-white/15 rounded-2xl p-5 backdrop-blur-sm hover:border-white/30 transition-all group"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                  <h3 className="text-xl font-bold text-white group-hover:text-[#FFD43B] transition-colors">
                     {caseItem.title}
                   </h3>
                   <button
@@ -264,7 +237,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
 
                 <button
                   onClick={() => handleReviewCase(caseItem)}
-                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                  className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                 >
                   Review Case
                 </button>
@@ -284,6 +257,6 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
           }}
         />
       )}
-    </div>
+    </ScreenShell>
   );
 }

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Plus, Briefcase, ChevronRight, Scale, Shield, Edit, RefreshCw, Trophy, Play, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, Shield, Edit, RefreshCw, Trophy, Play, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSession } from '../contexts/SessionContext';
 import { db } from '../lib/database';
+import ScreenShell from './ScreenShell';
 import CaseWinners from './CaseWinners';
 import type { Case } from '../types';
 
@@ -21,7 +22,7 @@ type CaseWithSessionStatus = Case & {
 };
 
 export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEditCustomCase, onOpenAdmin, onBack }: CaseSelectionProps) {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [userCases, setUserCases] = useState<CaseWithSessionStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [showWinnersModal, setShowWinnersModal] = useState(false);
@@ -61,10 +62,10 @@ export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEdit
       <div
         key={caseItem.id}
         onClick={() => onSelectCase(caseItem.id, true)}
-        className={`w-full rounded-lg p-6 transition-all group cursor-pointer ${
+        className={`w-full rounded-2xl p-5 transition-all group cursor-pointer ${
           isOngoing
-            ? 'bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 hover:bg-gradient-to-br hover:from-amber-500/20 hover:to-orange-500/20'
-            : 'bg-slate-800 border border-slate-700 hover:border-slate-600 hover:bg-slate-700/50'
+            ? 'bg-[#F2B705]/10 border border-[#F2B705]/50 hover:bg-[#F2B705]/15'
+            : 'bg-white/5 border border-white/15 hover:border-white/30 hover:bg-white/10'
         }`}
       >
         <div className="relative mb-3">
@@ -106,54 +107,23 @@ export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEdit
     );
   };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-                title="Back"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-            )}
-            <div className="flex items-center justify-center w-12 h-12 bg-blue-600 rounded-full">
-              <Scale className="w-6 h-6 text-white" />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {loading && (
-              <div className="flex items-center gap-2 px-4 py-2 text-slate-400 text-sm">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Loading Cases...
-              </div>
-            )}
-            {onOpenAdmin && (
-              <button
-                onClick={onOpenAdmin}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm"
-              >
-                <Shield className="w-4 h-4" />
-                Admin
-              </button>
-            )}
-            <button
-              onClick={signOut}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white">My Custom Cases</h1>
-          <p className="text-slate-400 text-sm">Manage and play your custom cases</p>
-        </div>
-
-        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+    <ScreenShell
+      title="MY CASES"
+      subtitle="Create, manage and play your own custom cases."
+      onBack={onBack}
+      maxWidth="max-w-5xl"
+      right={onOpenAdmin ? (
+        <button
+          onClick={onOpenAdmin}
+          className="flex-none flex items-center gap-1.5 rounded-full bg-[#FFD43B] text-black px-4 h-11 text-xs font-black tracking-wide"
+        >
+          <Shield className="w-4 h-4" />
+          ADMIN
+        </button>
+      ) : undefined}
+    >
+      <div>
+        <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm overflow-hidden">
           <div className="p-6">
             {loading ? (
               <div className="text-center py-12 text-slate-400">
@@ -169,7 +139,7 @@ export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEdit
                 {/* Create New Case Button */}
                 <button
                   onClick={onCreateCustomCase}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-3 sm:p-6 flex items-center justify-center gap-3 transition-colors border-2 border-dashed border-blue-500"
+                  className="w-full bg-[#FFD43B]/10 hover:bg-[#FFD43B]/20 text-[#FFD43B] rounded-2xl p-3 sm:p-5 flex items-center justify-center gap-3 transition-colors border-2 border-dashed border-[#FFD43B]/70"
                 >
                   <Plus className="w-5 h-5" />
                   <span className="font-medium">Create New Custom Case</span>
@@ -199,6 +169,6 @@ export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEdit
           }}
         />
       )}
-    </div>
+    </ScreenShell>
   );
 }

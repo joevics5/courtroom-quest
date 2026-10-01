@@ -1,5 +1,6 @@
+import ScreenShell from './ScreenShell';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Trash2, Upload, Edit as EditIcon } from 'lucide-react';
+import { Plus, Trash2, Upload, Edit as EditIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/database';
 import type { CaseType, EvidenceType } from '../types';
@@ -266,22 +267,11 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6">
-      <div className="max-w-3xl mx-auto">
-        <button
-          onClick={onCancel}
-          className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Cases
-        </button>
-
-        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-          <div className="border-b border-slate-700 px-6 py-4">
-            <h2 className="text-2xl font-bold text-white">
-              {isEditMode ? 'Edit Custom Case' : 'Create Custom Case'}
-            </h2>
-            <div className="flex gap-4 mt-4">
+    <ScreenShell title={isEditMode ? 'EDIT CASE' : 'NEW CASE'} onBack={onCancel}>
+      <div>
+        <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm overflow-hidden">
+          <div className="border-b border-white/15 px-6 py-4">
+            <div className="flex gap-3">
               {(['info', 'evidence', 'witnesses'] as const).map((s, i) => (
                 <button
                   key={s}
@@ -289,7 +279,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                   disabled={i > 0 && !canProceed()}
                   className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors capitalize ${
                     step === s
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#FFD43B] text-black font-bold'
                       : 'bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed'
                   }`}
                 >
@@ -311,7 +301,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                     value={caseInfo.title}
                     onChange={(e) => setCaseInfo({ ...caseInfo, title: e.target.value })}
                     placeholder="The State vs. John Doe"
-                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-black/40 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                   />
                 </div>
 
@@ -324,7 +314,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                     value={caseInfo.defendant_name}
                     onChange={(e) => setCaseInfo({ ...caseInfo, defendant_name: e.target.value })}
                     placeholder="John Doe"
-                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-black/40 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                   />
                 </div>
 
@@ -335,7 +325,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                   <select
                     value={caseInfo.caseType}
                     onChange={(e) => setCaseInfo({ ...caseInfo, caseType: e.target.value as CaseType })}
-                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-black/40 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                   >
                     <option value="burglary">Burglary</option>
                     <option value="fraud">Fraud</option>
@@ -355,14 +345,14 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                     onChange={(e) => setCaseInfo({ ...caseInfo, description: e.target.value })}
                     placeholder="Provide a detailed description of the case..."
                     rows={6}
-                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-black/40 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                   />
                 </div>
 
                 <button
                   onClick={() => setStep('evidence')}
                   disabled={!canProceed()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                  className="w-full bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500  py-3 px-4 rounded-lg transition-colors"
                 >
                   Continue to Evidence
                 </button>
@@ -375,7 +365,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                   <h3 className="text-lg font-semibold text-white">Evidence Items</h3>
                   <button
                     onClick={addEvidence}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-lg transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Add Evidence
@@ -411,13 +401,13 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                           value={item.title}
                           onChange={(e) => updateEvidence(index, 'title', e.target.value)}
                           placeholder="Evidence title"
-                          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                         />
 
                         <select
                           value={item.type}
                           onChange={(e) => updateEvidence(index, 'type', e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                         >
                           <option value="documents">Documents</option>
                           <option value="photographs">Photographs</option>
@@ -436,7 +426,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                           onChange={(e) => updateEvidence(index, 'description', e.target.value)}
                           placeholder="Description"
                           rows={2}
-                          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                         />
 
                         <textarea
@@ -444,7 +434,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                           onChange={(e) => updateEvidence(index, 'content', e.target.value)}
                           placeholder="Content / Details"
                           rows={3}
-                          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                         />
                       </div>
                     </div>
@@ -453,7 +443,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
                 <button
                   onClick={() => setStep('witnesses')}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                  className="w-full bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold  py-3 px-4 rounded-lg transition-colors"
                 >
                   Continue to Witnesses
                 </button>
@@ -466,7 +456,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                   <h3 className="text-lg font-semibold text-white">Witnesses</h3>
                   <button
                     onClick={addWitness}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-lg transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Add Witness
@@ -526,7 +516,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                           value={witness.name}
                           onChange={(e) => updateWitness(index, 'name', e.target.value)}
                           placeholder="Witness name"
-                          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                         />
 
                         <input
@@ -534,7 +524,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                           value={witness.role}
                           onChange={(e) => updateWitness(index, 'role', e.target.value)}
                           placeholder="Role (e.g., neighbor, officer, expert)"
-                          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                         />
 
                         <textarea
@@ -542,7 +532,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                           onChange={(e) => updateWitness(index, 'background', e.target.value)}
                           placeholder="Background information"
                           rows={2}
-                          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                         />
 
                         <textarea
@@ -550,7 +540,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                           onChange={(e) => updateWitness(index, 'testimony', e.target.value)}
                           placeholder="Base testimony (what they will say)"
                           rows={4}
-                          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
                         />
                       </div>
                     </div>
@@ -571,6 +561,6 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
           </div>
         </div>
       </div>
-    </div>
+    </ScreenShell>
   );
 }

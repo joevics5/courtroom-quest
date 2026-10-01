@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Swords, Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock } from 'lucide-react';
 import { db } from '../lib/database';
+import ScreenShell from './ScreenShell';
 import type { Case, CaseChallenge, CaseInvitation, PlayerRole, CaseSession } from '../types';
 
 interface Props {
@@ -230,36 +231,22 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
   const pendingSentInvites = sentInvites.filter(i => i.status === 'pending');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 sm:p-6">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="text-white/60 hover:text-white transition-colors">
-              ← Back
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
-            <Swords className="w-5 h-5 text-purple-400" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Play Against a Real Person</h1>
-        </div>
-        <p className="text-white/60 text-sm mb-6">
-          No AI counsel — just you against another real player. Match with a stranger on the open board, or invite a specific friend.
-        </p>
-
-        <div className="flex gap-2 mb-6 bg-white/5 border border-white/10 rounded-lg p-1 w-fit">
+    <ScreenShell
+      title="CHALLENGE BOARD"
+      subtitle="No AI counsel — just you against another real player. Match with a stranger on the open board, or invite a specific friend."
+      onBack={onBack}
+    >
+      <div>
+        <div className="flex gap-1 mb-6 bg-black/55 border border-white/15 rounded-full p-1 w-fit">
           <button
             onClick={() => setTab('quick')}
-            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${tab === 'quick' ? 'bg-purple-600 text-white' : 'text-white/60 hover:text-white'}`}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'quick' ? 'bg-[#FFD43B] text-black' : 'text-white/60 hover:text-white'}`}
           >
             Quick Match
           </button>
           <button
             onClick={() => setTab('invite')}
-            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-2 ${tab === 'invite' ? 'bg-purple-600 text-white' : 'text-white/60 hover:text-white'}`}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-colors flex items-center gap-2 ${tab === 'invite' ? 'bg-[#FFD43B] text-black' : 'text-white/60 hover:text-white'}`}
           >
             Invite a Friend
             {receivedInvites.length > 0 && (
@@ -270,7 +257,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
           </button>
           <button
             onClick={() => setTab('local')}
-            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${tab === 'local' ? 'bg-purple-600 text-white' : 'text-white/60 hover:text-white'}`}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'local' ? 'bg-[#FFD43B] text-black' : 'text-white/60 hover:text-white'}`}
           >
             Pass & Play
           </button>
@@ -287,7 +274,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
             {myOpenChallenge ? (
               <div className="bg-white/5 border border-purple-500/30 rounded-lg p-4 mb-6 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Loader2 className="w-5 h-5 text-purple-400 animate-spin shrink-0" />
+                  <Loader2 className="w-5 h-5 text-[#FFD43B] animate-spin shrink-0" />
                   <div>
                     <p className="text-white font-semibold text-sm">
                       Waiting for an opponent — {myOpenChallenge.case_title}
@@ -308,7 +295,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
             ) : (
               <button
                 onClick={() => setShowCreate(true)}
-                className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold"
+                className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-lg transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 Open a Challenge
@@ -345,7 +332,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
                       <button
                         onClick={() => handleJoin(challenge.id)}
                         disabled={joiningId === challenge.id}
-                        className="shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors text-sm font-semibold"
+                        className="shrink-0 px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm"
                       >
                         {joiningId === challenge.id ? 'Joining...' : 'Join'}
                       </button>
@@ -396,7 +383,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
                           <button
                             onClick={() => handleAcceptInvite(invite.id)}
                             disabled={respondingId === invite.id}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors text-sm font-semibold flex items-center gap-1"
+                            className="px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm flex items-center gap-1"
                           >
                             <Check className="w-4 h-4" />
                             {respondingId === invite.id ? 'Joining...' : 'Accept'}
@@ -415,7 +402,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
               <select
                 value={inviteCaseId}
                 onChange={(e) => setInviteCaseId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
               >
                 <option value="">Select a case...</option>
                 {cases.map(c => (
@@ -447,7 +434,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
                 value={inviteeEmail}
                 onChange={(e) => setInviteeEmail(e.target.value)}
                 placeholder="friend@example.com"
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
               />
               <p className="text-white/40 text-xs mb-4">
                 They'll see this invite waiting for them the next time they open the Invite a Friend tab while signed in with that email. They'll play the opposite side.
@@ -466,7 +453,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
               <button
                 onClick={handleSendInvite}
                 disabled={!inviteCaseId || !inviteeEmail.trim() || sendingInvite}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors text-sm font-semibold"
+                className="w-full px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm"
               >
                 {sendingInvite ? 'Sending...' : 'Send Invite'}
               </button>
@@ -524,7 +511,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
               <select
                 value={localCaseId}
                 onChange={(e) => setLocalCaseId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
               >
                 <option value="">Select a case...</option>
                 {cases.map(c => (
@@ -566,7 +553,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
               <button
                 onClick={handleStartLocal}
                 disabled={!localCaseId || startingLocal}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors text-sm font-semibold"
+                className="w-full px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm"
               >
                 {startingLocal ? 'Starting...' : 'Start Match'}
               </button>
@@ -577,14 +564,14 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
 
       {showCreate && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-md w-full border border-white/10 shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-4">Open a Challenge</h2>
+          <div className="bg-[#14161f] rounded-2xl p-6 max-w-md w-full border border-white/15 shadow-2xl">
+            <h2 className="font-game text-3xl text-white mb-4 leading-none">OPEN A CHALLENGE</h2>
 
             <label className="block text-white/60 text-xs font-semibold mb-2">Case</label>
             <select
               value={selectedCaseId}
               onChange={(e) => setSelectedCaseId(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
             >
               <option value="">Select a case...</option>
               {cases.map(c => (
@@ -620,7 +607,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
               <button
                 onClick={handleCreate}
                 disabled={!selectedCaseId || creating}
-                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors text-sm font-semibold"
+                className="flex-1 px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm"
               >
                 {creating ? 'Creating...' : 'Open Challenge'}
               </button>
@@ -628,6 +615,6 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
           </div>
         </div>
       )}
-    </div>
+    </ScreenShell>
   );
 }
