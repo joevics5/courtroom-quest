@@ -126,19 +126,19 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
         </div>
 
         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-          <div className="border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+          <div className="border-b border-slate-700 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-white">Preset Cases</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => setShowCreator(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
+              className="flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
             >
               <Sparkles className="w-4 h-4" />
               AI Case Creator
             </button>
             <button
               onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              className="flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" />
               {showForm ? 'Cancel' : 'Add New Case'}
