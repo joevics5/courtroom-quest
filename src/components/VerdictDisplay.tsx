@@ -4,6 +4,8 @@ import type { Verdict, TrialEvent, PlayerRole } from '../types';
 import { db } from '../lib/database';
 import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
 import TranscriptViewer from './TranscriptViewer';
+import { JuryVoteHistory } from './JuryDeliberation';
+import type { JuryRound } from '../lib/ai/trialAI';
 
 interface VerdictDisplayProps {
   verdict: Verdict;
@@ -23,6 +25,19 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
   const [showTranscript, setShowTranscript] = useState(false);
   const [transcriptEvents, setTranscriptEvents] = useState<TrialEvent[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
+  const [juryRounds, setJuryRounds] = useState<JuryRound[]>([]);
+
+  // Jury trials record each juror's ballot per round — show how they voted.
+  useEffect(() => {
+    let cancelled = false;
+    db.sessions.getSession(verdict.session_id)
+      .then(sess => {
+        const votes = (sess?.session_state as any)?.juryVotes;
+        if (!cancelled && Array.isArray(votes)) setJuryRounds(votes as JuryRound[]);
+      })
+      .catch(err => console.error('Failed to load jury votes:', err));
+    return () => { cancelled = true; };
+  }, [verdict.session_id]);
 
   const loadTranscript = async () => {
     if (transcriptEvents.length > 0) {
@@ -171,6 +186,17 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                 <p className="text-slate-200 leading-relaxed">{verdict.reasoning}</p>
               </div>
             </div>
+
+            {juryRounds.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  How the Jury Voted
+                </h3>
+                <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
+                  <JuryVoteHistory rounds={juryRounds} />
+                </div>
+              </div>
+            )}
 
             {verdict.evidence_cited && verdict.evidence_cited.length > 0 && (
               <div>

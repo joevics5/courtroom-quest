@@ -332,7 +332,8 @@ export async function generateVerdict(
   evidence: Evidence[],
   caseTitle: string,
   defendantName?: string,
-  trialType: 'judge' | 'jury' = 'judge'
+  trialType: 'judge' | 'jury' = 'judge',
+  juryResult?: JuryDeliberationResult
 ): Promise<VerdictResult> {
   const transcript = generateTranscript(events);
   const evidenceCitations = extractEvidenceCitations(events);
@@ -364,7 +365,13 @@ Did the defense raise genuine doubt, or did they fail to challenge the prosecuti
 Consider: Was each element of the charge proven? Was the evidence properly admitted?
 Were there procedural issues that undermine the prosecution's case?`;
 
-  const prompt = `${roleDescription}
+  // When the individual jurors have actually voted, the verdict is THEIR
+  // vote — the foreperson call only explains it, it does not decide it.
+  const juryVoteNote = isJuryTrial && juryResult
+    ? `\nTHE JURORS HAVE ALREADY VOTED (final ballot): ${juryResult.guiltyVotes} GUILTY, ${juryResult.notGuiltyVotes} NOT GUILTY — verdict: ${juryResult.outcome === 'win' ? 'GUILTY' : 'NOT GUILTY'}${juryResult.unanimous ? ' (unanimous)' : ''}.\nReasons jurors gave on the final ballot:\n${juryResult.rounds[juryResult.rounds.length - 1].votes.filter(v => v.reason).slice(0, 8).map(v => `- ${v.name} (${v.vote === 'GUILTY' ? 'guilty' : 'not guilty'}): ${v.reason}`).join('\n')}\nYou are NOT deciding the verdict — you are the foreperson explaining the jury's decision. Your "outcome" MUST be "${juryResult.outcome}". Explain the reasoning consistent with the votes and reasons above.\n`
+    : '';
+
+  const prompt = `${roleDescription}${juryVoteNote}
 
 CASE: ${caseTitle}
 ${defendantName ? `DEFENDANT: ${defendantName}` : ''}
@@ -412,9 +419,19 @@ RESPOND WITH VALID JSON:
       maxTokens: 2000
     });
 
-    return parseVerdictResponse(response.text, evidenceCitations);
+    const parsed = parseVerdictResponse(response.text, evidenceCitations);
+    if (isJuryTrial && juryResult) parsed.outcome = juryResult.outcome;
+    return parsed;
   } catch (error) {
     console.error('[Verdict AI] Error generating verdict:', error);
+    if (isJuryTrial && juryResult) {
+      return {
+        outcome: juryResult.outcome,
+        reasoning: `The jury finds the defendant ${juryResult.outcome === 'win' ? 'guilty' : 'not guilty'} by a vote of ${Math.max(juryResult.guiltyVotes, juryResult.notGuiltyVotes)} to ${Math.min(juryResult.guiltyVotes, juryResult.notGuiltyVotes)}.`,
+        evidence_cited: evidenceCitations,
+        score: Math.round((juryResult.guiltyVotes / Math.max(1, juryResult.guiltyVotes + juryResult.notGuiltyVotes)) * 100)
+      };
+    }
     return {
       // 'partial' keeps this neutral rather than silently defaulting to
       // "not guilty", which — via the player-relative win/loss mapping —
@@ -428,6 +445,185 @@ RESPOND WITH VALID JSON:
       score: 50
     };
   }
+}
+
+// ============================================================================
+// JURY DELIBERATION — every juror actually votes, round by round
+// ============================================================================
+
+export interface JurorProfile {
+  id: string;
+  name: string;
+  age?: number | null;
+  occupation?: string | null;
+  background?: string;
+  personality_traits?: string[] | null;
+  biases?: string[] | null;
+}
+
+export interface JurorVote {
+  jurorId: string;
+  name: string;
+  occupation: string;
+  vote: 'GUILTY' | 'NOT_GUILTY';
+  reason: string;
+  /** true if the AI call failed and the vote was carried over / defaulted */
+  fallback?: boolean;
+}
+
+export interface JuryRound {
+  round: number;
+  votes: JurorVote[];
+  guilty: number;
+  notGuilty: number;
+}
+
+export interface JuryDeliberationResult {
+  outcome: 'win' | 'lose'; // win = guilty, lose = not guilty
+  guiltyVotes: number;
+  notGuiltyVotes: number;
+  unanimous: boolean;
+  rounds: JuryRound[];
+}
+
+const MAX_JURY_ROUNDS = 3;
+
+function parseJurorVote(text: string): { vote: 'GUILTY' | 'NOT_GUILTY'; reason: string } | null {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      const raw = String(parsed.vote || '').toUpperCase().replace(/[\s-]+/g, '_');
+      if (raw === 'GUILTY' || raw === 'NOT_GUILTY') {
+        return { vote: raw, reason: String(parsed.reason || '').slice(0, 220) };
+      }
+    } catch {
+      // fall through to keyword parsing
+    }
+  }
+  const upper = text.toUpperCase();
+  if (upper.includes('NOT GUILTY') || upper.includes('NOT_GUILTY')) return { vote: 'NOT_GUILTY', reason: '' };
+  if (upper.includes('GUILTY')) return { vote: 'GUILTY', reason: '' };
+  return null;
+}
+
+/**
+ * Runs the jury: each juror casts a real, individual AI vote based on the
+ * trial transcript and their own profile. Round 1 is independent; later
+ * rounds show each juror the previous tally and a few jurors' stated
+ * reasons, so minds can change. Stops early if the jury is unanimous.
+ * Failed calls are retried once, then carry the juror's previous vote
+ * (or default to NOT GUILTY on round 1) — never a random vote.
+ */
+export async function generateJuryDeliberation(params: {
+  jurors: JurorProfile[];
+  events: TrialEvent[];
+  evidence: Evidence[];
+  caseTitle: string;
+  defendantName?: string;
+  onRoundStart?: (round: number) => void;
+  onRoundComplete?: (round: JuryRound) => void;
+}): Promise<JuryDeliberationResult> {
+  const { jurors, events, evidence, caseTitle, defendantName, onRoundStart, onRoundComplete } = params;
+
+  let transcript = generateTranscript(events);
+  if (transcript.length > 9000) {
+    transcript = `${transcript.substring(0, 3500)}\n[... middle of transcript omitted ...]\n${transcript.substring(transcript.length - 5500)}`;
+  }
+  const evidenceCitations = extractEvidenceCitations(events);
+  const evidenceList = evidence
+    .filter(e => evidenceCitations.includes(e.exhibit_label || e.id))
+    .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}`)
+    .join('\n');
+
+  const rounds: JuryRound[] = [];
+  let previous: JurorVote[] | null = null;
+
+  for (let round = 1; round <= MAX_JURY_ROUNDS; round++) {
+    onRoundStart?.(round);
+
+    const prev = previous;
+    const prevGuilty = prev ? prev.filter(v => v.vote === 'GUILTY').length : 0;
+    const prevNotGuilty = prev ? prev.length - prevGuilty : 0;
+    const discussion = prev
+      ? prev
+          .filter(v => v.reason)
+          .slice(0, 6)
+          .map(v => `- ${v.name} (${v.vote === 'GUILTY' ? 'guilty' : 'not guilty'}): ${v.reason}`)
+          .join('\n')
+      : '';
+
+    const votes: JurorVote[] = await Promise.all(
+      jurors.map(async (juror): Promise<JurorVote> => {
+        const occupation = juror.occupation || 'Citizen';
+        const traits = Array.isArray(juror.personality_traits) ? juror.personality_traits.join(', ') : '';
+        const biases = Array.isArray(juror.biases) ? juror.biases.join(', ') : '';
+        const myPrevious = prev?.find(v => v.jurorId === juror.id)?.vote;
+
+        const system = `You are ${juror.name}, a juror in a criminal trial.
+PROFILE: ${juror.age ? `Age ${juror.age}. ` : ''}${occupation}. ${juror.background || ''}${traits ? `\nPersonality: ${traits}.` : ''}${biases ? `\nLeanings/biases: ${biases}.` : ''}
+
+CASE: ${caseTitle}
+${defendantName ? `DEFENDANT: ${defendantName}\n` : ''}
+COURT TRANSCRIPT:
+${transcript}
+
+EVIDENCE SUBMITTED DURING TRIAL:
+${evidenceList || 'No evidence was formally submitted.'}
+
+Decide whether the prosecution proved guilt BEYOND A REASONABLE DOUBT, as this particular person would. Attorney statements (openings, closings, loaded questions) are argument, not evidence — weigh witness testimony and exhibits. Do not use outside information.
+${prev ? `\nThis is deliberation round ${round} of ${MAX_JURY_ROUNDS}. Last round the jury stood ${prevGuilty} guilty, ${prevNotGuilty} not guilty. You voted ${myPrevious === 'GUILTY' ? 'guilty' : 'not guilty'}. Points other jurors made:\n${discussion || '(none recorded)'}\nChange your vote ONLY if genuinely persuaded; otherwise hold firm.` : '\nThis is the first ballot — vote independently.'}
+
+RESPOND WITH VALID JSON ONLY:
+{"vote": "GUILTY" or "NOT_GUILTY", "reason": "one short sentence in your own voice"}`;
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const response = await generateAIResponse({
+              system,
+              user: 'Cast your vote now.',
+              responseFormat: 'json',
+              temperature: 0.6,
+              maxTokens: 400
+            });
+            const parsed = parseJurorVote(response.text);
+            if (parsed) {
+              return { jurorId: juror.id, name: juror.name, occupation, vote: parsed.vote, reason: parsed.reason };
+            }
+          } catch (error) {
+            console.error(`[Jury] ${juror.name} vote failed (attempt ${attempt + 1}):`, error);
+          }
+        }
+        // Both attempts failed: keep their previous vote, or presume innocence.
+        return {
+          jurorId: juror.id,
+          name: juror.name,
+          occupation,
+          vote: myPrevious ?? 'NOT_GUILTY',
+          reason: '',
+          fallback: true
+        };
+      })
+    );
+
+    const guilty = votes.filter(v => v.vote === 'GUILTY').length;
+    const result: JuryRound = { round, votes, guilty, notGuilty: votes.length - guilty };
+    rounds.push(result);
+    previous = votes;
+    onRoundComplete?.(result);
+
+    if (guilty === 0 || guilty === votes.length) break; // unanimous — no need for more rounds
+  }
+
+  const last = rounds[rounds.length - 1];
+  return {
+    // Majority decides; a tie means reasonable doubt (not guilty).
+    outcome: last.guilty > last.notGuilty ? 'win' : 'lose',
+    guiltyVotes: last.guilty,
+    notGuiltyVotes: last.notGuilty,
+    unanimous: last.guilty === 0 || last.notGuilty === 0,
+    rounds
+  };
 }
 
 // ============================================================================

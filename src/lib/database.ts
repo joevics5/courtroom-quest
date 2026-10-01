@@ -692,6 +692,17 @@ export const db = {
       return (data || []) as Juror[];
     },
 
+    async getJurorsByIds(ids: string[]): Promise<Juror[]> {
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase
+        .from('jurors')
+        .select('*')
+        .in('id', ids);
+
+      if (error) throw error;
+      return (data || []) as Juror[];
+    },
+
     async getRandomJurors(count: number): Promise<Juror[]> {
       const { data, error } = await supabase
         .from('jurors')

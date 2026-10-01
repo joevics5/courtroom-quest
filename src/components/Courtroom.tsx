@@ -15,7 +15,9 @@ import {
   getExaminationType,
   type TurnState
 } from '../lib/trialTurnSystem';
-import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateClosingArgument, generateObjectionRuling, generateWitnessResponse, generateVerdict } from '../lib/ai/trialAI';
+import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateClosingArgument, generateObjectionRuling, generateWitnessResponse, generateVerdict, generateJuryDeliberation, type JurorProfile } from '../lib/ai/trialAI';
+import JuryDeliberation, { type DeliberationState } from './JuryDeliberation';
+import { getRandomJurors } from '../lib/trial/juryPool';
 import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
 import { getUserDisplayName } from '../lib/userName';
@@ -132,6 +134,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [deliberation, setDeliberation] = useState<DeliberationState | null>(null);
+  const verdictStartedRef = useRef(false);
+  const verdictContinueRef = useRef<(() => void) | null>(null);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
    const [timerActive, setTimerActive] = useState(false);
@@ -315,6 +320,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   // Save progress whenever trial phase changes
   useEffect(() => {
     if (showPreTrial) return;
+    // Once the verdict process has started, stop re-saving session_state
+    // — it would overwrite the jury vote record saved during deliberation.
+    if (verdictStartedRef.current) return;
     db.sessions.updateSession(session.id, {
       current_phase: 'trial',
       current_trial_phase: currentPhase,
@@ -676,7 +684,12 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     }
 
     // Check if next phase is verdict or beyond the last phase
-    if (verdictPhase && nextPhase >= verdictPhase.number) {
+    // The "Judge Deliberation" phase used to just sit on a silent timer.
+    // Heading into it now starts the real deliberation (with an on-screen
+    // overlay) straight away, then delivers the verdict.
+    const deliberationPhase = config.phases.find(p => p.name === 'Judge Deliberation');
+    const endOfTrialPhase = deliberationPhase ?? verdictPhase;
+    if (endOfTrialPhase && nextPhase >= endOfTrialPhase.number) {
       await handleVerdict();
       return;
     }
@@ -1803,18 +1816,105 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     cancelAutoRestCountdown();
   }, [currentPhase]);
 
+  // Jurors who actually vote: the ones picked during jury selection, or a
+  // random panel of 12 if none were recorded.
+  const loadJurorsForVerdict = async (): Promise<JurorProfile[]> => {
+    try {
+      const selections = await db.jurySelections.getSessionJurySelections(session.id);
+      const ids = selections.map(sel => sel.juror_id);
+      const rows = await db.jurors.getJurorsByIds(ids);
+      const ordered = ids
+        .map(id => rows.find(r => r.id === id))
+        .filter((j): j is NonNullable<typeof j> => !!j);
+      if (ordered.length > 0) return ordered as JurorProfile[];
+    } catch (error) {
+      console.error('[Courtroom] Failed to load selected jurors, using a random panel:', error);
+    }
+    return getRandomJurors(12).map(j => ({
+      id: String(j.id),
+      name: j.name,
+      age: j.age,
+      occupation: j.occupation,
+      background: j.background
+    }));
+  };
+
   const handleVerdict = async () => {
+    // Only ever run once, however many triggers fire (phase end, timers).
+    if (verdictStartedRef.current) return;
+    verdictStartedRef.current = true;
+
+    // Stop the clocks so nothing auto-advances during deliberation.
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimerActive(false);
+    cancelAutoRestCountdown();
+
     try {
       setIsProcessing(true);
-      
-      // Generate verdict based on transcript — pass trial type for jury vs bench
+
       const trialType = session.trial_type || 'judge';
+      const submittedEvidence = evidence.filter(e => turnState?.evidence_submitted.includes(e.id) || false);
+
+      let juryResult: Awaited<ReturnType<typeof generateJuryDeliberation>> | undefined;
+      if (trialType === 'jury') {
+        const jurors = await loadJurorsForVerdict();
+        setDeliberation({
+          mode: 'jury',
+          jurors: jurors.map(j => ({ id: j.id, name: j.name, occupation: j.occupation || 'Citizen' })),
+          rounds: [],
+          votingRound: 1,
+          stage: 'voting'
+        });
+
+        juryResult = await generateJuryDeliberation({
+          jurors,
+          events: eventsRef.current,
+          evidence: submittedEvidence,
+          caseTitle: caseData?.title || 'Unknown Case',
+          defendantName: caseData?.defendant_name,
+          onRoundStart: round => setDeliberation(d => (d ? { ...d, votingRound: round, stage: 'voting' } : d)),
+          onRoundComplete: round => setDeliberation(d => (d ? { ...d, rounds: [...d.rounds, round], votingRound: null } : d))
+        });
+
+        setDeliberation(d => (d ? {
+          ...d,
+          votingRound: null,
+          stage: 'foreperson',
+          result: {
+            outcome: juryResult!.outcome,
+            guiltyVotes: juryResult!.guiltyVotes,
+            notGuiltyVotes: juryResult!.notGuiltyVotes,
+            unanimous: juryResult!.unanimous
+          }
+        } : d));
+
+        // Keep the vote record so the verdict screen can show how the jury voted.
+        db.sessions.updateSession(session.id, {
+          session_state: {
+            ...session.session_state,
+            juryVotes: juryResult.rounds.map(r => ({
+              round: r.round,
+              guilty: r.guilty,
+              notGuilty: r.notGuilty,
+              votes: r.votes.map(v => ({ jurorId: v.jurorId, name: v.name, occupation: v.occupation, vote: v.vote, reason: v.reason })),
+              guiltyVotes: r.guilty,
+              notGuiltyVotes: r.notGuilty
+            }))
+          }
+        }).catch(err => console.error('Failed to save jury votes:', err));
+      } else {
+        setDeliberation({ mode: 'judge', jurors: [], rounds: [], votingRound: null, stage: 'voting' });
+      }
+
+      // Generate verdict based on transcript — for a jury trial the
+      // foreperson only explains the vote the jurors actually cast.
       const verdictResult = await generateVerdict(
-        events,
-        evidence.filter(e => turnState?.evidence_submitted.includes(e.id) || false),
+        eventsRef.current,
+        submittedEvidence,
         caseData?.title || 'Unknown Case',
         caseData?.defendant_name,
-        trialType as 'judge' | 'jury'
+        trialType as 'judge' | 'jury',
+        juryResult
       );
 
       const verdict = await db.verdicts.createVerdict({
@@ -1838,6 +1938,13 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         : JUDGE_PROMPTS.verdict.replace('{verdict}', verdictText);
       speakAs('judge', announcement);
 
+      if (isJuryTrial && juryResult) {
+        // Let the player look over the ballots before moving to the verdict screen.
+        setDeliberation(d => (d ? { ...d, stage: 'done' } : d));
+        await new Promise<void>(resolve => { verdictContinueRef.current = resolve; });
+      }
+
+      setDeliberation(null);
       onComplete(verdict);
     } catch (error) {
       console.error('Failed to create verdict:', error);
@@ -1851,6 +1958,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
         evidence_cited: [],
         score: 50
       });
+      setDeliberation(null);
       onComplete(fallbackVerdict);
     } finally {
       setIsProcessing(false);
@@ -1986,7 +2094,7 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
           </div>
 
           <div className="lg:col-span-3">
-            <div className="bg-slate-800 rounded-lg border border-slate-700 flex flex-col overflow-hidden h-[calc(100vh-360px)]">
+            <div className="relative bg-slate-800 rounded-lg border border-slate-700 flex flex-col overflow-hidden h-[calc(100vh-360px)]">
               {/* Video Display - Conditionally Rendered */}
               {showVideoDisplay && (
                 <div className="relative h-64 flex-shrink-0">
@@ -2047,9 +2155,10 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                   (aiRole) and what kind of phase it's currently in, rather
                   than always saying "prosecution" / "opening statement"
                   regardless of who's turn it is or what phase is active. */}
+              <div className="absolute bottom-0 inset-x-0 z-10 pointer-events-none px-3 pb-3 space-y-2">
               {isProsecutionThinking && (
-                <div className="border-t border-slate-700 p-4">
-                  <div className="flex flex-col items-center justify-center gap-3 py-6">
+                <div className="rounded-xl border border-slate-600/60 bg-slate-900/85 backdrop-blur-sm shadow-lg p-3">
+                  <div className="flex flex-col items-center justify-center gap-1">
                     <div className="flex items-center gap-3 text-slate-300">
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-400 border-t-transparent"></div>
                       <span className="font-medium text-lg">
@@ -2069,10 +2178,10 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
               )}
               
               {!isProsecutionThinking && autoRestSecondsLeft !== null && (
-                <div className="border-t border-slate-700 p-4">
+                <div className="pointer-events-auto rounded-xl border border-slate-600/60 bg-slate-900/85 backdrop-blur-sm shadow-lg p-2">
                   <button
                     onClick={toggleAutoRestPause}
-                    className="w-full text-center text-slate-300 py-2 hover:text-white transition-colors flex items-center justify-center gap-2"
+                    className="w-full text-center text-slate-300 py-1 hover:text-white transition-colors flex items-center justify-center gap-2"
                     title={autoRestPaused ? 'Tap to resume' : 'Tap to pause'}
                   >
                     {autoRestPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
@@ -2084,17 +2193,25 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
               )}
 
               {!isProsecutionThinking && autoRestSecondsLeft === null && !sameDevicePlay && turnState?.current_turn === aiRole && (
-                <div className="border-t border-slate-700 p-4">
-                  <div className="text-center text-slate-400 py-2">
+                <div className="rounded-xl border border-slate-600/60 bg-slate-900/85 backdrop-blur-sm shadow-lg p-2">
+                  <div className="text-center text-slate-300 py-1 text-sm">
                     Waiting for {aiRole === 'prosecution' ? 'prosecution' : 'the defense'} to act...
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
         </div>
       </div>
+
+      {deliberation && (
+        <JuryDeliberation
+          state={deliberation}
+          onContinue={() => { verdictContinueRef.current?.(); verdictContinueRef.current = null; }}
+        />
+      )}
 
       {pendingHandoff && turnState && (
         <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2120,6 +2237,23 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
                {/* Fixed Bottom Input Bar - Static, doesn't scroll - MUST be at bottom */}
                <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}>
+                 {/* Courtroom actions button (witnesses/evidence) — sits just ABOVE
+                     the button row, anchored to the top of this fixed bar so it
+                     never covers Submit/Rest/Object. Still draggable vertically. */}
+                 {turnState && turnState.current_turn !== 'judge' && (
+                   <button
+                     onClick={handleFloatingButtonClick}
+                     onPointerDown={handleFloatingButtonPointerDown}
+                     onPointerMove={handleFloatingButtonPointerMove}
+                     onPointerUp={handleFloatingButtonPointerUp}
+                     onPointerCancel={handleFloatingButtonPointerUp}
+                     style={{ bottom: `calc(100% + 12px + ${floatingButtonOffset}px)`, touchAction: 'none' }}
+                     className="absolute right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-40 cursor-grab active:cursor-grabbing select-none"
+                     title="Witnesses & Evidence (drag to move)"
+                   >
+                     <Scale className="w-6 h-6" />
+                   </button>
+                 )}
                  <div className="w-full max-w-[1800px] mx-auto">
                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                      <div className="relative w-full sm:flex-1">
@@ -2199,23 +2333,6 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                    </div>
                  </div>
                </div>
-
-      {/* Floating Defence Button — vertically draggable so it can be moved
-          off of the Rest/Object buttons it otherwise sits on top of. */}
-      {turnState && turnState.current_turn !== 'judge' && (
-        <button
-          onClick={handleFloatingButtonClick}
-          onPointerDown={handleFloatingButtonPointerDown}
-          onPointerMove={handleFloatingButtonPointerMove}
-          onPointerUp={handleFloatingButtonPointerUp}
-          onPointerCancel={handleFloatingButtonPointerUp}
-          style={{ bottom: `${24 + floatingButtonOffset}px`, touchAction: 'none' }}
-          className="fixed right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-40 cursor-grab active:cursor-grabbing select-none"
-          title="Defence Actions (drag to move)"
-        >
-          <Scale className="w-6 h-6" />
-        </button>
-      )}
 
       {/* Witness Selector Modal */}
       {showWitnessSelector && (
