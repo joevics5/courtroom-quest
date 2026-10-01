@@ -160,7 +160,7 @@ function AppContent() {
       {showSettingsPopup && user && userProfile && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75" onClick={() => setShowSettingsPopup(false)}>
           <div
-            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-white/10"
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#14161f] border border-white/10"
             onClick={e => e.stopPropagation()}
           >
             <Settings

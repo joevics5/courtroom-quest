@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, X, Feather, Scale as ScaleIcon, Flame, Check } from 'lucide-react';
+import HeroBackground from './HeroBackground';
 import { db } from '../lib/database';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,26 +17,13 @@ interface Props {
   popup?: boolean;
 }
 
-const TIER_STYLE: Record<Difficulty, { icon: typeof Feather; accent: string; ring: string; glow: string }> = {
-  easy: {
-    icon: Feather,
-    accent: 'text-green-400',
-    ring: 'border-green-500',
-    glow: 'from-green-500/20 to-emerald-500/20'
-  },
-  medium: {
-    icon: ScaleIcon,
-    accent: 'text-amber-400',
-    ring: 'border-amber-500',
-    glow: 'from-amber-500/20 to-orange-500/20'
-  },
-  hard: {
-    icon: Flame,
-    accent: 'text-red-400',
-    ring: 'border-red-500',
-    glow: 'from-red-500/20 to-rose-500/20'
-  }
+const TIER_STYLE: Record<Difficulty, { icon: typeof Feather; iconBg: string }> = {
+  easy: { icon: Feather, iconBg: 'bg-green-600' },
+  medium: { icon: ScaleIcon, iconBg: 'bg-blue-600' },
+  hard: { icon: Flame, iconBg: 'bg-red-600' }
 };
+
+const PANEL = 'rounded-3xl bg-black/65 border border-white/15 p-5 backdrop-blur-sm';
 
 export default function Settings({ userId, userProfile, onBack, onProfileUpdated, popup = false }: Props) {
   const [selected, setSelected] = useState<Difficulty>(userProfile.difficulty || 'medium');
@@ -91,30 +79,33 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
     }
   };
 
-  return (
-    <div className={popup ? 'p-4 sm:p-6' : 'min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 sm:p-6'}>
-      <div className="max-w-2xl mx-auto">
-        {popup ? (
-          <button onClick={onBack} aria-label="Close settings" className="ml-auto flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors mb-2">
-            <X className="w-5 h-5" />
-          </button>
-        ) : (
-          <button onClick={onBack} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-6 text-sm">
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-        )}
+  const content = (
+    <div className="max-w-lg mx-auto">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
+        <button
+          onClick={onBack}
+          aria-label={popup ? 'Close settings' : 'Back'}
+          className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
+        >
+          {popup ? <X className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
+        </button>
+        <h1 className="logo-gold font-game text-5xl leading-none">SETTINGS</h1>
+      </div>
 
-        <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
-        <p className="text-white/60 text-sm mb-8">These apply to every case you play until you change them.</p>
+      <div className="space-y-4">
+        {/* Difficulty */}
+        <div className={PANEL}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-game text-3xl text-white leading-none">DIFFICULTY</h2>
+            {saved && (
+              <span className="flex items-center gap-1 text-sm font-bold text-green-400">
+                <Check className="w-4 h-4" /> Saved
+              </span>
+            )}
+          </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-1">Difficulty</h2>
-          <p className="text-white/50 text-sm mb-5">
-            Changes how the judge and prosecution behave — not the case itself. Applies to every trial from now on; come back here anytime to change it.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-3">
             {tiers.map((tier) => {
               const info = DIFFICULTY_INFO[tier];
               const style = TIER_STYLE[tier];
@@ -125,35 +116,38 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
                   key={tier}
                   onClick={() => handleSelect(tier)}
                   disabled={saving}
-                  className={`relative bg-white/5 hover:bg-white/10 border-2 rounded-lg p-4 text-left transition-all disabled:opacity-60 ${isSelected ? style.ring : 'border-white/10'}`}
+                  className={`w-full flex items-start gap-3 rounded-2xl p-3 text-left border-2 border-b-[5px] transition-all active:translate-y-1 active:border-b-2 disabled:opacity-70 ${
+                    isSelected ? 'bg-[#FFD43B]/10 border-[#FFD43B]' : 'bg-white/5 border-white/15'
+                  }`}
                 >
+                  <span className={`flex-none flex items-center justify-center w-12 h-12 rounded-xl ${style.iconBg}`}>
+                    <Icon className="w-6 h-6 text-white" />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="font-game text-3xl text-white leading-none">{info.label.toUpperCase()}</span>
+                      <span className="text-xs font-bold tracking-wide text-[#FFD43B]">{info.tagline.toUpperCase()}</span>
+                    </span>
+                    {isSelected && <span className="block mt-1.5 text-sm text-white/70 leading-snug">{info.description}</span>}
+                  </span>
                   {isSelected && (
-                    <div className={`absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center bg-gradient-to-br ${style.glow}`}>
-                      <Check className={`w-3 h-3 ${style.accent}`} />
-                    </div>
+                    <span className="flex-none flex items-center justify-center w-7 h-7 rounded-full bg-[#FFD43B]">
+                      <Check className="w-4 h-4 text-black" />
+                    </span>
                   )}
-                  <div className={`w-9 h-9 flex items-center justify-center rounded-lg bg-gradient-to-br ${style.glow} mb-3`}>
-                    <Icon className={`w-5 h-5 ${style.accent}`} />
-                  </div>
-                  <h3 className="text-white font-bold text-sm mb-1">{info.label}</h3>
-                  <p className={`text-xs font-semibold mb-2 ${style.accent}`}>{info.tagline}</p>
-                  <p className="text-white/60 text-xs leading-relaxed">{info.description}</p>
                 </button>
               );
             })}
           </div>
-
-          {saved && (
-            <p className="text-green-400 text-sm mt-4 flex items-center gap-1">
-              <Check className="w-4 h-4" /> Saved
-            </p>
-          )}
+          <p className="mt-3 text-xs text-white/50">Changes the judge and prosecution — not the case. Applies to every trial.</p>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mt-4">
-          <h2 className="text-white font-semibold mb-1">Nickname</h2>
-          <p className="text-white/50 text-sm mb-4">
-            Shown on leaderboards and as your name in court. Your email is never shown. Right now you appear as <span className="text-white/80 font-semibold">{getPublicName(user)}</span>.
+        {/* Nickname */}
+        <div className={PANEL}>
+          <h2 className="font-game text-3xl text-white leading-none mb-1">NICKNAME</h2>
+          <p className="text-sm text-white/60 mb-3">
+            Shown on leaderboards and in court. Your email is never shown. You appear as{' '}
+            <span className="font-bold text-[#FFD43B]">{getPublicName(user)}</span>.
           </p>
           <div className="flex gap-2">
             <input
@@ -161,53 +155,70 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
               onChange={e => { setNickname(e.target.value); if (nameStatus !== 'idle') setNameStatus('idle'); }}
               maxLength={20}
               placeholder="Pick a nickname"
-              className="flex-1 min-w-0 rounded-lg bg-black/40 border border-white/15 px-3 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500"
+              className="flex-1 min-w-0 rounded-xl bg-black/50 border border-white/20 px-3 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FFD43B]"
             />
             <button
               onClick={handleSaveNickname}
               disabled={nameStatus === 'saving' || !nickname.trim()}
-              className="rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold px-4"
+              className="rounded-xl bg-[#FFD43B] text-black font-game text-2xl px-5 border-b-[5px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-50"
             >
-              {nameStatus === 'saving' ? '…' : 'Save'}
+              {nameStatus === 'saving' ? '…' : 'SAVE'}
             </button>
           </div>
           {nameStatus === 'saved' && (
-            <p className="text-green-400 text-sm mt-3 flex items-center gap-1"><Check className="w-4 h-4" /> Saved</p>
+            <p className="mt-3 flex items-center gap-1 text-sm font-bold text-green-400"><Check className="w-4 h-4" /> Saved</p>
           )}
-          {nameStatus === 'error' && <p className="text-red-400 text-sm mt-3">{nameError}</p>}
+          {nameStatus === 'error' && <p className="mt-3 text-sm text-red-400">{nameError}</p>}
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mt-4">
-          <h2 className="text-white font-semibold mb-1">Account</h2>
+        {/* Account */}
+        <div className={PANEL}>
+          <h2 className="font-game text-3xl text-white leading-none mb-2">ACCOUNT</h2>
           {isGuest && (
-            <p className="text-amber-300/90 text-sm mb-4">
+            <p className="text-sm text-[#FFD43B]/90 mb-3">
               You're playing as a guest. Signing out will permanently lose your progress and wins.
             </p>
           )}
           {!confirmSignOut ? (
             <button
               onClick={() => (isGuest ? setConfirmSignOut(true) : signOut())}
-              className="rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold px-4 py-2.5"
+              className="w-full rounded-xl bg-white/10 border border-white/20 text-white font-game text-2xl py-2.5 active:translate-y-0.5 transition-transform"
             >
-              Sign out
+              SIGN OUT
             </button>
           ) : (
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => signOut()}
-                className="rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold px-4 py-2.5"
+                className="rounded-xl bg-red-600 text-white font-game text-xl py-2.5 border-b-[5px] border-red-900 active:translate-y-1 active:border-b-2 transition-all"
               >
-                Yes, lose my progress
+                LOSE PROGRESS
               </button>
               <button
                 onClick={() => setConfirmSignOut(false)}
-                className="rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold px-4 py-2.5"
+                className="rounded-xl bg-white/10 border border-white/20 text-white font-game text-xl py-2.5"
               >
-                Cancel
+                CANCEL
               </button>
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+
+  if (popup) {
+    return <div className="p-4 sm:p-5">{content}</div>;
+  }
+
+  return (
+    <div className="relative min-h-[100dvh] overflow-hidden bg-[#0b0d14]">
+      <HeroBackground overlay="from-black/80 via-black/75 to-black/90" />
+      <div
+        className="relative z-10 min-h-[100dvh] px-4"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}
+      >
+        {content}
       </div>
     </div>
   );
