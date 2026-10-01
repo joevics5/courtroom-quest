@@ -695,7 +695,8 @@ WITNESS CALLING STRATEGY:
 
 RULES:
 - You may perform ONE action at a time.
-- You may ask only ONE question per turn.
+- Ask ONE question per action, but there is NO limit on how many questions you may ask in total. Keep asking follow-up questions on successive actions for as long as time remains and your line of questioning is productive.
+- During witness examination, use the time you have: probe inconsistencies, pin down details, and follow up on the witness's last answer. Only choose "rest" (or "end_phase") once you genuinely have nothing further worth asking or time is nearly out. Do not repeat a question you already asked.
 - You may submit only evidence listed as available.
 - Respond ONLY in valid JSON format.
 

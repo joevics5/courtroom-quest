@@ -10,7 +10,7 @@ export interface TurnState {
   current_witness_name: string | null;
   current_phase_type: PhaseType | null;
   current_phase_number: number;
-  prosecution_actions_remaining: number;
+  questions_asked: number; // informational only — questioning is limited by time, not by count
   phase_time_remaining: number; // in seconds
   witnesses_called: string[]; // witness IDs
   evidence_submitted: string[]; // evidence IDs
@@ -69,8 +69,10 @@ export function getAllowedActions(
 
   // During witness examination phases
   if (isWitnessPhase && turnState.current_witness_id) {
-    // Only allow questions if time remaining and prosecution has actions remaining (for prosecution turn)
-    if (turnState.phase_time_remaining > 0 && (!isProsecutionTurn || turnState.prosecution_actions_remaining > 0)) {
+    // Questioning is limited by the phase clock only — there is no cap on
+    // how many questions can be asked while time remains. When the clock
+    // hits zero the phase auto-rests and moves on.
+    if (turnState.phase_time_remaining > 0) {
       actions.push({
         action: 'ask_question',
         description: 'Ask a question to the witness',
@@ -202,73 +204,13 @@ export function initializeTurnState(
   const config = getTrialConfig(trialDuration);
   const phaseDuration = phase ? (config.phaseDurations[phase.number] || 0) * 60 : 0; // Convert to seconds
 
-  // Set prosecution actions based on trial duration and phase type
-  let prosecutionActionsRemaining = 10; // Default
-
-  if (phase) {
-    const phaseName = phase.name.toLowerCase();
-
-    // Set question limits based on trial duration. Cross-examination and
-    // redirect get lower caps than direct examination (typical trial
-    // pacing — cross is usually shorter than direct, redirect shorter
-    // still), scaled the same way direct's caps are, rather than always
-    // falling through to the flat default of 10 regardless of trial
-    // length. Previously only direct examination scaled by duration, so a
-    // 15-minute trial's cross-examination could run exactly as long as a
-    // 60-minute trial's.
-    if (phaseName.includes('direct examination')) {
-      switch (trialDuration) {
-        case 15:
-          prosecutionActionsRemaining = 3; // 3 direct questions for 15min trial
-          break;
-        case 30:
-          prosecutionActionsRemaining = 5; // 5 direct questions for 30min trial
-          break;
-        case 60:
-          prosecutionActionsRemaining = 7; // 7 direct questions for 60min trial
-          break;
-        default:
-          prosecutionActionsRemaining = 5;
-      }
-    } else if (phaseName.includes('cross-examination')) {
-      switch (trialDuration) {
-        case 15:
-          prosecutionActionsRemaining = 2;
-          break;
-        case 30:
-          prosecutionActionsRemaining = 3;
-          break;
-        case 60:
-          prosecutionActionsRemaining = 5;
-          break;
-        default:
-          prosecutionActionsRemaining = 3;
-      }
-    } else if (phaseName.includes('redirect')) {
-      switch (trialDuration) {
-        case 15:
-          prosecutionActionsRemaining = 1;
-          break;
-        case 30:
-          prosecutionActionsRemaining = 2;
-          break;
-        case 60:
-          prosecutionActionsRemaining = 3;
-          break;
-        default:
-          prosecutionActionsRemaining = 2;
-      }
-    }
-    // For other phases, use default
-  }
-
   return {
     current_turn: getTurnForPhase(phase),
     current_witness_id: previousState?.current_witness_id || null,
     current_witness_name: previousState?.current_witness_name || null,
     current_phase_type: getExaminationType(phase),
     current_phase_number: phase?.number || 0,
-    prosecution_actions_remaining: previousState?.prosecution_actions_remaining ?? prosecutionActionsRemaining,
+    questions_asked: 0,
     phase_time_remaining: phaseDuration,
     witnesses_called: previousState?.witnesses_called || [],
     evidence_submitted: previousState?.evidence_submitted || [],

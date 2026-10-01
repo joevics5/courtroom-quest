@@ -1509,11 +1509,15 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       }
       trackObjectableStatement(questionEvent);
 
-      // Decrement the action count for whoever is currently examining —
-      // this always applies, regardless of which side just asked.
+      // Count the question for this phase (informational only). Questioning
+      // is limited purely by the phase clock — there is no per-phase cap on
+      // how many questions can be asked while time remains. This state
+      // update also keeps the AI-turn trigger effect re-firing after each
+      // question, so the AI keeps examining until the clock runs out or it
+      // chooses to rest.
       setTurnState({
         ...turnState,
-        prosecution_actions_remaining: turnState.prosecution_actions_remaining - 1
+        questions_asked: (turnState.questions_asked ?? 0) + 1
       });
 
       // Re-open the *human's* text input only when it's actually their
