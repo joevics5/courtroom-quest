@@ -17,7 +17,6 @@ import {
 } from '../lib/trialTurnSystem';
 import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateClosingArgument, generateObjectionRuling, generateWitnessResponse, generateVerdict, generateJuryDeliberation, type JurorProfile } from '../lib/ai/trialAI';
 import JuryDeliberation, { type DeliberationState } from './JuryDeliberation';
-import { getRandomJurors } from '../lib/trial/juryPool';
 import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
 import { getUserDisplayName } from '../lib/userName';
@@ -1816,27 +1815,15 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
     cancelAutoRestCountdown();
   }, [currentPhase]);
 
-  // Jurors who actually vote: the ones picked during jury selection, or a
-  // random panel of 12 if none were recorded.
+  // The jurors who actually vote are the ones chosen in the mandatory jury
+  // selection step (6 per side) — there is no other source for a jury trial.
   const loadJurorsForVerdict = async (): Promise<JurorProfile[]> => {
-    try {
-      const selections = await db.jurySelections.getSessionJurySelections(session.id);
-      const ids = selections.map(sel => sel.juror_id);
-      const rows = await db.jurors.getJurorsByIds(ids);
-      const ordered = ids
-        .map(id => rows.find(r => r.id === id))
-        .filter((j): j is NonNullable<typeof j> => !!j);
-      if (ordered.length > 0) return ordered as JurorProfile[];
-    } catch (error) {
-      console.error('[Courtroom] Failed to load selected jurors, using a random panel:', error);
-    }
-    return getRandomJurors(12).map(j => ({
-      id: String(j.id),
-      name: j.name,
-      age: j.age,
-      occupation: j.occupation,
-      background: j.background
-    }));
+    const selections = await db.jurySelections.getSessionJurySelections(session.id);
+    const ids = selections.map(sel => sel.juror_id);
+    const rows = await db.jurors.getJurorsByIds(ids);
+    return ids
+      .map(id => rows.find(r => r.id === id))
+      .filter((j): j is NonNullable<typeof j> => !!j) as JurorProfile[];
   };
 
   const handleVerdict = async () => {
