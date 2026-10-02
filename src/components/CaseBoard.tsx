@@ -8,8 +8,14 @@ import type { Case } from '../types';
 
 interface CaseBoardProps {
   onBack: () => void;
-  onSelectCase: (caseId: string) => void;
+  onSelectCase?: (caseId: string) => void;
   onContinueCase?: (caseId: string) => void;
+  /**
+   * Picker mode: the board is used to choose a case for a two-player match.
+   * Shows only fresh cases, hides ongoing games and filters, and the button
+   * hands the chosen case back instead of opening the case file.
+   */
+  onPick?: (caseItem: Case) => void;
 }
 
 interface OngoingCase extends Case {
@@ -17,7 +23,7 @@ interface OngoingCase extends Case {
   session_id: string;
 }
 
-export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: CaseBoardProps) {
+export default function CaseBoard({ onBack, onSelectCase, onContinueCase, onPick }: CaseBoardProps) {
   const { user } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [ongoingCases, setOngoingCases] = useState<OngoingCase[]>([]);
@@ -31,6 +37,11 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
 
     try {
       setLoading(true);
+      if (onPick) {
+        setCases(await db.cases.getPresetCases());
+        setOngoingCases([]);
+        return;
+      }
       const [preset, ongoing] = await Promise.all([
         db.cases.getPresetCases(),
         db.sessions.getOngoingSessions(user.id)
@@ -94,14 +105,15 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
   };
 
   const handleReviewCase = (caseItem: Case) => {
-    onSelectCase(caseItem.id);
+    if (onPick) onPick(caseItem);
+    else onSelectCase?.(caseItem.id);
   };
 
 
   return (
     <ScreenShell
-      title="CASE BOARD"
-      subtitle="New opportunities and ongoing cases at a glance."
+      title={onPick ? 'PICK A CASE' : 'CASE BOARD'}
+      subtitle={onPick ? 'Read the case, then tap Choose This Case.' : 'New opportunities and ongoing cases at a glance.'}
       onBack={onBack}
       maxWidth="max-w-6xl"
       right={
@@ -116,7 +128,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
       }
     >
       <div>
-        <div className="flex gap-2 flex-wrap mb-6">
+        <div className={`flex gap-2 flex-wrap mb-6 ${onPick ? 'hidden' : ''}`}>
           {([
             ['all', `All (${cases.length + ongoingCases.length})`],
             ['new', `New (${cases.length})`],
@@ -221,7 +233,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
                   </button>
                 </div>
 
-                <p className="text-slate-300 text-sm line-clamp-2 mb-4">
+                <p className={`text-slate-300 text-sm mb-4 ${onPick ? 'line-clamp-5' : 'line-clamp-2'}`}>
                   "{caseItem.description}"
                 </p>
 
@@ -230,16 +242,18 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase }: Case
                     <span className="text-slate-500">Defendant: </span>
                     <span className="text-slate-300">{caseItem.defendant_name || 'Unknown'}</span>
                   </div>
-                  <div className="text-xs text-slate-500 italic">
-                    New Case - Awaiting Counsel
-                  </div>
+                  {!onPick && (
+                    <div className="text-xs text-slate-500 italic">
+                      New Case - Awaiting Counsel
+                    </div>
+                  )}
                 </div>
 
                 <button
                   onClick={() => handleReviewCase(caseItem)}
                   className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                 >
-                  Review Case
+                  {onPick ? 'Choose This Case' : 'Review Case'}
                 </button>
               </div>
             ))}

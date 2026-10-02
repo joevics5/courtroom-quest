@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Swords, Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock } from 'lucide-react';
+import { Swords, Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock, ChevronRight } from 'lucide-react';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
+import CaseBoard from './CaseBoard';
 import type { Case, CaseChallenge, CaseInvitation, PlayerRole, CaseSession } from '../types';
 
 interface Props {
@@ -49,6 +50,9 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
   const [localAllowSpectators, setLocalAllowSpectators] = useState(false);
   const [startingLocal, setStartingLocal] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // Which form's case field opened the case picker (a full Case Board in pick mode)
+  const [pickerTarget, setPickerTarget] = useState<Tab | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -118,6 +122,31 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
     const interval = setInterval(refreshInvites, 4000);
     return () => clearInterval(interval);
   }, [refreshInvites]);
+
+  const renderCaseField = (caseId: string, target: Tab) => {
+    const chosen = cases.find(c => c.id === caseId);
+    return (
+      <button
+        type="button"
+        onClick={() => setPickerTarget(target)}
+        className="w-full flex items-center gap-3 px-3 py-3 bg-black/40 border border-white/20 rounded-lg text-left mb-4 hover:border-[#FFD43B]/60 transition-colors"
+      >
+        <span className={`flex-1 min-w-0 truncate ${chosen ? 'text-white font-semibold' : 'text-white/50'}`}>
+          {chosen ? chosen.title : 'Choose a case…'}
+        </span>
+        <span className="flex-none text-[#FFD43B] text-xs font-bold tracking-wide">{chosen ? 'CHANGE' : 'BROWSE'}</span>
+        <ChevronRight className="flex-none w-4 h-4 text-[#FFD43B]" />
+      </button>
+    );
+  };
+
+  const handlePickCase = (picked: Case) => {
+    if (pickerTarget === 'invite') setInviteCaseId(picked.id);
+    else if (pickerTarget === 'local') setLocalCaseId(picked.id);
+    else setSelectedCaseId(picked.id);
+    setCases(prev => (prev.some(c => c.id === picked.id) ? prev : [picked, ...prev]));
+    setPickerTarget(null);
+  };
 
   const handleCreate = async () => {
     if (!selectedCaseId) return;
@@ -405,16 +434,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
             <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
               <h2 className="text-white font-semibold text-sm mb-3">Invite a Friend</h2>
               <label className="block text-white/60 text-xs font-semibold mb-2">Case</label>
-              <select
-                value={inviteCaseId}
-                onChange={(e) => setInviteCaseId(e.target.value)}
-                className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
-              >
-                <option value="">Select a case...</option>
-                {cases.map(c => (
-                  <option key={c.id} value={c.id}>{c.title}</option>
-                ))}
-              </select>
+              {renderCaseField(inviteCaseId, 'invite')}
 
               <label className="block text-white/60 text-xs font-semibold mb-2">Your side</label>
               <div className="grid grid-cols-2 gap-3 mb-4">
@@ -514,16 +534,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
               </p>
 
               <label className="block text-white/60 text-xs font-semibold mb-2">Case</label>
-              <select
-                value={localCaseId}
-                onChange={(e) => setLocalCaseId(e.target.value)}
-                className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
-              >
-                <option value="">Select a case...</option>
-                {cases.map(c => (
-                  <option key={c.id} value={c.id}>{c.title}</option>
-                ))}
-              </select>
+              {renderCaseField(localCaseId, 'local')}
 
               <label className="block text-white/60 text-xs font-semibold mb-2">Who goes first (Player 1)</label>
               <div className="grid grid-cols-2 gap-3 mb-4">
@@ -574,16 +585,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
             <h2 className="font-game text-3xl text-white mb-4 leading-none">OPEN A CHALLENGE</h2>
 
             <label className="block text-white/60 text-xs font-semibold mb-2">Case</label>
-            <select
-              value={selectedCaseId}
-              onChange={(e) => setSelectedCaseId(e.target.value)}
-              className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
-            >
-              <option value="">Select a case...</option>
-              {cases.map(c => (
-                <option key={c.id} value={c.id}>{c.title}</option>
-              ))}
-            </select>
+            {renderCaseField(selectedCaseId, 'quick')}
 
             <label className="block text-white/60 text-xs font-semibold mb-2">Your side</label>
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -619,6 +621,11 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {pickerTarget && (
+        <div className="fixed inset-0 z-[70] overflow-y-auto bg-[#0b0d14]">
+          <CaseBoard onBack={() => setPickerTarget(null)} onPick={handlePickCase} />
         </div>
       )}
     </ScreenShell>
