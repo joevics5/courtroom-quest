@@ -10,6 +10,10 @@ interface Props {
   defendantName?: string;
   onSelect: (role: PlayerRole) => void;
   onCancel: () => void;
+  /** Switch this case to a two-player mode instead of playing the AI */
+  onSwitchMode?: (mode: 'online' | 'local') => void;
+  /** Custom cases can't be played online (an opponent can't load them) */
+  onlineDisabled?: boolean;
 }
 
 type Step = 'browse' | 'confirm-prosecute' | 'confirm-defend';
@@ -19,7 +23,7 @@ const ROLE_STYLE = {
   prosecution: { accent: 'text-red-400', ring: 'border-red-500', glow: 'from-red-500/20 to-orange-500/20' }
 };
 
-export default function CasePreview({ caseId, caseTitle, caseText, defendantName, onSelect, onCancel }: Props) {
+export default function CasePreview({ caseId, caseTitle, caseText, defendantName, onSelect, onCancel, onSwitchMode, onlineDisabled }: Props) {
   const [step, setStep] = useState<Step>('browse');
   const [filesExpanded, setFilesExpanded] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
@@ -230,6 +234,21 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
             <span className="text-white font-semibold text-sm">Defend</span>
           </button>
         </div>
+
+        {onSwitchMode && (
+          <div className="flex items-center justify-center gap-2 flex-wrap mb-3 text-xs text-white/50">
+            <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">Playing vs AI</span>
+            <span>Switch to:</span>
+            {!onlineDisabled && (
+              <button onClick={() => onSwitchMode('online')} className="font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2">
+                Online player
+              </button>
+            )}
+            <button onClick={() => onSwitchMode('local')} className="font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2">
+              Same device
+            </button>
+          </div>
+        )}
 
         <div className="flex justify-center">
           <button

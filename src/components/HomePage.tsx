@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { Volume2, VolumeX, X } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playGavelTap } from '../lib/soundEffects';
 import HeroBackground from './HeroBackground';
+import PlayModePopup, { type PlayMode } from './PlayModePopup';
 
 interface HomePageProps {
-  /** Starts play: signs in as a guest if needed, then opens the case dashboard */
-  onChooseCase: () => Promise<void>;
+  /** Starts play in the chosen mode: signs in as a guest if needed, then opens the right screen */
+  onPlay: (mode: PlayMode) => Promise<void>;
   onOpenSettings: () => Promise<void>;
   /** For players who already have an email account */
   onSignIn: () => void;
@@ -15,9 +16,10 @@ interface HomePageProps {
 
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
-export default function HomePage({ onChooseCase, onOpenSettings, onSignIn, hasAccount }: HomePageProps) {
+export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount }: HomePageProps) {
   const [soundOn, setSoundOn] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
+  const [showModes, setShowModes] = useState(false);
   const [busy, setBusy] = useState<'play' | 'settings' | null>(null);
 
   useEffect(() => {
@@ -74,12 +76,12 @@ export default function HomePage({ onChooseCase, onOpenSettings, onSignIn, hasAc
           <button
             onClick={() => {
               playGavelTap();
-              run('play', onChooseCase);
+              setShowModes(true);
             }}
             disabled={busy !== null}
             className="w-full rounded-2xl bg-[#FFD43B] text-black font-game text-4xl py-3.5 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-70"
           >
-            {busy === 'play' ? 'ONE SEC…' : 'CHOOSE A CASE'}
+            {busy === 'play' ? 'ONE SEC…' : 'PLAY'}
           </button>
 
           <div className="grid grid-cols-2 gap-3">
@@ -120,6 +122,15 @@ export default function HomePage({ onChooseCase, onOpenSettings, onSignIn, hasAc
         </div>
       </div>
 
+      {showModes && (
+        <PlayModePopup
+          onClose={() => setShowModes(false)}
+          onSelect={mode => {
+            setShowModes(false);
+            run('play', () => onPlay(mode));
+          }}
+        />
+      )}
       {showLearnMore && <LearnMore onClose={() => setShowLearnMore(false)} />}
     </div>
   );
