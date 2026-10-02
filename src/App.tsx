@@ -49,6 +49,8 @@ function AppContent() {
   const [bootDone, setBootDone] = useState(false);
   const [showHome, setShowHome] = useState(true);
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
+  // Ongoing games and invitations waiting — shown as badges on Home and the dashboard
+  const [activity, setActivity] = useState<{ ongoing: number; invites: number }>({ ongoing: 0, invites: 0 });
   // Set when the challenge board is opened from the play-mode screen for an already-chosen case
   // Challenge board opened from the home PLAY popup (no case yet) or from a case file (case seeded)
   const [challengeSeed, setChallengeSeed] = useState<{ tab: 'quick' | 'local'; withCase: boolean } | null>(null);
@@ -66,6 +68,28 @@ function AppContent() {
   const [subscriptionGateFeature, setSubscriptionGateFeature] = useState('');
   const [subscriptionGateRequired, setSubscriptionGateRequired] = useState<SubscriptionTier>('basic');
   const [showAuth, setShowAuth] = useState(false);
+
+  // Refresh the badge counts whenever the player lands on Home or the dashboard
+  useEffect(() => {
+    if (!user) {
+      setActivity({ ongoing: 0, invites: 0 });
+      return;
+    }
+    if (!(showHome || view === 'landing')) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ongoing, invites] = await Promise.all([
+          db.sessions.getOngoingSessions(user.id),
+          user.email ? db.invitations.getInvitationsByEmail(user.email) : Promise.resolve([])
+        ]);
+        if (!cancelled) setActivity({ ongoing: ongoing.length, invites: invites.length });
+      } catch (error) {
+        console.error('Failed to load activity counts:', error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, showHome, view]);
 
   // After signing out, drop back to a clean state so the next visitor
   // doesn't inherit an open popup or a leftover screen.
@@ -149,6 +173,12 @@ function AppContent() {
     <>
       <HomePage
         hasAccount={!!user && !user.is_anonymous}
+        signedIn={!!user}
+        waitingCount={activity.ongoing + activity.invites}
+        onOpenDashboard={() => {
+          setShowHome(false);
+          setView('landing');
+        }}
         onPlay={async mode => {
           if (!(await ensurePlayer())) return;
           setShowHome(false);
@@ -652,6 +682,7 @@ function AppContent() {
           onOpenSettings={() => setView('settings')}
           onOpenAdmin={isAdmin ? handleOpenAdmin : undefined}
           onBackToHome={() => setShowHome(true)}
+          activity={activity}
         />
       )}
 

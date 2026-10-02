@@ -12,11 +12,16 @@ interface HomePageProps {
   onSignIn: () => void;
   /** Hide the "Sign in" link for players already signed in with an account */
   hasAccount: boolean;
+  /** Signed in (guest or account): show the Dashboard button */
+  signedIn: boolean;
+  /** Ongoing games + invitations waiting, shown as a badge on Dashboard */
+  waitingCount: number;
+  onOpenDashboard: () => void;
 }
 
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
-export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount }: HomePageProps) {
+export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount, signedIn, waitingCount, onOpenDashboard }: HomePageProps) {
   const [soundOn, setSoundOn] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [showModes, setShowModes] = useState(false);
@@ -85,13 +90,28 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount 
           </button>
 
           <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setShowLearnMore(true)}
-              className="rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2.5 active:translate-y-0.5 transition-transform"
-            >
-              <span className="block font-game text-2xl text-white leading-none">LEARN MORE</span>
-              <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">HOW IT WORKS</span>
-            </button>
+            {signedIn ? (
+              <button
+                onClick={onOpenDashboard}
+                className="relative rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2.5 active:translate-y-0.5 transition-transform"
+              >
+                {waitingCount > 0 && (
+                  <span className="absolute -top-2 -right-1 min-w-[22px] h-[22px] px-1.5 flex items-center justify-center rounded-full bg-red-600 text-white text-xs font-black">
+                    {waitingCount}
+                  </span>
+                )}
+                <span className="block font-game text-2xl text-white leading-none">DASHBOARD</span>
+                <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">GAMES & INVITES</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowLearnMore(true)}
+                className="rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2.5 active:translate-y-0.5 transition-transform"
+              >
+                <span className="block font-game text-2xl text-white leading-none">LEARN MORE</span>
+                <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">HOW IT WORKS</span>
+              </button>
+            )}
             <button
               onClick={() => run('settings', onOpenSettings)}
               disabled={busy !== null}
@@ -111,13 +131,19 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount 
             ))}
           </ol>
 
-          {!hasAccount && (
-            <button
-              onClick={onSignIn}
-              className="block mx-auto pt-1 text-[11px] font-bold tracking-[0.2em] text-white/60 underline underline-offset-4"
-            >
-              HAVE AN ACCOUNT? SIGN IN
-            </button>
+          {(signedIn || !hasAccount) && (
+            <div className="flex items-center justify-center gap-5 pt-1">
+              {signedIn && (
+                <button onClick={() => setShowLearnMore(true)} className="text-[11px] font-bold tracking-[0.2em] text-white/60 underline underline-offset-4">
+                  HOW IT WORKS
+                </button>
+              )}
+              {!hasAccount && (
+                <button onClick={onSignIn} className="text-[11px] font-bold tracking-[0.2em] text-white/60 underline underline-offset-4">
+                  HAVE AN ACCOUNT? SIGN IN
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

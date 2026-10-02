@@ -17,6 +17,36 @@ interface Props {
 
 export type Tab = 'quick' | 'invite' | 'local';
 
+const PANEL = 'rounded-3xl bg-black/65 border border-white/15 p-5 backdrop-blur-sm';
+const CARD = 'rounded-2xl bg-black/60 border border-white/15 p-4 backdrop-blur-sm';
+const LABEL = 'block text-white/70 text-xs font-bold tracking-wider uppercase mb-2';
+const SECTION_HEADING = 'font-game text-2xl text-white/90 tracking-wide mb-3 flex items-center gap-2';
+const BIG_GOLD = 'font-game text-2xl bg-[#FFD43B] hover:bg-[#ffdc5e] text-black rounded-xl border-b-[5px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale';
+const SMALL_GOLD = 'bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:opacity-40 disabled:grayscale rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all';
+
+/** Defense / Prosecution chooser. Colours keep their meaning: blue = defense, red = prosecution. */
+function SidePicker({ value, onChange, className = 'mb-4' }: { value: PlayerRole; onChange: (role: PlayerRole) => void; className?: string }) {
+  const option = (role: PlayerRole, label: string, Icon: typeof Shield, selectedCls: string, iconCls: string) => (
+    <button
+      type="button"
+      onClick={() => onChange(role)}
+      className={`p-3 rounded-2xl border-2 border-b-[5px] flex flex-col items-center gap-1 transition-all active:translate-y-0.5 active:border-b-2 ${
+        value === role ? selectedCls : 'border-white/15 bg-white/5'
+      }`}
+    >
+      <Icon className={`w-6 h-6 ${iconCls}`} />
+      <span className="font-game text-2xl text-white leading-none">{label}</span>
+    </button>
+  );
+  return (
+    <div className={`grid grid-cols-2 gap-3 ${className}`}>
+      {option('defense', 'DEFENSE', Shield, 'border-blue-500 bg-blue-500/15', 'text-blue-400')}
+      {option('prosecution', 'PROSECUTION', Gavel, 'border-red-500 bg-red-500/15', 'text-red-400')}
+    </div>
+  );
+}
+
+
 export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, initialCase, initialTab }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab ?? 'quick');
   const [cases, setCases] = useState<Case[]>([]);
@@ -129,7 +159,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
       <button
         type="button"
         onClick={() => setPickerTarget(target)}
-        className="w-full flex items-center gap-3 px-3 py-3 bg-black/40 border border-white/20 rounded-lg text-left mb-4 hover:border-[#FFD43B]/60 transition-colors"
+        className="w-full flex items-center gap-3 px-3 py-3 bg-black/50 border border-white/20 rounded-xl text-left mb-4 hover:border-[#FFD43B]/60 transition-colors"
       >
         <span className={`flex-1 min-w-0 truncate ${chosen ? 'text-white font-semibold' : 'text-white/50'}`}>
           {chosen ? chosen.title : 'Choose a case…'}
@@ -307,7 +337,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
             )}
 
             {myOpenChallenge ? (
-              <div className="bg-white/5 border border-purple-500/30 rounded-lg p-4 mb-6 flex items-center justify-between gap-3">
+              <div className={`${CARD} !border-[#F2B705]/60 mb-6 flex items-center justify-between gap-3`}>
                 <div className="flex items-center gap-3">
                   <Loader2 className="w-5 h-5 text-[#FFD43B] animate-spin shrink-0" />
                   <div>
@@ -330,14 +360,14 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
             ) : (
               <button
                 onClick={() => setShowCreate(true)}
-                className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-lg transition-colors"
+                className={`w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 ${BIG_GOLD}`}
               >
                 <Plus className="w-5 h-5" />
                 Open a Challenge
               </button>
             )}
 
-            <h2 className="text-white/80 font-semibold text-sm mb-3 flex items-center gap-2">
+            <h2 className={SECTION_HEADING}>
               <Users className="w-4 h-4" />
               Open Challenges
             </h2>
@@ -345,7 +375,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
             {loading ? (
               <p className="text-white/40 text-sm">Loading...</p>
             ) : openChallenges.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-lg p-6 text-center">
+              <div className={`${CARD} text-center`}>
                 <p className="text-white/50 text-sm">No open challenges right now. Be the first to open one.</p>
               </div>
             ) : (
@@ -353,7 +383,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
                 {openChallenges.map((challenge) => {
                   const opponentRole: PlayerRole = challenge.creator_role === 'defense' ? 'prosecution' : 'defense';
                   return (
-                    <div key={challenge.id} className="bg-white/5 border border-white/10 rounded-lg p-4 flex items-center justify-between gap-3">
+                    <div key={challenge.id} className={`${CARD} flex items-center justify-between gap-3`}>
                       <div className="min-w-0">
                         <p className="text-white font-semibold text-sm truncate">{challenge.case_title || 'Case'}</p>
                         <p className="text-white/50 text-xs flex items-center gap-1 mt-1">
@@ -367,7 +397,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
                       <button
                         onClick={() => handleJoin(challenge.id)}
                         disabled={joiningId === challenge.id}
-                        className="shrink-0 px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm"
+                        className={`shrink-0 px-5 py-2 ${SMALL_GOLD} text-sm`}
                       >
                         {joiningId === challenge.id ? 'Joining...' : 'Join'}
                       </button>
@@ -389,7 +419,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
 
             {receivedInvites.length > 0 && (
               <div className="mb-6">
-                <h2 className="text-white/80 font-semibold text-sm mb-3 flex items-center gap-2">
+                <h2 className={SECTION_HEADING}>
                   <Mail className="w-4 h-4" />
                   Invitations For You
                 </h2>
@@ -397,7 +427,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
                   {receivedInvites.map((invite) => {
                     const myRole: PlayerRole = invite.inviter_role === 'defense' ? 'prosecution' : 'defense';
                     return (
-                      <div key={invite.id} className="bg-white/5 border border-blue-500/30 rounded-lg p-4 flex items-center justify-between gap-3">
+                      <div key={invite.id} className={`${CARD} !border-[#F2B705]/60 flex items-center justify-between gap-3`}>
                         <div className="min-w-0">
                           <p className="text-white font-semibold text-sm truncate">{invite.case_title || 'Case'}</p>
                           <p className="text-white/50 text-xs mt-1">
@@ -418,7 +448,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
                           <button
                             onClick={() => handleAcceptInvite(invite.id)}
                             disabled={respondingId === invite.id}
-                            className="px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm flex items-center gap-1"
+                            className={`px-4 py-2 ${SMALL_GOLD} text-sm flex items-center gap-1`}
                           >
                             <Check className="w-4 h-4" />
                             {respondingId === invite.id ? 'Joining...' : 'Accept'}
@@ -431,36 +461,21 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
               </div>
             )}
 
-            <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
-              <h2 className="text-white font-semibold text-sm mb-3">Invite a Friend</h2>
-              <label className="block text-white/60 text-xs font-semibold mb-2">Case</label>
+            <div className={`${PANEL} mb-6`}>
+              <h2 className="font-game text-3xl text-white leading-none mb-4">INVITE A FRIEND</h2>
+              <label className={LABEL}>Case</label>
               {renderCaseField(inviteCaseId, 'invite')}
 
-              <label className="block text-white/60 text-xs font-semibold mb-2">Your side</label>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  onClick={() => setInviteRole('defense')}
-                  className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition-colors ${inviteRole === 'defense' ? 'border-blue-500 bg-blue-500/10' : 'border-white/10 bg-white/5'}`}
-                >
-                  <Shield className="w-5 h-5 text-blue-400" />
-                  <span className="text-white text-sm font-semibold">Defense</span>
-                </button>
-                <button
-                  onClick={() => setInviteRole('prosecution')}
-                  className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition-colors ${inviteRole === 'prosecution' ? 'border-red-500 bg-red-500/10' : 'border-white/10 bg-white/5'}`}
-                >
-                  <Gavel className="w-5 h-5 text-red-400" />
-                  <span className="text-white text-sm font-semibold">Prosecution</span>
-                </button>
-              </div>
+              <label className={LABEL}>Your side</label>
+              <SidePicker value={inviteRole} onChange={setInviteRole} className="mb-4" />
 
-              <label className="block text-white/60 text-xs font-semibold mb-2">Friend's email</label>
+              <label className={LABEL}>Friend's email</label>
               <input
                 type="email"
                 value={inviteeEmail}
                 onChange={(e) => setInviteeEmail(e.target.value)}
                 placeholder="friend@example.com"
-                className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
+                className="w-full px-3 py-3 bg-black/50 border border-white/20 rounded-xl text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
               />
               <p className="text-white/40 text-xs mb-4">
                 They'll see this invite waiting for them the next time they open the Invite a Friend tab while signed in with that email. They'll play the opposite side.
@@ -471,34 +486,34 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
                   type="checkbox"
                   checked={inviteAllowSpectators}
                   onChange={(e) => setInviteAllowSpectators(e.target.checked)}
-                  className="w-4 h-4 rounded accent-purple-600"
+                  className="w-5 h-5 rounded accent-[#FFD43B]"
                 />
-                <span className="text-white/70 text-sm">Let people watch this trial live</span>
+                <span className="text-white/80 text-sm">Let people watch this trial live</span>
               </label>
 
               <button
                 onClick={handleSendInvite}
                 disabled={!inviteCaseId || !inviteeEmail.trim() || sendingInvite}
-                className="w-full px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm"
+                className={`w-full px-4 py-3 ${BIG_GOLD}`}
               >
                 {sendingInvite ? 'Sending...' : 'Send Invite'}
               </button>
             </div>
 
-            <h2 className="text-white/80 font-semibold text-sm mb-3 flex items-center gap-2">
+            <h2 className={SECTION_HEADING}>
               <Clock className="w-4 h-4" />
               Invites You've Sent
             </h2>
             {invitesLoading ? (
               <p className="text-white/40 text-sm">Loading...</p>
             ) : pendingSentInvites.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-lg p-6 text-center">
+              <div className={`${CARD} text-center`}>
                 <p className="text-white/50 text-sm">No pending invites. Send one above.</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {pendingSentInvites.map((invite) => (
-                  <div key={invite.id} className="bg-white/5 border border-white/10 rounded-lg p-4 flex items-center justify-between gap-3">
+                  <div key={invite.id} className={`${CARD} flex items-center justify-between gap-3`}>
                     <div className="min-w-0">
                       <p className="text-white font-semibold text-sm truncate">{invite.case_title || 'Case'}</p>
                       <p className="text-white/50 text-xs mt-1">
@@ -526,33 +541,17 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
                 {localError}
               </div>
             )}
-            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-              <h2 className="text-white font-semibold text-sm mb-1">Play Together on This Device</h2>
-              <p className="text-white/50 text-xs mb-4">
-                Both of you share this phone or laptop and pass it back and forth on each turn — no second account needed.
-                Best for text-based back-and-forth; things like objections that need split-second timing work best across two devices.
+            <div className={PANEL}>
+              <h2 className="font-game text-3xl text-white leading-none mb-1">SAME DEVICE</h2>
+              <p className="text-white/60 text-sm mb-4">
+                Share one phone and pass it each turn — no second account needed. Objections need quick timing, so two devices work better for those.
               </p>
 
-              <label className="block text-white/60 text-xs font-semibold mb-2">Case</label>
+              <label className={LABEL}>Case</label>
               {renderCaseField(localCaseId, 'local')}
 
-              <label className="block text-white/60 text-xs font-semibold mb-2">Who goes first (Player 1)</label>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  onClick={() => setLocalCreatorRole('defense')}
-                  className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition-colors ${localCreatorRole === 'defense' ? 'border-blue-500 bg-blue-500/10' : 'border-white/10 bg-white/5'}`}
-                >
-                  <Shield className="w-5 h-5 text-blue-400" />
-                  <span className="text-white text-sm font-semibold">Defense</span>
-                </button>
-                <button
-                  onClick={() => setLocalCreatorRole('prosecution')}
-                  className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition-colors ${localCreatorRole === 'prosecution' ? 'border-red-500 bg-red-500/10' : 'border-white/10 bg-white/5'}`}
-                >
-                  <Gavel className="w-5 h-5 text-red-400" />
-                  <span className="text-white text-sm font-semibold">Prosecution</span>
-                </button>
-              </div>
+              <label className={LABEL}>Who goes first (Player 1)</label>
+              <SidePicker value={localCreatorRole} onChange={setLocalCreatorRole} className="mb-4" />
               <p className="text-white/40 text-xs mb-4">
                 Player 2 automatically gets the other side. The app will prompt you to pass the device at every turn change.
               </p>
@@ -562,15 +561,15 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
                   type="checkbox"
                   checked={localAllowSpectators}
                   onChange={(e) => setLocalAllowSpectators(e.target.checked)}
-                  className="w-4 h-4 rounded accent-purple-600"
+                  className="w-5 h-5 rounded accent-[#FFD43B]"
                 />
-                <span className="text-white/70 text-sm">Let people watch this trial live</span>
+                <span className="text-white/80 text-sm">Let people watch this trial live</span>
               </label>
 
               <button
                 onClick={handleStartLocal}
                 disabled={!localCaseId || startingLocal}
-                className="w-full px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm"
+                className={`w-full px-4 py-3 ${BIG_GOLD}`}
               >
                 {startingLocal ? 'Starting...' : 'Start Match'}
               </button>
@@ -580,42 +579,27 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
       </div>
 
       {showCreate && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#14161f] rounded-2xl p-6 max-w-md w-full border border-white/15 shadow-2xl">
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#14161f] rounded-3xl p-6 max-w-md w-full border border-white/15 shadow-2xl">
             <h2 className="font-game text-3xl text-white mb-4 leading-none">OPEN A CHALLENGE</h2>
 
-            <label className="block text-white/60 text-xs font-semibold mb-2">Case</label>
+            <label className={LABEL}>Case</label>
             {renderCaseField(selectedCaseId, 'quick')}
 
-            <label className="block text-white/60 text-xs font-semibold mb-2">Your side</label>
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <button
-                onClick={() => setSelectedRole('defense')}
-                className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition-colors ${selectedRole === 'defense' ? 'border-blue-500 bg-blue-500/10' : 'border-white/10 bg-white/5'}`}
-              >
-                <Shield className="w-5 h-5 text-blue-400" />
-                <span className="text-white text-sm font-semibold">Defense</span>
-              </button>
-              <button
-                onClick={() => setSelectedRole('prosecution')}
-                className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition-colors ${selectedRole === 'prosecution' ? 'border-red-500 bg-red-500/10' : 'border-white/10 bg-white/5'}`}
-              >
-                <Gavel className="w-5 h-5 text-red-400" />
-                <span className="text-white text-sm font-semibold">Prosecution</span>
-              </button>
-            </div>
+            <label className={LABEL}>Your side</label>
+            <SidePicker value={selectedRole} onChange={setSelectedRole} className="mb-6" />
 
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCreate(false)}
-                className="flex-1 px-4 py-2 text-white/60 hover:text-white transition-colors text-sm"
+                className="flex-1 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreate}
                 disabled={!selectedCaseId || creating}
-                className="flex-1 px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors text-sm"
+                className={`flex-1 px-4 py-3 ${BIG_GOLD}`}
               >
                 {creating ? 'Creating...' : 'Open Challenge'}
               </button>

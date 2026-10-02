@@ -15,6 +15,7 @@ interface LandingPageProps {
   onOpenSettings: () => void;
   onOpenAdmin?: () => void;
   onBackToHome: () => void;
+  activity?: { ongoing: number; invites: number };
 }
 
 export default function LandingPage({
@@ -25,7 +26,8 @@ export default function LandingPage({
   onPlayFeaturedCase,
   onOpenSettings,
   onOpenAdmin,
-  onBackToHome
+  onBackToHome,
+  activity
 }: LandingPageProps) {
   const { user } = useAuth();
 
@@ -92,6 +94,7 @@ export default function LandingPage({
               iconBg="bg-blue-600"
               title="CASE BOARD"
               subtitle="Take on real cases. Investigate. Argue. Win."
+              badge={activity && activity.ongoing > 0 ? `${activity.ongoing} ONGOING` : undefined}
             />
             <PathTile
               onClick={onNavigateToCustomCases}
@@ -106,7 +109,7 @@ export default function LandingPage({
               iconBg="bg-orange-600"
               title="CHALLENGE A PLAYER"
               subtitle="Face a real opponent. No AI."
-              badge="LIVE 1V1"
+              badge={activity && activity.invites > 0 ? `${activity.invites} INVITE${activity.invites > 1 ? 'S' : ''} WAITING` : 'LIVE 1V1'}
             />
           </div>
 
