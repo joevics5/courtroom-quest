@@ -4,6 +4,7 @@ import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
 import HomePage from './components/HomePage';
 import LoadingScreen from './components/LoadingScreen';
+import PlayModeSelection from './components/PlayModeSelection';
 import LandingPage from './components/LandingPage';
 import CaseBoard from './components/CaseBoard';
 import CaseSelection from './components/CaseSelection';
@@ -34,6 +35,7 @@ type AppView =
   | 'custom-case-creator'
   | 'challenge-board'
   | 'tutorial'
+  | 'mode-selection'
   | 'role-selection'
   | 'investigation'
   | 'trial-type-selection'
@@ -49,6 +51,8 @@ function AppContent() {
   const [bootDone, setBootDone] = useState(false);
   const [showHome, setShowHome] = useState(true);
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
+  // Set when the challenge board is opened from the play-mode screen for an already-chosen case
+  const [challengeSeedTab, setChallengeSeedTab] = useState<'quick' | 'local' | null>(null);
   const [view, setView] = useState<AppView>('landing');
   const [currentSession, setCurrentSession] = useState<CaseSession | null>(null);
   const [currentCase, setCurrentCase] = useState<Case | null>(null);
@@ -242,7 +246,7 @@ function AppContent() {
         // right here, meaning merely opening the preview and backing out
         // without accepting still left an 'in progress' session behind.
         setCurrentSession(null);
-        setView('role-selection');
+        setView('mode-selection');
       }
     } catch (error) {
       console.error('Failed to start case:', error);
@@ -409,6 +413,7 @@ function AppContent() {
   };
 
   const handleMatched = async (session: CaseSession) => {
+    setChallengeSeedTab(null);
     // A challenge just got matched (either I created it and someone joined,
     // or I just joined someone else's) — the session already exists at
     // 'investigation', so this is the same as resuming any other session.
@@ -647,8 +652,17 @@ function AppContent() {
         <ChallengeBoard
           userId={user.id}
           userEmail={user.email || ''}
-          onBack={() => setView('landing')}
+          onBack={() => {
+            if (challengeSeedTab) {
+              setChallengeSeedTab(null);
+              setView('mode-selection');
+            } else {
+              setView('landing');
+            }
+          }}
           onMatched={handleMatched}
+          initialCase={challengeSeedTab && currentCase ? currentCase : undefined}
+          initialTab={challengeSeedTab ?? undefined}
         />
       )}
 
@@ -726,6 +740,23 @@ function AppContent() {
             setCurrentSession(null);
             setView('case-board');
           }}
+        />
+      )}
+
+      {view === 'mode-selection' && currentCase && (
+        <PlayModeSelection
+          caseTitle={currentCase.title}
+          isCustomCase={isCurrentCaseCustom}
+          onVsAI={() => setView('role-selection')}
+          onOnline={() => {
+            setChallengeSeedTab('quick');
+            setView('challenge-board');
+          }}
+          onSameDevice={() => {
+            setChallengeSeedTab('local');
+            setView('challenge-board');
+          }}
+          onBack={handleBackFromInvestigation}
         />
       )}
 

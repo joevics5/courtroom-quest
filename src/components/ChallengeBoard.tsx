@@ -9,20 +9,23 @@ interface Props {
   userEmail: string;
   onBack: () => void;
   onMatched: (session: CaseSession) => void;
+  /** Case already chosen on the play-mode screen — preselected in every tab */
+  initialCase?: Case;
+  initialTab?: Tab;
 }
 
-type Tab = 'quick' | 'invite' | 'local';
+export type Tab = 'quick' | 'invite' | 'local';
 
-export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }: Props) {
-  const [tab, setTab] = useState<Tab>('quick');
+export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, initialCase, initialTab }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'quick');
   const [cases, setCases] = useState<Case[]>([]);
 
   // --- Quick match (open lobby) state ---
   const [openChallenges, setOpenChallenges] = useState<CaseChallenge[]>([]);
   const [myChallenges, setMyChallenges] = useState<CaseChallenge[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedCaseId, setSelectedCaseId] = useState<string>('');
+  const [showCreate, setShowCreate] = useState(!!initialCase && (initialTab ?? 'quick') === 'quick');
+  const [selectedCaseId, setSelectedCaseId] = useState<string>(initialCase?.id ?? '');
   const [selectedRole, setSelectedRole] = useState<PlayerRole>('defense');
   const [creating, setCreating] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
@@ -32,7 +35,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
   const [sentInvites, setSentInvites] = useState<CaseInvitation[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<CaseInvitation[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(true);
-  const [inviteCaseId, setInviteCaseId] = useState<string>('');
+  const [inviteCaseId, setInviteCaseId] = useState<string>(initialCase?.id ?? '');
   const [inviteRole, setInviteRole] = useState<PlayerRole>('defense');
   const [inviteeEmail, setInviteeEmail] = useState('');
   const [inviteAllowSpectators, setInviteAllowSpectators] = useState(false);
@@ -41,7 +44,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   // --- Pass & play (same device) state ---
-  const [localCaseId, setLocalCaseId] = useState<string>('');
+  const [localCaseId, setLocalCaseId] = useState<string>(initialCase?.id ?? '');
   const [localCreatorRole, setLocalCreatorRole] = useState<PlayerRole>('defense');
   const [localAllowSpectators, setLocalAllowSpectators] = useState(false);
   const [startingLocal, setStartingLocal] = useState(false);
@@ -101,10 +104,13 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
   }, [userId, userEmail, onMatched]);
 
   useEffect(() => {
-    db.cases.getPresetCases().then(setCases).catch(err => console.error('Failed to load cases:', err));
+    db.cases.getPresetCases()
+      .then(list => setCases(initialCase && !list.some(c => c.id === initialCase.id) ? [initialCase, ...list] : list))
+      .catch(err => console.error('Failed to load cases:', err));
     refresh();
     const interval = setInterval(refresh, 4000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh]);
 
   useEffect(() => {
@@ -233,7 +239,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
   return (
     <ScreenShell
       title="CHALLENGE BOARD"
-      subtitle="No AI counsel — just you against another real player. Match with a stranger on the open board, or invite a specific friend."
+      subtitle="No AI counsel — you against a real person. Match online, invite a friend, or share one device."
       onBack={onBack}
     >
       <div>
@@ -242,7 +248,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
             onClick={() => setTab('quick')}
             className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'quick' ? 'bg-[#FFD43B] text-black' : 'text-white/60 hover:text-white'}`}
           >
-            Quick Match
+            Online Match
           </button>
           <button
             onClick={() => setTab('invite')}
@@ -259,7 +265,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched }:
             onClick={() => setTab('local')}
             className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'local' ? 'bg-[#FFD43B] text-black' : 'text-white/60 hover:text-white'}`}
           >
-            Pass & Play
+            Same Device
           </button>
         </div>
 

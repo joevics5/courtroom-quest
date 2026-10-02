@@ -1,8 +1,9 @@
-import { ArrowLeft, Briefcase, FileText, Swords, Settings as SettingsIcon, Trophy, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Briefcase, FileText, Swords, Settings as SettingsIcon, Trophy } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getPublicName } from '../lib/userName';
 import CaseOfTheWeek from './CaseOfTheWeek';
 import HeroBackground from './HeroBackground';
+import PathTile from './PathTile';
 import type { UserProfile } from '../types';
 
 interface LandingPageProps {
@@ -14,36 +15,6 @@ interface LandingPageProps {
   onOpenSettings: () => void;
   onOpenAdmin?: () => void;
   onBackToHome: () => void;
-}
-
-interface PathTileProps {
-  onClick: () => void;
-  icon: React.ReactNode;
-  iconBg: string;
-  title: string;
-  subtitle: string;
-  badge?: string;
-}
-
-function PathTile({ onClick, icon, iconBg, title, subtitle, badge }: PathTileProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="relative w-full flex items-center gap-4 rounded-2xl bg-black/65 border border-white/15 p-4 text-left backdrop-blur-sm border-b-[5px] border-b-white/25 active:translate-y-1 active:border-b active:bg-black/80 transition-all"
-    >
-      {badge && (
-        <span className="absolute -top-2 right-4 rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-black tracking-wide text-white">
-          {badge}
-        </span>
-      )}
-      <span className={`flex-none flex items-center justify-center w-14 h-14 rounded-xl ${iconBg}`}>{icon}</span>
-      <span className="flex-1 min-w-0">
-        <span className="block font-game text-3xl text-white leading-none">{title}</span>
-        <span className="block mt-1 text-sm text-white/65">{subtitle}</span>
-      </span>
-      <ChevronRight className="flex-none w-6 h-6 text-[#FFD43B]" />
-    </button>
-  );
 }
 
 export default function LandingPage({
