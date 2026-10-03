@@ -3,10 +3,17 @@ import type { AnalysisResult, CoreResult, Draft, DraftEvidence, DraftWitness, Ge
 import type { ExistingContext } from './load';
 
 export interface ImproveExtras { existing: ExistingContext; instructions: string }
+/** Player "practice" mode: faithful extraction from the user's own notes and/or an uploaded PDF. */
+export interface PracticeExtras { document?: { path: string } }
 
-async function invokeStage<T>(stage: 'core' | 'analysis', story: string, options: GenerateOptions, core?: CoreResult, extras?: ImproveExtras) {
+async function invokeStage<T>(
+  stage: 'core' | 'analysis', story: string, options: GenerateOptions, core?: CoreResult, extras?: ImproveExtras, practice?: PracticeExtras,
+) {
   const { data, error } = await supabase.functions.invoke('generate-case', {
-    body: { stage, story, options, core, existing: extras?.existing, instructions: extras?.instructions },
+    body: {
+      stage, story, options, core, existing: extras?.existing, instructions: extras?.instructions,
+      ...(practice ? { mode: 'practice', document: practice.document } : {}),
+    },
   });
   if (error) {
     // Surface the server's message (FunctionsHttpError carries the Response in .context)
@@ -21,10 +28,10 @@ async function invokeStage<T>(stage: 'core' | 'analysis', story: string, options
   return data as { data: T; warnings: string[]; model: string };
 }
 
-export const generateCore = (story: string, options: GenerateOptions, extras?: ImproveExtras) =>
-  invokeStage<CoreResult>('core', story, options, undefined, extras);
-export const generateAnalysis = (story: string, options: GenerateOptions, core: CoreResult, extras?: ImproveExtras) =>
-  invokeStage<AnalysisResult>('analysis', story, options, core, extras);
+export const generateCore = (story: string, options: GenerateOptions, extras?: ImproveExtras, practice?: PracticeExtras) =>
+  invokeStage<CoreResult>('core', story, options, undefined, extras, practice);
+export const generateAnalysis = (story: string, options: GenerateOptions, core: CoreResult, extras?: ImproveExtras, practice?: PracticeExtras) =>
+  invokeStage<AnalysisResult>('analysis', story, options, core, extras, practice);
 
 export const EMPTY_ANALYSIS: AnalysisResult = {
   evidence: [], loopholes: [], red_herrings: [], contradictions: [], legal_issues: [],

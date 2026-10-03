@@ -170,6 +170,9 @@ export const TIERS: Record<Tier, {
   medium: { witnesses: [6, 8],  evidence: [6, 8],  facts: [12, 18], timeline: [8, 12],  loopholes: [5, 7],  redHerrings: [2, 3], contradictions: [4, 6], objections: [5, 7], hidden: [2, 3] },
   hard:   { witnesses: [9, 12], evidence: [9, 12], facts: [18, 26], timeline: [10, 16], loopholes: [8, 12], redHerrings: [3, 5], contradictions: [6, 9], objections: [6, 8], hidden: [3, 4] },
 };
+// Practice mode (a lawyer's real case file): floors only, sized to what the file supports.
+export const PRACTICE_MIN = { witnesses: 3, evidence: 3, facts: 6, timeline: 4, loopholes: 2, objections: 3, verdict: 2, knowledge: 2 };
+export const PRACTICE_MAX = { witnesses: 14, evidence: 14, facts: 34 };
 export const tierOf = (d?: string): Tier => (d === "easy" || d === "hard" ? d : "medium");
 const rng = (r: Range) => (r[0] === r[1] ? `${r[0]}` : `${r[0]}-${r[1]}`);
 
@@ -179,7 +182,8 @@ const rng = (r: Range) => (r[0] === r[1] ? `${r[0]}` : `${r[0]}-${r[1]}`);
 const codes = (xs: { code?: string; id?: string }[], key: "code" | "id") =>
   new Set(xs.map((x) => (x as any)[key]).filter(Boolean));
 
-export function validateCore(c: Core, lenient = false): string[] {
+export function validateCore(c: Core, lenient = false, practice = false): string[] {
+  if (practice) return validateCorePractice(c);
   const e: string[] = [];
   const t = TIERS[tierOf(c.case.difficulty)];
   const label = tierOf(c.case.difficulty);
@@ -210,7 +214,8 @@ export function validateCore(c: Core, lenient = false): string[] {
   return e;
 }
 
-export function validateAnalysis(a: Analysis, core: Core, lenient = false): string[] {
+export function validateAnalysis(a: Analysis, core: Core, lenient = false, practice = false): string[] {
+  if (practice) return validateAnalysisPractice(a, core);
   const e: string[] = [];
   const label = tierOf(core.case.difficulty);
   const t = TIERS[label];
@@ -281,4 +286,63 @@ export function stripDanglingAnalysis(a: Analysis, core: Core): void {
     l.witness_codes = l.witness_codes.filter((x) => w.has(x));
   }
   for (const i of a.investigation) i.evidence_codes = i.evidence_codes.filter((x) => e.has(x));
+}
+
+// ---------- practice mode validation ----------
+export function validateCorePractice(c: Core): string[] {
+  const e: string[] = [];
+  const m = PRACTICE_MIN, x = PRACTICE_MAX;
+  if (!c.case.title) e.push("case.title is empty");
+  if (!c.case.description) e.push("case.description is empty");
+  if (c.facts.length < m.facts) e.push(`need at least ${m.facts} facts (got ${c.facts.length})`);
+  if (c.facts.length > x.facts) e.push(`too many facts (${c.facts.length}); keep at most ${x.facts}`);
+  if (c.witnesses.length < m.witnesses || c.witnesses.length > x.witnesses)
+    e.push(`need ${m.witnesses}-${x.witnesses} witnesses (got ${c.witnesses.length})`);
+  const factIds = codes(c.facts as any, "id");
+  if (factIds.size !== c.facts.length) e.push("fact ids must be unique and non-empty (F1, F2, ...)");
+  if (codes(c.witnesses as any, "code").size !== c.witnesses.length) e.push("witness codes must be unique and non-empty (W1, W2, ...)");
+  const missing = new Set<string>();
+  for (const w of c.witnesses) {
+    if (!w.name || !w.base_testimony || !w.background) e.push(`witness ${w.code} missing name/background/base_testimony`);
+    if (w.secret.knowledge.length < m.knowledge) e.push(`witness ${w.code} needs at least ${m.knowledge} knowledge entries`);
+    for (const k of w.secret.knowledge) if (!factIds.has(k.fact_id)) missing.add(`${w.code}->${k.fact_id}`);
+  }
+  for (const tl of c.timeline) for (const f of tl.fact_ids) if (!factIds.has(f)) missing.add(`timeline->${f}`);
+  for (const [name, th] of Object.entries(c.theories)) {
+    for (const f of (th as any).supporting_fact_ids) if (!factIds.has(f)) missing.add(`${name} theory->${f}`);
+    if (name !== "alternative" && !(th as any).core_claim) e.push(`${name} theory has no core_claim`);
+  }
+  if (missing.size) e.push(`references to fact ids that do not exist: ${[...missing].slice(0, 12).join(", ")}`);
+  if (c.timeline.length < m.timeline) e.push(`timeline too short (${c.timeline.length}); need at least ${m.timeline} events`);
+  return e;
+}
+
+export function validateAnalysisPractice(a: Analysis, core: Core): string[] {
+  const e: string[] = [];
+  const m = PRACTICE_MIN, x = PRACTICE_MAX;
+  if (a.evidence.length < m.evidence || a.evidence.length > x.evidence)
+    e.push(`need ${m.evidence}-${x.evidence} evidence items (got ${a.evidence.length})`);
+  const eCodes = codes(a.evidence as any, "code");
+  if (eCodes.size !== a.evidence.length) e.push("evidence codes must be unique and non-empty (E1, E2, ...)");
+  const wCodes = codes(core.witnesses as any, "code");
+  const factIds = codes(core.facts as any, "id");
+  const bad = new Set<string>();
+  for (const ev of a.evidence) {
+    if (!ev.title || !ev.description) e.push(`evidence ${ev.code} missing title/description`);
+    for (const f of ev.secret.fact_ids) if (!factIds.has(f)) bad.add(`${ev.code}->${f}`);
+    for (const r of ev.secret.related_evidence_codes) if (!eCodes.has(r)) bad.add(`${ev.code}->${r}`);
+    for (const w of ev.secret.witnesses) if (!wCodes.has(w.witness_code)) bad.add(`${ev.code}->${w.witness_code}`);
+  }
+  const sides = { prosecution: 0, defence: 0 } as Record<string, number>;
+  for (const l of a.loopholes) {
+    sides[l.side] = (sides[l.side] ?? 0) + 1;
+    for (const c of l.evidence_codes) if (!eCodes.has(c)) bad.add(`${l.id}->${c}`);
+    for (const w of l.witness_codes) if (!wCodes.has(w)) bad.add(`${l.id}->${w}`);
+  }
+  for (const side of ["prosecution", "defence"])
+    if (sides[side] < m.loopholes) e.push(`need at least ${m.loopholes} ${side} loopholes (got ${sides[side]})`);
+  if (a.objections.length < m.objections) e.push(`need at least ${m.objections} objections`);
+  if (a.verdict_issues.length < m.verdict) e.push(`need at least ${m.verdict} verdict issues`);
+  if (bad.size) e.push(`references to codes that do not exist: ${[...bad].slice(0, 12).join(", ")}`);
+  return e;
 }

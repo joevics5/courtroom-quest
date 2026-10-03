@@ -24,6 +24,8 @@ import CustomCaseCreator from './CustomCaseCreator';
 
 const type = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
 
+const openForm = () => fireEvent.click(screen.getByText('Fill in the form'));
+
 async function fillValidCase() {
   type(screen.getByPlaceholderText('The State vs. John Doe'), 'State v. Doe');
   type(screen.getByPlaceholderText(/detailed description/i), 'A burglary at night.');
@@ -45,6 +47,7 @@ describe('CustomCaseCreator save flow', () => {
     mocks.addWitness.mockResolvedValue({});
     const onComplete = vi.fn();
     render(<CustomCaseCreator onComplete={onComplete} onCancel={vi.fn()} />);
+    openForm();
     await fillValidCase();
     fireEvent.click(screen.getByText('Create Case & Begin'));
     await waitFor(() => expect(onComplete).toHaveBeenCalledWith('case-1'));
@@ -61,6 +64,7 @@ describe('CustomCaseCreator save flow', () => {
     mocks.addWitness.mockRejectedValue(new Error('RLS says no'));
     const onComplete = vi.fn();
     render(<CustomCaseCreator onComplete={onComplete} onCancel={vi.fn()} />);
+    openForm();
     await fillValidCase();
     fireEvent.click(screen.getByText('Create Case & Begin'));
     await waitFor(() => expect(mocks.deleteCase).toHaveBeenCalledWith('case-2'));
@@ -70,6 +74,7 @@ describe('CustomCaseCreator save flow', () => {
 
   it('shows what is missing instead of saving an incomplete case', async () => {
     render(<CustomCaseCreator onComplete={vi.fn()} onCancel={vi.fn()} />);
+    openForm();
     type(screen.getByPlaceholderText('The State vs. John Doe'), 'State v. Doe');
     type(screen.getByPlaceholderText(/detailed description/i), 'A burglary.');
     fireEvent.click(screen.getByText('Continue to Evidence'));
@@ -77,5 +82,13 @@ describe('CustomCaseCreator save flow', () => {
     fireEvent.click(screen.getByText('Create Case & Begin'));
     expect(await screen.findByText(/at least 3 evidence items/)).toBeInTheDocument();
     expect(mocks.createCase).not.toHaveBeenCalled();
+  });
+
+  it('offers AI parsing or the form when starting a new case', () => {
+    render(<CustomCaseCreator onComplete={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText('Parse with AI')).toBeInTheDocument();
+    expect(screen.getByText('Fill in the form')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Parse with AI'));
+    expect(screen.getByText('Which side will you argue?')).toBeInTheDocument();
   });
 });

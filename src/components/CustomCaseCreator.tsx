@@ -1,6 +1,7 @@
 import ScreenShell from './ScreenShell';
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Upload, X } from 'lucide-react';
+import { FileText, PenLine, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import AiCaseBuilder from './AiCaseBuilder';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/database';
 import { supabase } from '../lib/supabase';
@@ -75,6 +76,8 @@ const emptyInfo = { title: '', defendant_name: '', description: '', caseType: 'b
 export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: CustomCaseCreatorProps) {
   const { user } = useAuth();
   const isEditMode = !!editCaseId;
+  // New cases start by choosing how to fill the case in; editing always uses the form.
+  const [mode, setMode] = useState<'choose' | 'manual' | 'ai'>(isEditMode ? 'manual' : 'choose');
   const [step, setStep] = useState<CreatorStep>('info');
   const [loading, setLoading] = useState(isEditMode);
   const [saving, setSaving] = useState(false);
@@ -350,6 +353,37 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
       setSaving(false);
     }
   };
+
+  if (mode === 'ai') {
+    return <AiCaseBuilder onComplete={onComplete} onCancel={onCancel} onManual={() => setMode('manual')} />;
+  }
+
+  if (mode === 'choose') {
+    return (
+      <ScreenShell title="NEW CASE" onBack={onCancel}>
+        <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm p-6 space-y-4">
+          <p className="text-slate-300 text-sm">How do you want to build your case?</p>
+          <button
+            onClick={() => setMode('ai')}
+            className="w-full text-left rounded-xl border border-[#FFD43B]/60 bg-[#FFD43B]/10 hover:bg-[#FFD43B]/20 p-4 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-[#FFD43B] font-bold"><Sparkles className="w-5 h-5" /> Parse with AI</div>
+            <p className="text-sm text-slate-200 mt-1">
+              Upload a case-file PDF or paste your notes. The AI builds the witnesses, evidence and timeline, and shows where opposing counsel is likely to attack.
+            </p>
+            <p className="text-xs text-slate-400 mt-2 flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> You review and edit everything before saving.</p>
+          </button>
+          <button
+            onClick={() => setMode('manual')}
+            className="w-full text-left rounded-xl border border-white/20 bg-black/30 hover:bg-white/5 p-4 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-white font-bold"><PenLine className="w-5 h-5" /> Fill in the form</div>
+            <p className="text-sm text-slate-300 mt-1">Write the case, evidence and witnesses yourself.</p>
+          </button>
+        </div>
+      </ScreenShell>
+    );
+  }
 
   if (loading || loadError) {
     return (

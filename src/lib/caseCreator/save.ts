@@ -61,9 +61,9 @@ export function derivePersonality(w: DraftWitness) {
 }
 
 /** Writes a brand-new case. Rolls the case back on failure. */
-async function insertDraft(d: Draft): Promise<string> {
+async function insertDraft(d: Draft, asCustom = false): Promise<string> {
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error('You must be signed in as an admin to save.');
+  if (!auth.user) throw new Error(asCustom ? 'You must be signed in to save.' : 'You must be signed in as an admin to save.');
 
   const c = d.case;
   const { data: caseRow, error: caseErr } = await sb
@@ -82,7 +82,7 @@ async function insertDraft(d: Draft): Promise<string> {
       estimated_minutes: int(c.estimated_minutes),
       min_players: int(c.min_players),
       max_players: int(c.max_players),
-      is_preset: true,
+      is_preset: !asCustom,
       created_by: auth.user.id,
     })
     .select('id')
@@ -292,8 +292,11 @@ async function updateDraft(d: Draft): Promise<{ caseId: string; warnings: string
   return { caseId, warnings };
 }
 
-/** Saves the reviewed draft: creates a new case, or updates the existing one when the draft came from loadExistingCase. */
-export async function saveDraft(d: Draft): Promise<{ caseId: string; warnings: string[] }> {
+/**
+ * Saves the reviewed draft: creates a new case, or updates the existing one when the draft came from loadExistingCase.
+ * `asCustom` saves a player's own (non-preset) case; the database only lets players create those.
+ */
+export async function saveDraft(d: Draft, opts: { asCustom?: boolean } = {}): Promise<{ caseId: string; warnings: string[] }> {
   if (d._case_id) return updateDraft(d);
-  return { caseId: await insertDraft(d), warnings: [] };
+  return { caseId: await insertDraft(d, !!opts.asCustom), warnings: [] };
 }

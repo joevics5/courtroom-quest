@@ -109,6 +109,8 @@ export interface GenerateOptions {
   difficulty: string;
   duration: string;
   special: string;
+  /** Practice mode: which side the lawyer argues; the AI builds the opponent's playbook against it. */
+  user_side?: string;
 }
 
 /** Everything stage 1 returns (what the edge function calls "core"). */

@@ -2,7 +2,9 @@ import type { Draft } from './types';
 import { TIERS, rangeText, tierOf } from './tiers';
 
 /** Live checks shown while the admin edits. Returns human-readable problems (empty = clean). */
-export function validateDraft(d: Draft): { errors: string[]; warnings: string[] } {
+/** `practice`: a player's own case file, sized by what the file supports, so game difficulty counts are not advice. */
+export function validateDraft(d: Draft, opts: { practice?: boolean } = {}): { errors: string[]; warnings: string[] } {
+  const practice = !!opts.practice;
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -14,9 +16,9 @@ export function validateDraft(d: Draft): { errors: string[]; warnings: string[] 
   const tier = tierOf(d.case.difficulty);
   const t = TIERS[tier];
   const outside = (n: number, r: [number, number]) => n < r[0] || n > r[1];
-  if (outside(d.witnesses.length, t.witnesses))
+  if (!practice && outside(d.witnesses.length, t.witnesses))
     warnings.push(`${tier} cases usually have ${rangeText(t.witnesses)} witnesses (you have ${d.witnesses.length}).`);
-  if (d.evidence.length > 0 && outside(d.evidence.length, t.evidence))
+  if (!practice && d.evidence.length > 0 && outside(d.evidence.length, t.evidence))
     warnings.push(`${tier} cases usually have ${rangeText(t.evidence)} evidence items (you have ${d.evidence.length}).`);
 
   const dup = (codes: string[], label: string) => {
@@ -61,13 +63,13 @@ export function validateDraft(d: Draft): { errors: string[]; warnings: string[] 
   const pros = d.loopholes.filter((l) => l.side === 'prosecution').length;
   const def = d.loopholes.filter((l) => l.side === 'defence').length;
   if (d.evidence.length > 0) {
-    if (pros < t.loopholes[0]) warnings.push(`Only ${pros} prosecution loopholes (${tier} cases aim for ${rangeText(t.loopholes)}).`);
-    if (def < t.loopholes[0]) warnings.push(`Only ${def} defence loopholes (${tier} cases aim for ${rangeText(t.loopholes)}).`);
+    if (!practice && pros < t.loopholes[0]) warnings.push(`Only ${pros} prosecution loopholes (${tier} cases aim for ${rangeText(t.loopholes)}).`);
+    if (!practice && def < t.loopholes[0]) warnings.push(`Only ${def} defence loopholes (${tier} cases aim for ${rangeText(t.loopholes)}).`);
     const hidden = d.evidence.filter((e) => e.is_hidden).length;
     if (hidden > 0)
       warnings.push(`${hidden} evidence item(s) are marked hidden. Players cannot discover hidden evidence in the app yet, so untick "Is hidden" on any you want visible now.`);
   }
-  if (!d.witnesses.some((w) => w.secret.knowledge.some((k) => k.state === 'hidden')))
+  if (!practice && !d.witnesses.some((w) => w.secret.knowledge.some((k) => k.state === 'hidden')))
     warnings.push('No witness holds hidden knowledge.');
   return { errors, warnings };
 }
