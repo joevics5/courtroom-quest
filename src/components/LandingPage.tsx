@@ -1,10 +1,10 @@
-import { ArrowLeft, Briefcase, FileText, Swords, Settings as SettingsIcon, Trophy } from 'lucide-react';
+import { ArrowLeft, Briefcase, FileText, Mail, Swords, Settings as SettingsIcon, Trophy } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getPublicName } from '../lib/userName';
 import CaseOfTheWeek from './CaseOfTheWeek';
 import HeroBackground from './HeroBackground';
 import PathTile from './PathTile';
-import type { UserProfile } from '../types';
+import type { CaseInvitation, UserProfile } from '../types';
 
 interface LandingPageProps {
   userProfile: UserProfile | null;
@@ -15,7 +15,11 @@ interface LandingPageProps {
   onOpenSettings: () => void;
   onOpenAdmin?: () => void;
   onBackToHome: () => void;
-  activity?: { ongoing: number; invites: number };
+  ongoingCount?: number;
+  invites?: CaseInvitation[];
+  respondingInviteId?: string | null;
+  onAcceptInvite?: (invitationId: string) => void;
+  onDeclineInvite?: (invitationId: string) => void;
 }
 
 export default function LandingPage({
@@ -27,7 +31,11 @@ export default function LandingPage({
   onOpenSettings,
   onOpenAdmin,
   onBackToHome,
-  activity
+  ongoingCount = 0,
+  invites = [],
+  respondingInviteId = null,
+  onAcceptInvite,
+  onDeclineInvite
 }: LandingPageProps) {
   const { user } = useAuth();
 
@@ -79,6 +87,45 @@ export default function LandingPage({
         )}
 
         <main className="flex-1 mt-4 space-y-5 max-w-lg w-full mx-auto">
+          {invites.length > 0 && (
+            <section className="rounded-3xl bg-black/70 border-2 border-red-500/70 p-4 backdrop-blur-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Mail className="w-5 h-5 text-red-400" />
+                <h2 className="font-game text-2xl text-white leading-none">
+                  {invites.length === 1 ? 'YOU HAVE AN INVITE' : `YOU HAVE ${invites.length} INVITES`}
+                </h2>
+              </div>
+              <div className="space-y-3">
+                {invites.map(invite => {
+                  const myRole = invite.inviter_role === 'defense' ? 'Prosecution' : 'Defense';
+                  const busy = respondingInviteId === invite.id;
+                  return (
+                    <div key={invite.id} className="rounded-2xl bg-white/5 border border-white/15 p-3">
+                      <div className="font-bold text-white leading-tight">{invite.case_title || 'A case'}</div>
+                      <div className="text-sm text-white/65 mt-0.5">A friend challenged you — you'd play the {myRole}.</div>
+                      <div className="grid grid-cols-2 gap-2 mt-3">
+                        <button
+                          onClick={() => onAcceptInvite?.(invite.id)}
+                          disabled={busy}
+                          className="rounded-xl bg-[#FFD43B] text-black font-game text-xl py-2 border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all disabled:opacity-50"
+                        >
+                          {busy ? '…' : 'ACCEPT'}
+                        </button>
+                        <button
+                          onClick={() => onDeclineInvite?.(invite.id)}
+                          disabled={busy}
+                          className="rounded-xl bg-white/10 border border-white/20 text-white font-game text-xl py-2 disabled:opacity-50"
+                        >
+                          DECLINE
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           <CaseOfTheWeek onPlayCase={onPlayFeaturedCase} />
 
           <div className="flex items-center gap-3">
@@ -94,7 +141,7 @@ export default function LandingPage({
               iconBg="bg-blue-600"
               title="CASE BOARD"
               subtitle="Take on real cases. Investigate. Argue. Win."
-              badge={activity && activity.ongoing > 0 ? `${activity.ongoing} ONGOING` : undefined}
+              badge={ongoingCount > 0 ? `${ongoingCount} ONGOING` : undefined}
             />
             <PathTile
               onClick={onNavigateToCustomCases}
@@ -109,7 +156,7 @@ export default function LandingPage({
               iconBg="bg-orange-600"
               title="CHALLENGE A PLAYER"
               subtitle="Face a real opponent. No AI."
-              badge={activity && activity.invites > 0 ? `${activity.invites} INVITE${activity.invites > 1 ? 'S' : ''} WAITING` : 'LIVE 1V1'}
+              badge={invites.length > 0 ? `${invites.length} INVITE${invites.length > 1 ? 'S' : ''} WAITING` : 'LIVE 1V1'}
             />
           </div>
 

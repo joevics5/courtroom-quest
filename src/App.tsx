@@ -21,7 +21,7 @@ import { getLevelForWins } from './lib/levels';
 import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import { didPlayerWin } from './lib/verdictUtils';
-import type { CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
+import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import CasePreview from './components/CasePreview';
 import ChallengeBoard from './components/ChallengeBoard';
 import Tutorial from './components/Tutorial';
@@ -50,7 +50,9 @@ function AppContent() {
   const [showHome, setShowHome] = useState(true);
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   // Ongoing games and invitations waiting — shown as badges on Home and the dashboard
-  const [activity, setActivity] = useState<{ ongoing: number; invites: number }>({ ongoing: 0, invites: 0 });
+  const [ongoingCount, setOngoingCount] = useState(0);
+  const [invites, setInvites] = useState<CaseInvitation[]>([]);
+  const [respondingInviteId, setRespondingInviteId] = useState<string | null>(null);
   // Set when the challenge board is opened from the play-mode screen for an already-chosen case
   // Challenge board opened from the home PLAY popup (no case yet) or from a case file (case seeded)
   const [challengeSeed, setChallengeSeed] = useState<{ tab: 'quick' | 'local'; withCase: boolean } | null>(null);
@@ -72,7 +74,8 @@ function AppContent() {
   // Refresh the badge counts whenever the player lands on Home or the dashboard
   useEffect(() => {
     if (!user) {
-      setActivity({ ongoing: 0, invites: 0 });
+      setOngoingCount(0);
+      setInvites([]);
       return;
     }
     if (!(showHome || view === 'landing')) return;
@@ -83,7 +86,10 @@ function AppContent() {
           db.sessions.getOngoingSessions(user.id),
           user.email ? db.invitations.getInvitationsByEmail(user.email) : Promise.resolve([])
         ]);
-        if (!cancelled) setActivity({ ongoing: ongoing.length, invites: invites.length });
+        if (!cancelled) {
+          setOngoingCount(ongoing.length);
+          setInvites(invites);
+        }
       } catch (error) {
         console.error('Failed to load activity counts:', error);
       }
@@ -174,7 +180,7 @@ function AppContent() {
       <HomePage
         hasAccount={!!user && !user.is_anonymous}
         signedIn={!!user}
-        waitingCount={activity.ongoing + activity.invites}
+        waitingCount={ongoingCount + invites.length}
         onOpenDashboard={() => {
           setShowHome(false);
           setView('landing');
@@ -269,22 +275,13 @@ function AppContent() {
       setCurrentCase(caseDetails);
       setIsCurrentCaseCustom(isCustom);
 
-      // Check for existing ONGOING session first
-      const ongoingSessions = await db.sessions.getOngoingSessions(user.id);
-      const existingOngoingSession = ongoingSessions.find(s => s.case_id === caseId);
-      
-      if (existingOngoingSession) {
-        // Resume existing ongoing session
-        await resumeSession(existingOngoingSession);
-      } else {
-        // No ongoing session — just show the case preview. No session is
-        // created yet; that only happens once the user actually accepts
-        // a role (handleRoleSelect). Previously a session was created
-        // right here, meaning merely opening the preview and backing out
-        // without accepting still left an 'in progress' session behind.
-        setCurrentSession(null);
-        setView('role-selection');
-      }
+      // Always start a NEW game. Existing games of this case are untouched
+      // and stay in the Case Board's Ongoing list, so a player can run
+      // several at once. No session is created yet; that only happens once
+      // the user actually accepts a role (handleRoleSelect), so opening the
+      // preview and backing out leaves nothing behind.
+      setCurrentSession(null);
+      setView('role-selection');
     } catch (error) {
       console.error('Failed to start case:', error);
       alert('Failed to start case. Please try again.');
@@ -378,11 +375,31 @@ function AppContent() {
     }
   };
 
+  // Resume one specific game (Case Board "Ongoing" cards).
+  const handleContinueSession = async (sessionId: string) => {
+    setShowCaseReview(false);
+    try {
+      setIsLoading(true);
+      const session = await db.sessions.getSession(sessionId);
+      if (session) {
+        await resumeSession(session);
+      } else {
+        alert('That game could not be found.');
+      }
+    } catch (error) {
+      console.error('Failed to continue game:', error);
+      alert('Failed to continue the game. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Resume the most recently played game of a case (My Cases "Continue").
   const handleContinueCase = async (caseId: string) => {
     setShowCaseReview(false);
     try {
       setIsLoading(true);
-      // Get the most recent ongoing session for this case
+      // Most recent ongoing session for this case (list is newest first)
       const ongoingSessions = await db.sessions.getOngoingSessions(user.id);
       const session = ongoingSessions.find(s => s.case_id === caseId);
       
@@ -447,6 +464,38 @@ function AppContent() {
     }
 
     setView('trial-type-selection');
+  };
+
+  // Invitations shown on the dashboard — same actions as the Challenge Board's Invite tab
+  const handleAcceptInvite = async (invitationId: string) => {
+    if (!user) return;
+    setRespondingInviteId(invitationId);
+    try {
+      const session = await db.invitations.acceptInvitation(invitationId, user.id);
+      setInvites(prev => prev.filter(i => i.id !== invitationId));
+      await handleMatched(session);
+    } catch (error: any) {
+      console.error('Failed to accept invitation:', error);
+      alert(error?.message || 'Could not accept this invitation.');
+      if (user.email) {
+        db.invitations.getInvitationsByEmail(user.email).then(setInvites).catch(() => {});
+      }
+    } finally {
+      setRespondingInviteId(null);
+    }
+  };
+
+  const handleDeclineInvite = async (invitationId: string) => {
+    if (!user) return;
+    setRespondingInviteId(invitationId);
+    try {
+      await db.invitations.declineInvitation(invitationId, user.id);
+      setInvites(prev => prev.filter(i => i.id !== invitationId));
+    } catch (error) {
+      console.error('Failed to decline invitation:', error);
+    } finally {
+      setRespondingInviteId(null);
+    }
   };
 
   const handleMatched = async (session: CaseSession) => {
@@ -682,7 +731,11 @@ function AppContent() {
           onOpenSettings={() => setView('settings')}
           onOpenAdmin={isAdmin ? handleOpenAdmin : undefined}
           onBackToHome={() => setShowHome(true)}
-          activity={activity}
+          ongoingCount={ongoingCount}
+          invites={invites}
+          respondingInviteId={respondingInviteId}
+          onAcceptInvite={handleAcceptInvite}
+          onDeclineInvite={handleDeclineInvite}
         />
       )}
 
@@ -712,13 +765,14 @@ function AppContent() {
         <CaseBoard
           onBack={() => setView('landing')}
           onSelectCase={(caseId) => handleSelectCase(caseId, false)}
-          onContinueCase={handleContinueCase}
+          onContinueSession={handleContinueSession}
         />
       )}
 
       {view === 'case-selection' && (
         <CaseSelection
           onSelectCase={handleSelectCase}
+          onContinueCase={handleContinueCase}
           onCreateCustomCase={handleCreateCustomCase}
           onEditCustomCase={handleEditCustomCase}
           onOpenAdmin={isAdmin ? handleOpenAdmin : undefined}
@@ -750,21 +804,11 @@ function AppContent() {
             if (currentCase && !currentSession) {
               try {
                 setIsLoading(true);
-                // Check if there's an existing session for this case
-                const ongoingSessions = await db.sessions.getOngoingSessions(user.id);
-                const existingSession = ongoingSessions.find(s => s.case_id === currentCase.id);
-                
-                if (existingSession) {
-                  // Resume existing session
-                  await resumeSession(existingSession);
-                } else {
-                  // Create new session
-                  const session = await db.sessions.createSession(currentCase.id, user.id);
-                  setCurrentSession(session);
-                  await db.sessions.updateSession(session.id, {
-                    current_phase: 'investigation'
-                  });
-                }
+                const session = await db.sessions.createSession(currentCase.id, user.id);
+                setCurrentSession(session);
+                await db.sessions.updateSession(session.id, {
+                  current_phase: 'investigation'
+                });
                 setShowCaseReview(false);
               } catch (error) {
                 console.error('Failed to create/resume session:', error);

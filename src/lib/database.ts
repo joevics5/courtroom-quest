@@ -84,7 +84,7 @@ export const db = {
       // Get all user cases
       const cases = await this.getUserCases(userId);
 
-      // Get ongoing sessions for this user (only most recent per case)
+      // Get ongoing sessions for this user (newest first)
       const ongoingSessions = await db.sessions.getOngoingSessions(userId);
 
       // Create a map of case_id to session info
@@ -98,7 +98,8 @@ export const db = {
       // Update based on ongoing session data
       ongoingSessions.forEach(session => {
         const existing = caseSessionMap.get(session.case_id);
-        if (existing) {
+        // Sessions arrive newest first, so the first one seen is the latest
+        if (existing && !existing.has_sessions) {
           existing.has_sessions = true;
           existing.current_phase = session.current_phase;
           // Ongoing sessions don't have completed_at set
@@ -510,15 +511,10 @@ export const db = {
 
       if (error) throw error;
 
-      // Filter to only return the most recent session per case
-      const caseMap = new Map<string, CaseSession>();
-      ((data || []) as any[]).forEach(session => {
-        if (!caseMap.has(session.case_id)) {
-          caseMap.set(session.case_id, session as CaseSession);
-        }
-      });
-
-      return Array.from(caseMap.values());
+      // Every ongoing game, most recently played first. A player can have
+      // several games of the same case running at once (e.g. one vs the AI
+      // and one on the same device), so there is no per-case collapsing here.
+      return (data || []) as CaseSession[];
     },
 
     async getCompletedSessionForCase(userId: string, caseId: string): Promise<CaseSession | null> {

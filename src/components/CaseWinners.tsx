@@ -10,94 +10,86 @@ interface CaseWinnersProps {
   onClose: () => void;
 }
 
+const RANK_STYLE = [
+  'bg-[#FFD43B] text-black',          // 1st – gold
+  'bg-slate-300 text-black',          // 2nd – silver
+  'bg-amber-600 text-white'           // 3rd – bronze
+];
+
 export default function CaseWinners({ caseId, caseTitle, onClose }: CaseWinnersProps) {
   const [winners, setWinners] = useState<CaseWinner[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadWinners();
+    (async () => {
+      try {
+        setLoading(true);
+        setWinners(await db.caseWinners.getCaseWinners(caseId));
+      } catch (error) {
+        console.error('Failed to load winners:', error);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [caseId]);
 
-  const loadWinners = async () => {
-    try {
-      setLoading(true);
-      const data = await db.caseWinners.getCaseWinners(caseId);
-      setWinners(data);
-    } catch (error) {
-      console.error('Failed to load winners:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <div className="flex items-center gap-3">
-            <Trophy className="w-6 h-6 text-amber-400" />
-            <div>
-              <h2 className="text-xl font-bold text-white">Previous Winners</h2>
-              <p className="text-sm text-slate-400">{caseTitle}</p>
-            </div>
+    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/75" onClick={onClose}>
+      <div
+        className="relative w-full max-w-md max-h-[85dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#14161f] border border-white/10 text-white"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3 p-5 pb-3">
+          <span className="flex-none flex items-center justify-center w-12 h-12 rounded-xl bg-[#FFD43B]">
+            <Trophy className="w-6 h-6 text-black" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <h2 className="logo-gold font-game text-4xl leading-none">TOP SCORES</h2>
+            <p className="text-sm text-white/60 mt-1 truncate">{caseTitle}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-slate-400" />
+          <button onClick={onClose} aria-label="Close" className="flex-none flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+        <div className="px-5 pb-6 overflow-y-auto">
           {loading ? (
-            <div className="text-center py-8 text-slate-400">Loading winners...</div>
+            <div className="text-center py-10 text-white/50">Loading…</div>
           ) : winners.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
-              No one has won this case yet. Be the first!
+            <div className="text-center py-10">
+              <Trophy className="w-10 h-10 mx-auto text-white/25 mb-3" />
+              <p className="font-game text-2xl text-white/80">NO WINNERS YET</p>
+              <p className="text-sm text-white/50 mt-1">Win this case and your name goes up here.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <ol className="space-y-2.5">
               {winners.map((winner, index) => (
-                <div
+                <li
                   key={winner.id}
-                  className="bg-slate-750 rounded-lg p-4 border border-slate-600 hover:border-slate-500 transition-colors"
+                  className={`flex items-center gap-3 rounded-2xl border p-3 ${
+                    index === 0 ? 'bg-[#FFD43B]/10 border-[#F2B705]/60' : 'bg-white/5 border-white/15'
+                  }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                        index === 0 ? 'bg-amber-500' : index === 1 ? 'bg-slate-400' : index === 2 ? 'bg-amber-700' : 'bg-slate-600'
-                      }`}>
-                        <span className="text-white font-bold">
-                          {index + 1}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-white font-semibold">{maskPublicName(winner.username)}</span>
-                          <span className="text-xs px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30">
-                            {winner.level_achieved}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
-                          <span>Score: {winner.verdict_score}/100</span>
-                          <span>•</span>
-                          <span>{formatDate(winner.won_at)}</span>
-                        </div>
-                      </div>
+                  <span className={`flex-none flex items-center justify-center w-10 h-10 rounded-full font-game text-xl ${RANK_STYLE[index] ?? 'bg-white/15 text-white'}`}>
+                    {index + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold truncate">{maskPublicName(winner.username)}</div>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-white/55">
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-white/75 capitalize">{winner.level_achieved}</span>
+                      <span>{formatDate(winner.won_at)}</span>
                     </div>
                   </div>
-                </div>
+                  <div className="flex-none text-right leading-none">
+                    <span className="font-game text-3xl text-[#FFD43B]">{winner.verdict_score}</span>
+                    <span className="block text-[10px] font-bold tracking-wider text-white/40 mt-0.5">/ 100</span>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ol>
           )}
         </div>
       </div>

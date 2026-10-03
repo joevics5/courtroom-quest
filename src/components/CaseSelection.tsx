@@ -4,11 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSession } from '../contexts/SessionContext';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
+import { getPhaseBadge } from '../lib/sessionInfo';
 import CaseWinners from './CaseWinners';
 import type { Case } from '../types';
 
 interface CaseSelectionProps {
   onSelectCase: (caseId: string, isCustom: boolean) => void;
+  /** Resume the most recently played game of a custom case */
+  onContinueCase: (caseId: string) => void;
   onCreateCustomCase: () => void;
   onEditCustomCase: (caseId: string) => void;
   onOpenAdmin?: () => void;
@@ -21,7 +24,7 @@ type CaseWithSessionStatus = Case & {
   current_phase?: string;
 };
 
-export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEditCustomCase, onOpenAdmin, onBack }: CaseSelectionProps) {
+export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCustomCase, onEditCustomCase, onOpenAdmin, onBack }: CaseSelectionProps) {
   const { user } = useAuth();
   const [userCases, setUserCases] = useState<CaseWithSessionStatus[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,10 +64,10 @@ export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEdit
     return (
       <div
         key={caseItem.id}
-        onClick={() => onSelectCase(caseItem.id, true)}
-        className={`w-full rounded-2xl p-5 transition-all group cursor-pointer ${
+        onClick={() => { if (!isOngoing) onSelectCase(caseItem.id, true); }}
+        className={`w-full rounded-2xl p-5 transition-all group ${isOngoing ? '' : 'cursor-pointer'} ${
           isOngoing
-            ? 'bg-[#F2B705]/10 border border-[#F2B705]/50 hover:bg-[#F2B705]/15'
+            ? `border-2 ${getPhaseBadge(caseItem.current_phase).card}`
             : 'bg-white/5 border border-white/15 hover:border-white/30 hover:bg-white/10'
         }`}
       >
@@ -96,13 +99,26 @@ export default function CaseSelection({ onSelectCase, onCreateCustomCase, onEdit
           {caseItem.description}
         </p>
 
-        <div className="flex items-center gap-2">
-          {isOngoing && (
-            <span className="text-xs px-2 py-1 rounded font-medium text-yellow-400 bg-yellow-500/10">
-              {(caseItem.current_phase || 'investigation').toUpperCase()}
+        {isOngoing && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-black tracking-wide ${getPhaseBadge(caseItem.current_phase).badge}`}>
+              {getPhaseBadge(caseItem.current_phase).label}
             </span>
-          )}
-        </div>
+            <div className="flex-1" />
+            <button
+              onClick={(e) => { e.stopPropagation(); onContinueCase(caseItem.id); }}
+              className="px-4 py-2 rounded-xl bg-[#FFD43B] text-black text-sm font-bold border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
+            >
+              Continue
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onSelectCase(caseItem.id, true); }}
+              className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-bold"
+            >
+              New game
+            </button>
+          </div>
+        )}
       </div>
     );
   };

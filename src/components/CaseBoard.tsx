@@ -4,12 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
 import CaseWinners from './CaseWinners';
-import type { Case } from '../types';
+import { getPhaseBadge, getSessionMode, timeAgo } from '../lib/sessionInfo';
+import type { Case, CaseSession } from '../types';
 
 interface CaseBoardProps {
   onBack: () => void;
   onSelectCase?: (caseId: string) => void;
-  onContinueCase?: (caseId: string) => void;
+  /** Resume one specific game (a player can have several of the same case) */
+  onContinueSession?: (sessionId: string) => void;
   /**
    * Picker mode: the board is used to choose a case for a two-player match.
    * Shows only fresh cases, hides ongoing games and filters, and the button
@@ -21,9 +23,11 @@ interface CaseBoardProps {
 interface OngoingCase extends Case {
   current_phase: string;
   session_id: string;
+  session_state?: CaseSession['session_state'];
+  last_played?: string;
 }
 
-export default function CaseBoard({ onBack, onSelectCase, onContinueCase, onPick }: CaseBoardProps) {
+export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onPick }: CaseBoardProps) {
   const { user } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [ongoingCases, setOngoingCases] = useState<OngoingCase[]>([]);
@@ -47,23 +51,19 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase, onPick
         db.sessions.getOngoingSessions(user.id)
       ]);
 
-      // Get case IDs that have ongoing sessions
-      const ongoingCaseIds = new Set(ongoing.map(session => session.case_id));
-
-      // Create a set of preset case IDs
+      // Every preset case can always be started again — an existing game
+      // of the same case doesn't block it. Ongoing games are listed per
+      // session (newest first), so several games of one case can coexist.
       const presetCaseIds = new Set(preset.map(caseItem => caseItem.id));
-
-      // Filter ongoing sessions to only include preset cases
       const presetOngoingSessions = ongoing.filter(session => presetCaseIds.has(session.case_id));
 
-      // Filter out cases that are already in progress
-      const availableCases = preset.filter(caseItem => !presetOngoingSessions.some(session => session.case_id === caseItem.id));
-
-      setCases(availableCases);
+      setCases(preset);
       setOngoingCases(presetOngoingSessions.map(session => ({
         ...(session as any).cases,
         current_phase: session.current_phase,
-        session_id: session.id
+        session_id: session.id,
+        session_state: session.session_state,
+        last_played: (session as any).updated_at || (session as any).created_at
       })));
     } catch (error) {
       console.error('Failed to load cases:', error);
@@ -131,8 +131,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase, onPick
         <div className={`flex gap-2 flex-wrap mb-6 ${onPick ? 'hidden' : ''}`}>
           {([
             ['all', `All (${cases.length + ongoingCases.length})`],
-            ['new', `New (${cases.length})`],
-            ['ongoing', `Ongoing (${ongoingCases.length})`]
+            ['new', `New cases (${cases.length})`],
+            ['ongoing', `My games (${ongoingCases.length})`]
           ] as const).map(([key, label]) => (
             <button
               key={key}
@@ -161,54 +161,49 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase, onPick
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
             {/* Ongoing Cases - Show First (if not filtered) */}
-            {sortBy !== 'new' && ongoingCases.map((ongoingCase) => (
-              <div
-                key={`ongoing-${ongoingCase.session_id}`}
-                className="bg-black/65 border border-[#F2B705]/50 rounded-2xl p-5 backdrop-blur-sm"
-              >
-                <div className="mb-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold text-white">
-                      {ongoingCase.title}
-                    </h3>
+            {sortBy !== 'new' && ongoingCases.map((ongoingCase) => {
+              const phase = getPhaseBadge(ongoingCase.current_phase);
+              const mode = getSessionMode({ session_state: ongoingCase.session_state } as CaseSession);
+              return (
+                <div
+                  key={`ongoing-${ongoingCase.session_id}`}
+                  className={`border-2 rounded-2xl p-5 backdrop-blur-sm bg-black/65 ${phase.card}`}
+                >
+                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide ${phase.badge}`}>{phase.label}</span>
+                    <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide ${mode.badge}`}>{mode.label}</span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <h3 className="text-xl font-semibold text-white">{ongoingCase.title}</h3>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedCaseForWinners(ongoingCase);
                         setShowWinnersModal(true);
                       }}
-                      className="p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
+                      className="flex-none p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
                       title="View winners"
                     >
                       <Trophy className="w-5 h-5" />
                     </button>
                   </div>
-                </div>
 
-                <p className="text-slate-300 text-sm line-clamp-2 mb-4">
-                  "{ongoingCase.description}"
-                </p>
+                  <p className="text-slate-300 text-sm line-clamp-2 mb-3">"{ongoingCase.description}"</p>
 
-                <div className="space-y-3 mb-4">
-                  <div className="text-sm">
-                    <span className="text-slate-500">Defendant: </span>
-                    <span className="text-slate-300">{ongoingCase.defendant_name || (ongoingCase.truth_state as any)?.defendant_name || 'Unknown'}</span>
+                  <div className="text-xs text-white/50 mb-4">
+                    {ongoingCase.last_played ? `Last played ${timeAgo(ongoingCase.last_played)}` : ''}
                   </div>
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="px-2 py-1 bg-amber-500/20 border border-amber-500/40 rounded text-xs text-amber-300 font-medium">
-                      {ongoingCase.current_phase.replace('_', ' ').toUpperCase()}
-                    </div>
-                  </div>
-                </div>
 
-                <button
-                  onClick={() => (onContinueCase || onSelectCase)(ongoingCase.id)}
-                  className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
-                >
-                  Continue Case
-                </button>
-              </div>
-            ))}
+                  <button
+                    onClick={() => onContinueSession?.(ongoingCase.session_id)}
+                    className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
+                  >
+                    Continue Game
+                  </button>
+                </div>
+              );
+            })}
 
             {/* New Cases (if not filtered) */}
             {sortBy !== 'ongoing' && cases.map((caseItem) => (
@@ -216,6 +211,11 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase, onPick
                 key={`new-${caseItem.id}`}
                 className="bg-black/65 border border-white/15 rounded-2xl p-5 backdrop-blur-sm hover:border-white/30 transition-all group"
               >
+                {!onPick && (
+                  <span className="inline-block mb-3 px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-lime-500/20 border-lime-400/60 text-lime-300">
+                    NEW CASE
+                  </span>
+                )}
                 <div className="flex items-start justify-between mb-4">
                   <h3 className="text-xl font-bold text-white group-hover:text-[#FFD43B] transition-colors">
                     {caseItem.title}
@@ -253,7 +253,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueCase, onPick
                   onClick={() => handleReviewCase(caseItem)}
                   className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                 >
-                  {onPick ? 'Choose This Case' : 'Review Case'}
+                  {onPick ? 'Choose This Case' : 'Start New Game'}
                 </button>
               </div>
             ))}
