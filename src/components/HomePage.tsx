@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, X } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playGavelTap } from '../lib/soundEffects';
 import HeroBackground from './HeroBackground';
@@ -29,9 +29,16 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [showModes, setShowModes] = useState(false);
   const [busy, setBusy] = useState<'play' | 'settings' | null>(null);
+  const [artLoaded, setArtLoaded] = useState(false);
+  const artRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     setSoundOn(isSoundEnabled());
+  }, []);
+
+  // The image is usually already cached (preloaded during the splash), in which case onLoad has already fired.
+  useEffect(() => {
+    if (artRef.current?.complete && artRef.current.naturalWidth > 0) setArtLoaded(true);
   }, []);
 
   const toggleSound = () => {
@@ -76,7 +83,10 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             EVERY CASE HAS A LOOPHOLE
           </p>
 
-          <figure className="relative mt-2.5 w-full max-w-sm flex-1 min-h-[165px] max-h-[48dvh] overflow-hidden rounded-3xl border-2 border-[#F2B705]/60 bg-black shadow-[0_0_28px_rgba(242,183,5,0.22)]">
+          <figure
+            className="relative mt-2.5 w-full max-w-sm flex-1 min-h-[165px] max-h-[48dvh] overflow-hidden rounded-3xl border-2 border-[#F2B705]/60 bg-black bg-cover shadow-[0_0_28px_rgba(242,183,5,0.22)]"
+            style={{ backgroundImage: `url(${HOME_ART.lqip})`, backgroundPosition: '50% 44%' }}
+          >
             <picture>
               <source srcSet={HOME_ART.webp} type="image/webp" />
               <img
@@ -84,10 +94,11 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
                 alt={HOME_ART.alt}
                 width={HOME_ART.width}
                 height={HOME_ART.height}
-                fetchPriority="high"
+                ref={artRef}
+                onLoad={() => setArtLoaded(true)}
                 decoding="async"
                 draggable={false}
-                className="absolute inset-0 w-full h-full object-cover object-[50%_40%] select-none"
+                className={`absolute inset-0 w-full h-full object-cover object-[50%_44%] select-none transition-opacity duration-500 ${artLoaded ? 'opacity-100' : 'opacity-0'}`}
               />
             </picture>
           </figure>

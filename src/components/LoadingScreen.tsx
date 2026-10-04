@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { HERO_POSTER } from '../lib/heroAssets';
+import { HERO_POSTER, HOME_ART } from '../lib/heroAssets';
 
 interface LoadingScreenProps {
   /** true once the saved session (if any) has been checked */
@@ -17,6 +17,9 @@ const STATUS_LINES = ['SWEARING IN THE JURY…', 'CALLING THE WITNESSES…', 'AL
  * saved-session check, the home background image, and fonts — with a
  * minimum on-screen time so it never flashes, and a hard timeout so a slow
  * asset can never trap the player here.
+ *
+ * The image it waits for is the home illustration (~30 KB, also preloaded from index.html).
+ * The big background poster is only fetched afterwards, so it can't slow the illustration down.
  */
 export default function LoadingScreen({ authReady, onDone }: LoadingScreenProps) {
   const [progress, setProgress] = useState(4);
@@ -26,9 +29,13 @@ export default function LoadingScreen({ authReady, onDone }: LoadingScreenProps)
   const finished = useRef(false);
 
   useEffect(() => {
-    const img = new Image();
-    img.onload = img.onerror = () => setImageReady(true);
-    img.src = HERO_POSTER;
+    const art = new Image();
+    art.onload = art.onerror = () => {
+      setImageReady(true);
+      const bg = new Image(); // warm the background poster now that the illustration is in
+      bg.src = HERO_POSTER;
+    };
+    art.src = HOME_ART.webp;
 
     const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
     if (fonts?.ready) {

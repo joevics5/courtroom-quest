@@ -33,6 +33,16 @@ describe('HomePage', () => {
     expect(img).toHaveAttribute('height', String(HOME_ART.height));
   });
 
+  it('shows an instant placeholder, then fades the real image in once it has loaded', () => {
+    const { container } = render(<HomePage {...props} />);
+    const img = screen.getByAltText(HOME_ART.alt);
+    const figure = container.querySelector('figure') as HTMLElement;
+    expect(figure.style.backgroundImage).toContain(HOME_ART.lqip.slice(0, 40)); // never an empty card
+    expect(img.className).toContain('opacity-0');
+    fireEvent.load(img);
+    expect(img.className).toContain('opacity-100');
+  });
+
   it('keeps the tagline, how-it-works steps and the existing actions', () => {
     render(<HomePage {...props} />);
     expect(screen.getByText('EVERY CASE HAS A LOOPHOLE')).toBeInTheDocument();
