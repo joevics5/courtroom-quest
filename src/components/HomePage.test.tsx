@@ -51,4 +51,20 @@ describe('HomePage', () => {
     expect(document.body.textContent).toMatch(/AI|opponent|player/i);
     expect(screen.getByLabelText('Enable sound')).toBeInTheDocument();
   });
+
+  it('Play popup offers My games to signed-in players, with the count, and opens it', () => {
+    const onPlay = vi.fn().mockResolvedValue(undefined);
+    render(<HomePage {...props} onPlay={onPlay} signedIn hasAccount myGamesCount={3} />);
+    fireEvent.click(screen.getByRole('button', { name: 'PLAY' }));
+    expect(screen.getByText('3 ACTIVE')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('MY GAMES'));
+    expect(onPlay).toHaveBeenCalledWith('games');
+  });
+
+  it('Play popup has no My games for brand-new visitors', () => {
+    render(<HomePage {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'PLAY' }));
+    expect(screen.queryByText('MY GAMES')).toBeNull();
+    expect(screen.getByText('VS AI')).toBeInTheDocument();
+  });
 });

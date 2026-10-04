@@ -18,13 +18,13 @@ interface HomePageProps {
   /** Ongoing games + invitations waiting, shown as a badge on Dashboard */
   waitingCount: number;
   /** Running games + your own challenges/invites still waiting — shown on the Play popup's My games */
-  myGamesCount: number;
+  myGamesCount?: number;
   onOpenDashboard: () => void;
 }
 
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
-export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount, signedIn, waitingCount, myGamesCount, onOpenDashboard }: HomePageProps) {
+export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount, signedIn, waitingCount, myGamesCount = 0, onOpenDashboard }: HomePageProps) {
   const [soundOn, setSoundOn] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [showModes, setShowModes] = useState(false);
