@@ -18,6 +18,8 @@ interface CaseBoardProps {
    * hands the chosen case back instead of opening the case file.
    */
   onPick?: (caseItem: Case) => void;
+  /** Which tab to open on (My games when arriving from Play → My games) */
+  initialFilter?: 'all' | 'new' | 'ongoing';
 }
 
 interface OngoingCase extends Case {
@@ -37,14 +39,14 @@ interface WaitingGame {
   created_at?: string;
 }
 
-export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onPick }: CaseBoardProps) {
+export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onPick, initialFilter = 'all' }: CaseBoardProps) {
   const { user } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [ongoingCases, setOngoingCases] = useState<OngoingCase[]>([]);
   const [waitingGames, setWaitingGames] = useState<WaitingGame[]>([]);
   const [cancellingKey, setCancellingKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<'all' | 'new' | 'ongoing'>('all');
+  const [sortBy, setSortBy] = useState<'all' | 'new' | 'ongoing'>(initialFilter);
   const [showWinnersModal, setShowWinnersModal] = useState(false);
   const [selectedCaseForWinners, setSelectedCaseForWinners] = useState<Case | null>(null);
 

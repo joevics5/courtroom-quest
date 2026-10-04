@@ -51,6 +51,11 @@ function AppContent() {
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   // Ongoing games and invitations waiting — shown as badges on Home and the dashboard
   const [ongoingCount, setOngoingCount] = useState(0);
+  // My challenges / invites still waiting for the other player
+  const [waitingSentCount, setWaitingSentCount] = useState(0);
+  // Which tab the Case Board opens on (My games when coming from the Play popup)
+  const [caseBoardFilter, setCaseBoardFilter] = useState<'all' | 'ongoing'>('all');
+  const [caseBoardFromHome, setCaseBoardFromHome] = useState(false);
   const [invites, setInvites] = useState<CaseInvitation[]>([]);
   const [respondingInviteId, setRespondingInviteId] = useState<string | null>(null);
   // Set when the challenge board is opened from the play-mode screen for an already-chosen case
@@ -75,6 +80,7 @@ function AppContent() {
   useEffect(() => {
     if (!user) {
       setOngoingCount(0);
+      setWaitingSentCount(0);
       setInvites([]);
       return;
     }
@@ -82,13 +88,19 @@ function AppContent() {
     let cancelled = false;
     (async () => {
       try {
-        const [ongoing, invites] = await Promise.all([
+        const [ongoing, invites, myChallenges, myInvites] = await Promise.all([
           db.sessions.getOngoingSessions(user.id),
-          user.email ? db.invitations.getInvitationsByEmail(user.email) : Promise.resolve([])
+          user.email ? db.invitations.getInvitationsByEmail(user.email) : Promise.resolve([]),
+          db.challenges.getMyChallenges(user.id).catch(() => []),
+          db.invitations.getInvitationsByUser(user.id).catch(() => [])
         ]);
         if (!cancelled) {
           setOngoingCount(ongoing.length);
           setInvites(invites);
+          setWaitingSentCount(
+            myChallenges.filter((c: any) => c.status === 'open' && c.creator_user_id === user.id).length +
+            myInvites.filter(i => i.status === 'pending' && i.inviter_user_id === user.id).length
+          );
         }
       } catch (error) {
         console.error('Failed to load activity counts:', error);
@@ -181,6 +193,7 @@ function AppContent() {
         hasAccount={!!user && !user.is_anonymous}
         signedIn={!!user}
         waitingCount={ongoingCount + invites.length}
+        myGamesCount={ongoingCount + waitingSentCount}
         onOpenDashboard={() => {
           setShowHome(false);
           setView('landing');
@@ -190,6 +203,10 @@ function AppContent() {
           setShowHome(false);
           if (mode === 'ai') {
             setView('landing');
+          } else if (mode === 'games') {
+            setCaseBoardFromHome(true);
+            setCaseBoardFilter('ongoing');
+            setView('case-board');
           } else {
             setChallengeSeed({ tab: mode === 'online' ? 'quick' : 'local', withCase: false });
             setView('challenge-board');
@@ -321,6 +338,8 @@ function AppContent() {
   };
 
   const handleNavigateToCaseBoard = () => {
+    setCaseBoardFromHome(false);
+    setCaseBoardFilter('all');
     setView('case-board');
   };
 
@@ -736,6 +755,12 @@ function AppContent() {
             }
           }}
           onMatched={handleMatched}
+          onOpenMyGames={() => {
+            setChallengeSeed(null);
+            setCaseBoardFromHome(false);
+            setCaseBoardFilter('ongoing');
+            setView('case-board');
+          }}
           initialCase={challengeSeed?.withCase && currentCase ? currentCase : undefined}
           initialTab={challengeSeed?.tab}
         />
@@ -743,7 +768,15 @@ function AppContent() {
 
       {view === 'case-board' && (
         <CaseBoard
-          onBack={() => setView('landing')}
+          onBack={() => {
+            // Came here from the Play popup's My games? Go back to Home.
+            if (caseBoardFromHome) {
+              setCaseBoardFromHome(false);
+              setShowHome(true);
+            }
+            setView('landing');
+          }}
+          initialFilter={caseBoardFilter}
           onSelectCase={(caseId) => handleSelectCase(caseId, false)}
           onContinueSession={handleContinueSession}
         />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Swords, Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock, ChevronRight } from 'lucide-react';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
@@ -9,7 +9,10 @@ interface Props {
   userId: string;
   userEmail: string;
   onBack: () => void;
+  /** Called when you join a challenge / accept an invite / start a same-device game yourself */
   onMatched: (session: CaseSession) => void;
+  /** Opens the Case Board on My games, where waiting and running games live */
+  onOpenMyGames?: () => void;
   /** Case already chosen on the play-mode screen — preselected in every tab */
   initialCase?: Case;
   initialTab?: Tab;
@@ -47,7 +50,7 @@ function SidePicker({ value, onChange, className = 'mb-4' }: { value: PlayerRole
 }
 
 
-export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, initialCase, initialTab }: Props) {
+export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, onOpenMyGames, initialCase, initialTab }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab ?? 'quick');
   const [cases, setCases] = useState<Case[]>([]);
 
@@ -84,13 +87,6 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
   // Which form's case field opened the case picker (a full Case Board in pick mode)
   const [pickerTarget, setPickerTarget] = useState<Tab | null>(null);
 
-  // IDs of my challenges / invites seen WAITING while this screen has been open.
-  // Only these may auto-jump into a game when they flip to matched/accepted —
-  // an already-matched (or finished) game from earlier must never hijack the
-  // screen, or you could never start a new game from here.
-  const watchedChallengesRef = useRef<Set<string>>(new Set());
-  const watchedInvitesRef = useRef<Set<string>>(new Set());
-
   const refresh = useCallback(async () => {
     try {
       const [open, mine] = await Promise.all([
@@ -99,30 +95,12 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
       ]);
       setOpenChallenges(open.filter((c: CaseChallenge) => c.creator_user_id !== userId));
       setMyChallenges(mine);
-
-      // If one of my own challenges just got matched, jump straight into
-      // the trial — this is the "creator finds out they've been joined"
-      // mechanism, kept simple as polling rather than a realtime channel.
-      mine.forEach((c: CaseChallenge) => {
-        if (c.status === 'open' && c.creator_user_id === userId) watchedChallengesRef.current.add(c.id);
-      });
-      const justMatched = mine.find((c: CaseChallenge) =>
-        c.status === 'matched' && c.session_id && c.creator_user_id === userId && watchedChallengesRef.current.has(c.id)
-      );
-      if (justMatched?.session_id) {
-        watchedChallengesRef.current.delete(justMatched.id);
-        const session = await db.sessions.getSession(justMatched.session_id);
-        if (session && session.current_phase !== 'completed' && !session.completed_at) {
-          onMatched(session);
-          return;
-        }
-      }
     } catch (err) {
       console.error('Failed to refresh challenge board:', err);
     } finally {
       setLoading(false);
     }
-  }, [userId, onMatched]);
+  }, [userId]);
 
   const refreshInvites = useCallback(async () => {
     try {
@@ -132,29 +110,12 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
       ]);
       setSentInvites(sent.filter(i => i.inviter_user_id === userId));
       setReceivedInvites(received);
-
-      // If an invite I sent was just accepted, jump into the trial —
-      // mirrors the challenge board's "matched" polling above.
-      sent.forEach(i => {
-        if (i.inviter_user_id === userId && i.status === 'pending') watchedInvitesRef.current.add(i.id);
-      });
-      const justAccepted = sent.find(i =>
-        i.inviter_user_id === userId && i.status === 'accepted' && i.session_id && watchedInvitesRef.current.has(i.id)
-      );
-      if (justAccepted?.session_id) {
-        watchedInvitesRef.current.delete(justAccepted.id);
-        const session = await db.sessions.getSession(justAccepted.session_id);
-        if (session && session.current_phase !== 'completed' && !session.completed_at) {
-          onMatched(session);
-          return;
-        }
-      }
     } catch (err) {
       console.error('Failed to refresh invitations:', err);
     } finally {
       setInvitesLoading(false);
     }
-  }, [userId, userEmail, onMatched]);
+  }, [userId, userEmail]);
 
   useEffect(() => {
     db.cases.getPresetCases()
@@ -364,8 +325,13 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
                       Waiting for an opponent — {waiting.case_title}
                     </p>
                     <p className="text-white/50 text-xs">
-                      You're playing {waiting.creator_role}. It also shows in your Case Board games, and you'll be taken in when someone joins.
+                      You're playing {waiting.creator_role}. It starts when someone joins — find it under My games.
                     </p>
+                    {onOpenMyGames && (
+                      <button onClick={onOpenMyGames} className="mt-1 text-xs font-bold text-[#FFD43B] underline underline-offset-2">
+                        Open My games
+                      </button>
+                    )}
                   </div>
                 </div>
                 <button
@@ -523,6 +489,12 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
               <Clock className="w-4 h-4" />
               Invites You've Sent
             </h2>
+            <p className="text-white/45 text-xs -mt-1 mb-3">
+              When your friend accepts, the game appears under My games.
+              {onOpenMyGames && (
+                <button onClick={onOpenMyGames} className="ml-1 font-bold text-[#FFD43B] underline underline-offset-2">Open My games</button>
+              )}
+            </p>
             {invitesLoading ? (
               <p className="text-white/40 text-sm">Loading...</p>
             ) : pendingSentInvites.length === 0 ? (
