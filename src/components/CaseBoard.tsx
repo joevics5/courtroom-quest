@@ -27,28 +27,54 @@ interface OngoingCase extends Case {
   last_played?: string;
 }
 
+/** An online challenge or friend invite that is still waiting for the other player. */
+interface WaitingGame {
+  key: string;
+  kind: 'challenge' | 'invite';
+  id: string;
+  title: string;
+  role: string;
+  created_at?: string;
+}
+
 export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onPick }: CaseBoardProps) {
   const { user } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [ongoingCases, setOngoingCases] = useState<OngoingCase[]>([]);
+  const [waitingGames, setWaitingGames] = useState<WaitingGame[]>([]);
+  const [cancellingKey, setCancellingKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'all' | 'new' | 'ongoing'>('all');
   const [showWinnersModal, setShowWinnersModal] = useState(false);
   const [selectedCaseForWinners, setSelectedCaseForWinners] = useState<Case | null>(null);
 
-  const loadCases = async () => {
+  const loadCases = async (silent = false) => {
     if (!user) return;
 
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       if (onPick) {
         setCases(await db.cases.getPresetCases());
         setOngoingCases([]);
+        setWaitingGames([]);
         return;
       }
-      const [preset, ongoing] = await Promise.all([
+      const [preset, ongoing, challenges, invitations] = await Promise.all([
         db.cases.getPresetCases(),
-        db.sessions.getOngoingSessions(user.id)
+        db.sessions.getOngoingSessions(user.id),
+        db.challenges.getMyChallenges(user.id).catch(() => []),
+        db.invitations.getInvitationsByUser(user.id).catch(() => [])
+      ]);
+
+      // Online challenges and friend invites that no one has joined yet are
+      // games too — list them until they start (then they become real games).
+      setWaitingGames([
+        ...challenges
+          .filter((c: any) => c.status === 'open' && c.creator_user_id === user.id)
+          .map((c: any): WaitingGame => ({ key: `challenge-${c.id}`, kind: 'challenge', id: c.id, title: c.case_title || 'Challenge', role: c.creator_role, created_at: c.created_at })),
+        ...invitations
+          .filter(i => i.status === 'pending' && i.inviter_user_id === user.id)
+          .map((i): WaitingGame => ({ key: `invite-${i.id}`, kind: 'invite', id: i.id, title: i.case_title || 'Invitation', role: i.inviter_role || 'defense', created_at: (i as any).created_at }))
       ]);
 
       // Every preset case can always be started again — an existing game
@@ -68,7 +94,20 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
     } catch (error) {
       console.error('Failed to load cases:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+    }
+  };
+
+  const handleCancelWaiting = async (game: WaitingGame) => {
+    setCancellingKey(game.key);
+    try {
+      if (game.kind === 'challenge') await db.challenges.cancelChallenge(game.id);
+      else await db.invitations.cancelInvitation(game.id);
+      setWaitingGames(prev => prev.filter(g => g.key !== game.key));
+    } catch (error) {
+      console.error('Failed to cancel:', error);
+    } finally {
+      setCancellingKey(null);
     }
   };
 
@@ -80,6 +119,11 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
       loadCases();
     };
     window.addEventListener('caseBoardRefresh', handleRefresh);
+
+    // Quietly refresh so a waiting challenge turns into a game when someone joins
+    const poll = setInterval(() => {
+      if (!document.hidden) loadCases(true);
+    }, 8000);
     
     // Also refresh when component becomes visible (e.g., after returning from verdict)
     const handleVisibilityChange = () => {
@@ -90,6 +134,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
+      clearInterval(poll);
       window.removeEventListener('caseBoardRefresh', handleRefresh);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -118,7 +163,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
       maxWidth="max-w-6xl"
       right={
         <button
-          onClick={loadCases}
+          onClick={() => loadCases()}
           disabled={loading}
           aria-label="Refresh cases"
           className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white disabled:opacity-50"
@@ -130,9 +175,9 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
       <div>
         <div className={`flex gap-2 flex-wrap mb-6 ${onPick ? 'hidden' : ''}`}>
           {([
-            ['all', `All (${cases.length + ongoingCases.length})`],
+            ['all', `All (${cases.length + ongoingCases.length + waitingGames.length})`],
             ['new', `New cases (${cases.length})`],
-            ['ongoing', `My games (${ongoingCases.length})`]
+            ['ongoing', `My games (${ongoingCases.length + waitingGames.length})`]
           ] as const).map(([key, label]) => (
             <button
               key={key}
@@ -152,7 +197,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
           <div className="text-center py-20">
             <p className="text-slate-400 mb-4">No cases available</p>
             <button
-              onClick={loadCases}
+              onClick={() => loadCases()}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
             >
               Refresh Cases
@@ -161,6 +206,36 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
             {/* Ongoing Cases - Show First (if not filtered) */}
+            {sortBy !== 'new' && waitingGames.map((game) => (
+              <div
+                key={game.key}
+                className="border-2 border-dashed border-rose-400/60 bg-rose-500/[0.07] rounded-2xl p-5 backdrop-blur-sm"
+              >
+                <div className="flex items-center gap-2 flex-wrap mb-3">
+                  <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-amber-500/20 border-amber-400/60 text-amber-300">
+                    {game.kind === 'challenge' ? 'WAITING FOR OPPONENT' : 'WAITING FOR FRIEND'}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-rose-500/20 border-rose-400/60 text-rose-200">
+                    VS PLAYER
+                  </span>
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-1">{game.title}</h3>
+                <p className="text-sm text-white/65">
+                  You're playing the {game.role}. {game.kind === 'challenge' ? 'It starts as soon as someone joins.' : 'It starts when your friend accepts.'}
+                </p>
+                <div className="text-xs text-white/50 mt-2 mb-4">
+                  {game.created_at ? `Sent ${timeAgo(game.created_at)}` : ''}
+                </div>
+                <button
+                  onClick={() => handleCancelWaiting(game)}
+                  disabled={cancellingKey === game.key}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white font-bold disabled:opacity-50"
+                >
+                  {cancellingKey === game.key ? 'Cancelling…' : game.kind === 'challenge' ? 'Cancel challenge' : 'Cancel invite'}
+                </button>
+              </div>
+            ))}
+
             {sortBy !== 'new' && ongoingCases.map((ongoingCase) => {
               const phase = getPhaseBadge(ongoingCase.current_phase);
               const mode = getSessionMode({ session_state: ongoingCase.session_state } as CaseSession);

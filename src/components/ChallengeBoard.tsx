@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Swords, Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock, ChevronRight } from 'lucide-react';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
@@ -84,6 +84,13 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
   // Which form's case field opened the case picker (a full Case Board in pick mode)
   const [pickerTarget, setPickerTarget] = useState<Tab | null>(null);
 
+  // IDs of my challenges / invites seen WAITING while this screen has been open.
+  // Only these may auto-jump into a game when they flip to matched/accepted —
+  // an already-matched (or finished) game from earlier must never hijack the
+  // screen, or you could never start a new game from here.
+  const watchedChallengesRef = useRef<Set<string>>(new Set());
+  const watchedInvitesRef = useRef<Set<string>>(new Set());
+
   const refresh = useCallback(async () => {
     try {
       const [open, mine] = await Promise.all([
@@ -96,10 +103,16 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
       // If one of my own challenges just got matched, jump straight into
       // the trial — this is the "creator finds out they've been joined"
       // mechanism, kept simple as polling rather than a realtime channel.
-      const justMatched = mine.find((c: CaseChallenge) => c.status === 'matched' && c.session_id && c.creator_user_id === userId);
+      mine.forEach((c: CaseChallenge) => {
+        if (c.status === 'open' && c.creator_user_id === userId) watchedChallengesRef.current.add(c.id);
+      });
+      const justMatched = mine.find((c: CaseChallenge) =>
+        c.status === 'matched' && c.session_id && c.creator_user_id === userId && watchedChallengesRef.current.has(c.id)
+      );
       if (justMatched?.session_id) {
+        watchedChallengesRef.current.delete(justMatched.id);
         const session = await db.sessions.getSession(justMatched.session_id);
-        if (session) {
+        if (session && session.current_phase !== 'completed' && !session.completed_at) {
           onMatched(session);
           return;
         }
@@ -122,10 +135,16 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
 
       // If an invite I sent was just accepted, jump into the trial —
       // mirrors the challenge board's "matched" polling above.
-      const justAccepted = sent.find(i => i.inviter_user_id === userId && i.status === 'accepted' && i.session_id);
+      sent.forEach(i => {
+        if (i.inviter_user_id === userId && i.status === 'pending') watchedInvitesRef.current.add(i.id);
+      });
+      const justAccepted = sent.find(i =>
+        i.inviter_user_id === userId && i.status === 'accepted' && i.session_id && watchedInvitesRef.current.has(i.id)
+      );
       if (justAccepted?.session_id) {
+        watchedInvitesRef.current.delete(justAccepted.id);
         const session = await db.sessions.getSession(justAccepted.session_id);
-        if (session) {
+        if (session && session.current_phase !== 'completed' && !session.completed_at) {
           onMatched(session);
           return;
         }
@@ -292,7 +311,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
     }
   };
 
-  const myOpenChallenge = myChallenges.find(c => c.status === 'open' && c.creator_user_id === userId);
+  const myOpenChallenges = myChallenges.filter(c => c.status === 'open' && c.creator_user_id === userId);
   const pendingSentInvites = sentInvites.filter(i => i.status === 'pending');
 
   return (
@@ -336,36 +355,36 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, i
               </div>
             )}
 
-            {myOpenChallenge ? (
-              <div className={`${CARD} !border-[#F2B705]/60 mb-6 flex items-center justify-between gap-3`}>
-                <div className="flex items-center gap-3">
+            {myOpenChallenges.map(waiting => (
+              <div key={waiting.id} className={`${CARD} !border-[#F2B705]/60 mb-3 flex items-center justify-between gap-3`}>
+                <div className="flex items-center gap-3 min-w-0">
                   <Loader2 className="w-5 h-5 text-[#FFD43B] animate-spin shrink-0" />
-                  <div>
-                    <p className="text-white font-semibold text-sm">
-                      Waiting for an opponent — {myOpenChallenge.case_title}
+                  <div className="min-w-0">
+                    <p className="text-white font-semibold text-sm truncate">
+                      Waiting for an opponent — {waiting.case_title}
                     </p>
                     <p className="text-white/50 text-xs">
-                      You're playing {myOpenChallenge.creator_role}. This screen updates automatically when someone joins.
+                      You're playing {waiting.creator_role}. It also shows in your Case Board games, and you'll be taken in when someone joins.
                     </p>
                   </div>
                 </div>
                 <button
-                  onClick={() => handleCancel(myOpenChallenge.id)}
+                  onClick={() => handleCancel(waiting.id)}
                   className="text-white/40 hover:text-white transition-colors shrink-0"
                   title="Cancel challenge"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowCreate(true)}
-                className={`w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 ${BIG_GOLD}`}
-              >
-                <Plus className="w-5 h-5" />
-                Open a Challenge
-              </button>
-            )}
+            ))}
+
+            <button
+              onClick={() => setShowCreate(true)}
+              className={`w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 ${BIG_GOLD}`}
+            >
+              <Plus className="w-5 h-5" />
+              {myOpenChallenges.length > 0 ? 'Open Another Challenge' : 'Open a Challenge'}
+            </button>
 
             <h2 className={SECTION_HEADING}>
               <Users className="w-4 h-4" />
