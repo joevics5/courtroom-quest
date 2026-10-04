@@ -14,6 +14,7 @@ import type {
   CaseInvitation,
   JurySelection,
   CaseWinner,
+  CaseTopWinner,
   PlayerRole
 } from '../types';
 
@@ -883,15 +884,52 @@ export const db = {
   },
 
   caseWinners: {
-    async addWinner(winner: Omit<CaseWinner, 'id' | 'won_at'>): Promise<CaseWinner> {
+    /**
+     * Records a win. Returns null when this game was already recorded for the
+     * player (unique user+session), so a verdict that fires twice can never
+     * count twice.
+     */
+    async addWinner(winner: Omit<CaseWinner, 'id' | 'won_at'>): Promise<CaseWinner | null> {
       const { data, error } = await supabase
         .from('case_winners')
         .insert([winner as any])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if ((error as any).code === '23505') return null;
+        throw error;
+      }
       return data as CaseWinner;
+    },
+
+    /** Total recorded wins for a player — the source of truth for their win count. */
+    async countUserWins(userId: string): Promise<number> {
+      const { count, error } = await supabase
+        .from('case_winners')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return count || 0;
+    },
+
+    /** One row per player: most wins first, then whoever won most recently. */
+    async getCaseTopWinners(caseId: string, limit: number = 50): Promise<CaseTopWinner[]> {
+      const { data, error } = await (supabase as any).rpc('get_case_top_winners', {
+        p_case_id: caseId,
+        p_limit: limit
+      });
+
+      if (error) throw error;
+      return ((data || []) as any[]).map(row => ({
+        user_id: row.user_id,
+        username: row.username,
+        level_achieved: row.level_achieved,
+        wins: Number(row.wins),
+        best_score: row.best_score ?? 0,
+        last_won_at: row.last_won_at
+      }));
     },
 
     async getCaseWinners(caseId: string): Promise<CaseWinner[]> {

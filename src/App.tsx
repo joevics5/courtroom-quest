@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
@@ -20,7 +20,7 @@ import { db } from './lib/database';
 import { getLevelForWins } from './lib/levels';
 import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
-import { didPlayerWin } from './lib/verdictUtils';
+import { didPlayerWin, getSessionPlayerRole } from './lib/verdictUtils';
 import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import CasePreview from './components/CasePreview';
 import ChallengeBoard from './components/ChallengeBoard';
@@ -50,6 +50,7 @@ function AppContent() {
   const [showHome, setShowHome] = useState(true);
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   // Ongoing games and invitations waiting — shown as badges on Home and the dashboard
+  const recordedWinSessionRef = useRef<string | null>(null);
   const [ongoingCount, setOngoingCount] = useState(0);
   const [invites, setInvites] = useState<CaseInvitation[]>([]);
   const [respondingInviteId, setRespondingInviteId] = useState<string | null>(null);
@@ -669,33 +670,42 @@ function AppContent() {
       }
     }
 
-    const playerRole: PlayerRole = (currentSession?.session_state as any)?.playerRole || 'defense';
+    const playerRole: PlayerRole = getSessionPlayerRole(currentSession, user.id);
 
     if (didPlayerWin(verdict.outcome, playerRole) && currentCase) {
-      try {
-        const newWinsCount = userProfile.wins_count + 1;
-        const levelInfo = getLevelForWins(newWinsCount);
+      // One game can only ever count once, even if the verdict callback fires
+      // more than once (the database also enforces this per player + game).
+      const sessionKey = currentSession?.id ?? verdict.session_id;
+      if (recordedWinSessionRef.current !== sessionKey) {
+        recordedWinSessionRef.current = sessionKey;
+        try {
+          // Level is based on the number of wins AFTER this one. Using the
+          // stored win total (not the in-memory profile) keeps it correct
+          // when the callback runs more than once or the profile is stale.
+          const previousWins = await db.caseWinners.countUserWins(user.id);
+          const levelInfo = getLevelForWins(previousWins + 1);
 
-        await db.users.updateProfile(user.id, {
-          wins_count: newWinsCount,
-          current_level: levelInfo.title
-        });
+          const added = await db.caseWinners.addWinner({
+            case_id: currentCase.id,
+            user_id: user.id,
+            username: getPublicName(user),
+            level_achieved: levelInfo.title,
+            verdict_score: verdict.score || 0,
+            session_id: sessionKey
+          });
 
-        await db.caseWinners.addWinner({
-          case_id: currentCase.id,
-          user_id: user.id,
-          username: getPublicName(user),
-          level_achieved: levelInfo.title,
-          verdict_score: verdict.score || 0
-        });
-
-        setUserProfile({
-          ...userProfile,
-          wins_count: newWinsCount,
-          current_level: levelInfo.title
-        });
-      } catch (error) {
-        console.error('Failed to update wins:', error);
+          if (added) {
+            const totalWins = await db.caseWinners.countUserWins(user.id);
+            const finalLevel = getLevelForWins(totalWins);
+            await db.users.updateProfile(user.id, {
+              wins_count: totalWins,
+              current_level: finalLevel.title
+            });
+            setUserProfile(prev => (prev ? { ...prev, wins_count: totalWins, current_level: finalLevel.title } : prev));
+          }
+        } catch (error) {
+          console.error('Failed to update wins:', error);
+        }
       }
     }
 
@@ -894,7 +904,7 @@ function AppContent() {
           verdict={currentVerdict}
           caseTitle={currentCase.title}
           currentLevel={userProfile.current_level}
-          playerRole={(currentSession?.session_state as any)?.playerRole || 'defense'}
+          playerRole={getSessionPlayerRole(currentSession, user.id)}
           onReturnHome={handleReturnHome}
         />
       )}

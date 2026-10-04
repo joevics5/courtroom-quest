@@ -215,6 +215,7 @@ export type Database = {
           case_id: string
           id: string
           level_achieved: string
+          session_id: string | null
           user_id: string
           username: string
           verdict_score: number | null

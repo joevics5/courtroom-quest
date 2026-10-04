@@ -221,6 +221,17 @@ export interface CaseWinner {
   level_achieved: string;
   verdict_score: number;
   won_at: string;
+  session_id?: string | null;
+}
+
+/** One player's record on one case: how many times they've won it, best score, latest win. */
+export interface CaseTopWinner {
+  user_id: string;
+  username: string;
+  level_achieved: string;
+  wins: number;
+  best_score: number;
+  last_won_at: string;
 }
 
 export interface SessionWithDetails extends CaseSession {
