@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Volume2, VolumeX, X } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playGavelTap } from '../lib/soundEffects';
 import HeroBackground from './HeroBackground';
+import { HOME_ART } from '../lib/heroAssets';
 import PlayModePopup, { type PlayMode } from './PlayModePopup';
 
 interface HomePageProps {
@@ -53,27 +54,41 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
       <HeroBackground overlay="from-black/65 via-black/15 to-black/85" />
 
       <div className="relative z-10 min-h-[100dvh] flex flex-col px-5" style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
-        {/* Top bar */}
-        <div className="flex justify-end">
-          <button
-            onClick={toggleSound}
-            aria-label={soundOn ? 'Mute sound' : 'Enable sound'}
-            className="flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
-          >
-            {soundOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
-        </div>
+        {/* Sound toggle floats over the top-right corner so it doesn't use up a row */}
+        <button
+          onClick={toggleSound}
+          aria-label={soundOn ? 'Mute sound' : 'Enable sound'}
+          className="absolute right-5 z-20 flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
+          style={{ top: 'max(env(safe-area-inset-top), 16px)' }}
+        >
+          {soundOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        </button>
 
-        {/* Logo */}
-        <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <h1 className="font-game leading-[0.9] select-none">
-            <span className="logo-gold block text-6xl sm:text-7xl">COURTROOM</span>
-            <span className="logo-gold block text-8xl sm:text-9xl">QUEST</span>
+        {/* Logo (compact) + illustration */}
+        <div className="flex-1 flex flex-col items-center min-h-0 pt-1 pb-3">
+          <h1 className="font-game leading-[0.9] select-none text-center">
+            <span className="logo-gold block text-4xl sm:text-5xl">COURTROOM</span>
+            <span className="logo-gold block text-6xl sm:text-7xl">QUEST</span>
           </h1>
-          <div className="mt-4 h-1.5 w-60 rounded-full bg-[#F2B705]" />
-          <p className="mt-4 rounded-full bg-black/60 border border-[#F2B705]/60 px-5 py-1.5 text-[12px] sm:text-sm font-bold tracking-[0.22em] text-white backdrop-blur-sm">
+          <p className="mt-2.5 rounded-full bg-black/60 border border-[#F2B705]/60 px-4 py-1 text-[11px] sm:text-xs font-bold tracking-[0.2em] text-white backdrop-blur-sm">
             EVERY CASE HAS A LOOPHOLE
           </p>
+
+          <figure className="relative mt-2.5 w-full max-w-sm flex-1 min-h-[165px] max-h-[48dvh] overflow-hidden rounded-3xl border-2 border-[#F2B705]/60 bg-black shadow-[0_0_28px_rgba(242,183,5,0.22)]">
+            <picture>
+              <source srcSet={HOME_ART.webp} type="image/webp" />
+              <img
+                src={HOME_ART.jpg}
+                alt={HOME_ART.alt}
+                width={HOME_ART.width}
+                height={HOME_ART.height}
+                fetchPriority="high"
+                decoding="async"
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-cover object-[50%_40%] select-none"
+              />
+            </picture>
+          </figure>
         </div>
 
         {/* Actions */}
@@ -122,11 +137,11 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             </button>
           </div>
 
-          <ol className="flex flex-col items-center gap-2 pt-2">
+          <ol className="flex flex-col items-center gap-1.5 pt-1">
             {STEPS.map((text, i) => (
-              <li key={text} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-1.5 pr-5 py-1.5 backdrop-blur-sm">
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-[#FFD43B] text-black font-black text-sm">{i + 1}</span>
-                <span className="text-white font-semibold text-[15px]">{text}</span>
+              <li key={text} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-1.5 pr-5 py-1 backdrop-blur-sm">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#FFD43B] text-black font-black text-sm">{i + 1}</span>
+                <span className="text-white font-semibold text-[14px]">{text}</span>
               </li>
             ))}
           </ol>
