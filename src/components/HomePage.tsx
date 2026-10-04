@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, X } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playGavelTap } from '../lib/soundEffects';
-import HeroBackground from './HeroBackground';
 import { HOME_ART } from '../lib/heroAssets';
 import PlayModePopup, { type PlayMode } from './PlayModePopup';
 
@@ -21,6 +20,10 @@ interface HomePageProps {
   myGamesCount?: number;
   onOpenDashboard: () => void;
 }
+
+// Dark covering behind the controls: transparent at the top edge, ~55% at PLAY, ~90%+ below, eased so no band shows.
+const ACTIONS_SHADE =
+  'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.93) 35%, rgba(0,0,0,0.86) 62%, rgba(0,0,0,0.6) 86%, rgba(0,0,0,0.25) 95%, rgba(0,0,0,0) 100%)';
 
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
@@ -59,10 +62,33 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
   };
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-[#0b0d14]">
-      <HeroBackground overlay="from-black/65 via-black/15 to-black/85" />
+    <div className="relative min-h-[100dvh] overflow-hidden bg-[#05060a]">
+      {/* The artwork fills the whole screen: clear at the top, then dimmed behind the buttons (see the Actions gradient) */}
+      <div aria-hidden="true" className="absolute inset-0 flex justify-center">
+        <div className="relative h-full w-full max-w-[560px]">
+          {/* The picture is nudged up 3rem (clipped off-screen) so the judge's face clears the PLAY button on shorter phones */}
+          <div className="absolute inset-x-0 -top-12 h-[calc(100%+3rem)] bg-cover bg-top" style={{ backgroundImage: `url(${HOME_ART.lqip})` }}>
+            <picture>
+              <source srcSet={HOME_ART.webp} type="image/webp" />
+              <img
+                src={HOME_ART.jpg}
+                alt=""
+                width={HOME_ART.width}
+                height={HOME_ART.height}
+                ref={artRef}
+                onLoad={() => setArtLoaded(true)}
+                decoding="async"
+                draggable={false}
+                className={`absolute inset-0 w-full h-full object-cover object-top select-none transition-opacity duration-500 ${artLoaded ? 'opacity-100' : 'opacity-0'}`}
+              />
+            </picture>
+          </div>
+          {/* soft shade at the very top so the logo and sound button always read */}
+          <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-black/60 to-transparent" />
+        </div>
+      </div>
 
-      <div className="relative z-10 min-h-[100dvh] flex flex-col px-5" style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
+      <div className="relative z-10 min-h-[100dvh] flex flex-col">
         {/* Sound toggle floats over the top-right corner so it doesn't use up a row */}
         <button
           onClick={toggleSound}
@@ -73,8 +99,8 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
           {soundOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
         </button>
 
-        {/* Logo (compact) + illustration */}
-        <div className="flex-1 flex flex-col items-center min-h-0 pt-1 pb-3">
+        {/* Logo */}
+        <div className="px-5 flex flex-col items-center" style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}>
           <h1 className="font-game leading-[0.9] select-none text-center">
             <span className="logo-gold block text-4xl sm:text-5xl">COURTROOM</span>
             <span className="logo-gold block text-6xl sm:text-7xl">QUEST</span>
@@ -82,29 +108,13 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
           <p className="mt-2.5 rounded-full bg-black/60 border border-[#F2B705]/60 px-4 py-1 text-[11px] sm:text-xs font-bold tracking-[0.2em] text-white backdrop-blur-sm">
             EVERY CASE HAS A LOOPHOLE
           </p>
-
-          <figure
-            className="relative mt-2.5 w-full max-w-sm flex-1 min-h-[165px] max-h-[48dvh] overflow-hidden rounded-3xl border-2 border-[#F2B705]/60 bg-black bg-cover shadow-[0_0_28px_rgba(242,183,5,0.22)]"
-            style={{ backgroundImage: `url(${HOME_ART.lqip})`, backgroundPosition: '50% 44%' }}
-          >
-            <picture>
-              <source srcSet={HOME_ART.webp} type="image/webp" />
-              <img
-                src={HOME_ART.jpg}
-                alt={HOME_ART.alt}
-                width={HOME_ART.width}
-                height={HOME_ART.height}
-                ref={artRef}
-                onLoad={() => setArtLoaded(true)}
-                decoding="async"
-                draggable={false}
-                className={`absolute inset-0 w-full h-full object-cover object-[50%_44%] select-none transition-opacity duration-500 ${artLoaded ? 'opacity-100' : 'opacity-0'}`}
-              />
-            </picture>
-          </figure>
         </div>
 
-        {/* Actions */}
+        {/* The picture shows through here */}
+        <div className="flex-1 min-h-[120px]" />
+
+        {/* Actions: sit on a dark covering that starts just above PLAY, so the artwork becomes a quiet background behind the text */}
+        <div className="px-5 pt-8" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)', background: ACTIONS_SHADE }}>
         <div className="w-full max-w-sm mx-auto space-y-3">
           <button
             onClick={() => {
@@ -173,6 +183,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
               )}
             </div>
           )}
+        </div>
         </div>
       </div>
 
