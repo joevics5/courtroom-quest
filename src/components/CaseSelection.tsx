@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, Briefcase, ChevronRight, Shield, Edit, RefreshCw, Trophy, Play, CheckCircle } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, Shield, Edit, RefreshCw, Trophy, Play, CheckCircle, HelpCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSession } from '../contexts/SessionContext';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
 import { getPhaseBadge } from '../lib/sessionInfo';
 import CaseWinners from './CaseWinners';
+import CustomCasesIntro from './CustomCasesIntro';
+import { hasSeen, markSeen } from '../lib/firstVisit';
 import type { Case } from '../types';
 
 interface CaseSelectionProps {
@@ -30,6 +32,15 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
   const [loading, setLoading] = useState(false);
   const [showWinnersModal, setShowWinnersModal] = useState(false);
   const [selectedCaseForWinners, setSelectedCaseForWinners] = useState<Case | null>(null);
+
+  // First visit: show the intro once, then it's only available from the small link below.
+  const [showIntro, setShowIntro] = useState(false);
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId || hasSeen('custom-cases-intro', userId)) return;
+    markSeen('custom-cases-intro', userId);
+    setShowIntro(true);
+  }, [userId]);
 
   useEffect(() => {
     loadCases();
@@ -161,6 +172,14 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
                   <span className="font-medium">Create New Custom Case</span>
                 </button>
 
+                <button
+                  onClick={() => setShowIntro(true)}
+                  className="mx-auto flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#FFD43B] underline-offset-2 hover:underline transition-colors"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  How do custom cases work?
+                </button>
+
                 {/* All Custom Cases */}
                 {userCases.length === 0 ? (
                   <div className="text-center py-12 text-slate-400">
@@ -174,6 +193,8 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
           </div>
         </div>
       </div>
+
+      {showIntro && <CustomCasesIntro onClose={() => setShowIntro(false)} />}
 
       {showWinnersModal && selectedCaseForWinners && (
         <CaseWinners
