@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { FileText, Users, ChevronRight, ChevronDown, Send, Eye, Scale, ArrowRight, ArrowLeft, Info, Mic } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, FileText, Info, Mic, Send, User, Users } from 'lucide-react';
 import { db } from '../lib/database';
 import EvidenceViewer from './EvidenceViewer';
+import HeroBackground from './HeroBackground';
+import InitialsAvatar from './InitialsAvatar';
+import { getEvidenceIcon, formatEvidenceType } from '../lib/evidenceDisplay';
 import { generateWitnessResponse as generateAIWitnessResponse } from '../lib/ai/trialAI';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { speakAs } from '../lib/speech';
@@ -147,6 +150,32 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
     }
   };
 
+  const defendantName =
+    caseForReview?.defendant_name ||
+    (caseForReview?.truth_state as any)?.defendant_name ||
+    caseDetails?.defendant_name ||
+    (caseDetails?.truth_state as any)?.defendant_name ||
+    '';
+
+  const reviewModals = (
+    <>
+      {showPitchModal && caseForReview && (
+        <CaseBriefModal
+          caseForReview={caseForReview}
+          defendantName={defendantName || 'The defendant'}
+          onReject={() => {
+            setShowPitchModal(false);
+            onReviewReject?.();
+          }}
+          onAccept={handleAcceptCase}
+        />
+      )}
+      {showAcceptModal && caseForReview && (
+        <AcceptedModal defendantName={defendantName || 'the defendant'} onBegin={handleBeginInvestigation} />
+      )}
+    </>
+  );
+
   if (selectedEvidence) {
     return (
       <EvidenceViewer
@@ -156,481 +185,425 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
     );
   }
 
-  // If no session and showing review, only show modals
+  // Reviewing a case before a game exists: just the brief, over the game background
   if (!session && showCaseReview) {
     return (
-      <>
-        {showPitchModal && caseForReview && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 max-w-2xl w-full">
-              <h2 className="text-2xl font-bold text-white mb-4">
-                Case Brief — {caseForReview.title}
-              </h2>
-              <div className="prose prose-invert max-w-none mb-6">
-                <p className="text-slate-300 leading-relaxed whitespace-pre-line">
-                  {caseForReview.description}
-                </p>
-                {caseForReview.case_summary && (
-                  <p className="text-slate-300 leading-relaxed mt-4 whitespace-pre-line">
-                    {caseForReview.case_summary}
-                  </p>
-                )}
-              </div>
-
-              <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-6">
-                <p className="text-slate-300 text-center">
-                  <span className="font-semibold text-white">{caseForReview.defendant_name || (caseForReview.truth_state as any)?.defendant_name || 'The defendant'}</span> has requested legal representation.
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowPitchModal(false);
-                    if (onReviewReject) {
-                      onReviewReject();
-                    }
-                  }}
-                  className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={handleAcceptCase}
-                  className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-                >
-                  Accept Case
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showAcceptModal && caseForReview && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 max-w-lg w-full">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-
-                <h2 className="text-2xl font-bold text-white">
-                  You are now representing {caseForReview.defendant_name || (caseForReview.truth_state as any)?.defendant_name || 'the defendant'}.
-                </h2>
-
-                <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
-                  <p className="text-slate-300 font-medium mb-2">Your task:</p>
-                  <ul className="text-slate-400 text-sm space-y-1 text-left">
-                    <li>• Review evidence</li>
-                    <li>• Interview witnesses</li>
-                    <li>• Prepare for trial</li>
-                  </ul>
-                </div>
-
-                <p className="text-slate-400 italic">The court is waiting.</p>
-
-                <button
-                  onClick={handleBeginInvestigation}
-                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold"
-                >
-                  Begin Investigation
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </>
+      <div className="relative min-h-[100dvh] bg-[#0b0d14]">
+        <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
+        {reviewModals}
+      </div>
     );
   }
 
-  // If no session, don't show investigation UI
   if (!session) {
     return null;
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
+  const totalQuestions = interactions.length;
+  const safeTop = { paddingTop: 'max(env(safe-area-inset-top), 12px)' };
+  const safeBottom = { paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' };
+
+  /* ───────────── Witness interview: a chat, full screen ───────────── */
+  if (selectedWitness) {
+    const history = getWitnessInteractions(selectedWitness.id);
+    return (
+      <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14]">
+        <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
+        <div className="relative z-10 h-full flex flex-col max-w-2xl mx-auto">
+          <div className="flex-none px-4 pb-3 border-b border-white/10 bg-black/40 backdrop-blur-sm" style={safeTop}>
+            <div className="flex items-center gap-3">
               <button
-                onClick={onBack}
-                className="flex items-center justify-center w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors"
+                onClick={() => setSelectedWitness(null)}
+                aria-label="Back to witnesses"
+                className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
               >
-                <ArrowLeft className="w-5 h-5 text-white" />
+                <ArrowLeft className="w-5 h-5" />
               </button>
-              <div className="flex items-center justify-center w-10 h-10 bg-blue-600 rounded-full">
-                <Scale className="w-5 h-5 text-white" />
+              <InitialsAvatar name={selectedWitness.name} size="md" />
+              <div className="flex-1 min-w-0">
+                <h2 className="font-game text-3xl text-white leading-none truncate">{selectedWitness.name}</h2>
+                <p className="text-sm text-white/60 capitalize truncate">{selectedWitness.role}</p>
               </div>
+              <button
+                onClick={() => setShowWitnessInfo(!showWitnessInfo)}
+                aria-expanded={showWitnessInfo}
+                className="flex-none flex items-center gap-1 rounded-full bg-white/10 border border-white/15 px-3 h-9 text-xs font-bold text-white"
+              >
+                INFO
+                <ChevronDown className={`w-4 h-4 transition-transform ${showWitnessInfo ? 'rotate-180' : ''}`} />
+              </button>
             </div>
-            <button
-              onClick={onProceedToTrial}
-              className="flex items-center gap-2 px-3 py-2 sm:px-6 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base"
-            >
-              Proceed to Trial
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Investigation Phase</h1>
-            <p className="text-slate-400 text-sm">Examine evidence and question witnesses</p>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-              <div className="flex border-b border-slate-700">
-                <button
-                  onClick={() => setSelectedTab('overview')}
-                  className={`flex-1 px-3 py-3 font-medium transition-colors text-sm ${
-                    selectedTab === 'overview'
-                      ? 'bg-slate-750 text-white border-b-2 border-blue-500'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Info className="w-4 h-4" />
-                    Case Overview
-                  </div>
-                </button>
-                <button
-                  onClick={() => setSelectedTab('evidence')}
-                  className={`flex-1 px-3 py-3 font-medium transition-colors text-sm ${
-                    selectedTab === 'evidence'
-                      ? 'bg-slate-750 text-white border-b-2 border-blue-500'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Case File
-                  </div>
-                </button>
-                <button
-                  onClick={() => setSelectedTab('witnesses')}
-                  className={`flex-1 px-3 py-3 font-medium transition-colors text-sm ${
-                    selectedTab === 'witnesses'
-                      ? 'bg-slate-750 text-white border-b-2 border-blue-500'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Witness Interviews
-                  </div>
-                </button>
+            {showWitnessInfo && (
+              <div className="mt-3 space-y-2 max-h-[40dvh] overflow-y-auto">
+                <div className="rounded-2xl bg-white/5 border border-white/15 p-3">
+                  <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-1">BACKGROUND</h3>
+                  <p className="text-sm text-white/80 leading-relaxed">{selectedWitness.background}</p>
+                </div>
+                <div className="rounded-2xl bg-[#FFD43B]/10 border border-[#F2B705]/40 p-3">
+                  <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-1">WRITTEN TESTIMONY</h3>
+                  <p className="text-sm text-white/85 whitespace-pre-wrap leading-relaxed">{selectedWitness.base_testimony}</p>
+                </div>
               </div>
-
-              <div className="p-4 max-h-[calc(100vh-250px)] overflow-y-auto">
-                {selectedTab === 'overview' && caseDetails && (
-                  <div className="space-y-4">
-                    <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
-                      <h4 className="text-sm font-semibold text-blue-400 mb-2">Case Title</h4>
-                      <p className="text-white font-medium">{caseDetails.title}</p>
-                    </div>
-                    <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
-                      <h4 className="text-sm font-semibold text-blue-400 mb-2">Case Type</h4>
-                      <p className="text-slate-300 capitalize">{caseDetails.case_type}</p>
-                    </div>
-                    {(caseDetails.defendant_name || (caseDetails.truth_state as any)?.defendant_name) && (
-                      <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
-                        <h4 className="text-sm font-semibold text-blue-400 mb-2">Defendant</h4>
-                        <p className="text-slate-300">{caseDetails.defendant_name || (caseDetails.truth_state as any)?.defendant_name}</p>
-                      </div>
-                    )}
-                    <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
-                      <h4 className="text-sm font-semibold text-blue-400 mb-2">Description</h4>
-                      <p className="text-slate-300 leading-relaxed whitespace-pre-line">{caseDetails.description}</p>
-                    </div>
-                    {caseDetails.case_summary && (
-                      <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
-                        <h4 className="text-sm font-semibold text-blue-400 mb-2">Case Summary</h4>
-                        <p className="text-slate-300 leading-relaxed whitespace-pre-line">{caseDetails.case_summary}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {selectedTab === 'evidence' && (
-                  <div className="space-y-3">
-                    {evidence.length === 0 ? (
-                      <div className="text-center py-8 text-slate-400">No evidence available</div>
-                    ) : (
-                      evidence.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => setSelectedEvidence(item)}
-                          className="w-full text-left bg-slate-750 rounded-lg p-4 border border-slate-600 hover:border-blue-500 hover:bg-slate-700 transition-all group"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <span className="text-xs font-semibold text-blue-400">
-                              {item.exhibit_label || 'Evidence'}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-slate-400 capitalize">{item.evidence_type.replace('_', ' ')}</span>
-                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                            </div>
-                          </div>
-                          <h4 className="text-white font-medium mb-1 group-hover:text-blue-400 transition-colors">{item.title}</h4>
-                          {item.description && (
-                            <p className="text-sm text-slate-400 line-clamp-2">{item.description}</p>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {selectedTab === 'witnesses' && (
-                  <div className="space-y-3">
-                    {witnesses.length === 0 ? (
-                      <div className="text-center py-8 text-slate-400">No witnesses available</div>
-                    ) : (
-                      witnesses.map((witness) => {
-                        const witnessInteractions = getWitnessInteractions(witness.id);
-                        return (
-                          <button
-                            key={witness.id}
-                            onClick={() => setSelectedWitness(witness)}
-                            className={`w-full text-left bg-slate-750 rounded-lg p-4 border transition-all ${
-                              selectedWitness?.id === witness.id
-                                ? 'border-blue-500 bg-slate-700'
-                                : 'border-slate-600 hover:border-slate-500'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <h4 className="text-white font-medium">{witness.name}</h4>
-                              <ChevronRight className="w-4 h-4 text-slate-400" />
-                            </div>
-                            <p className="text-sm text-slate-400 capitalize mb-1">{witness.role}</p>
-                            {witnessInteractions.length > 0 && (
-                              <div className="text-xs text-blue-400 mt-2">
-                                {witnessInteractions.length} question{witnessInteractions.length !== 1 ? 's' : ''} asked
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
 
-          <div className="lg:col-span-2">
-            <div className={`bg-slate-800 rounded-lg border border-slate-700 h-[calc(100vh-150px)] flex-col ${selectedWitness ? 'flex' : 'hidden lg:flex'}`}>
-              {selectedWitness ? (
-                <>
-                  <div className="border-b border-slate-700 px-6 py-4 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-xl font-semibold text-white">{selectedWitness.name}</h3>
-                        <p className="text-slate-400 text-sm capitalize">{selectedWitness.role}</p>
-                      </div>
-                      <button
-                        onClick={() => setShowWitnessInfo(!showWitnessInfo)}
-                        className="flex items-center gap-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-                      >
-                        <span className="text-sm">Witness Info</span>
-                        <ChevronDown className={`w-4 h-4 transition-transform ${showWitnessInfo ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
-                    
-                    {showWitnessInfo && (
-                      <div className="mt-4 space-y-3 animate-in slide-in-from-top-2">
-                        <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
-                          <h4 className="text-sm font-semibold text-blue-400 mb-2">Background</h4>
-                          <p className="text-slate-300 text-sm">{selectedWitness.background}</p>
-                        </div>
-                        <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/30">
-                          <h4 className="text-sm font-semibold text-amber-400 mb-2">Written Testimony</h4>
-                          <p className="text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">{selectedWitness.base_testimony}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+          <div ref={chatContainerRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
+            {history.length === 0 && !isQuestioningLoading && (
+              <div className="text-center py-10">
+                <Users className="w-10 h-10 mx-auto text-white/25 mb-3" />
+                <p className="font-game text-2xl text-white/80">NO QUESTIONS YET</p>
+                <p className="text-sm text-white/50 mt-1">Ask {selectedWitness.name.split(' ')[0]} what they saw. Look for gaps.</p>
+              </div>
+            )}
 
-                  <div 
-                    ref={chatContainerRef}
-                    className="flex-1 overflow-y-auto p-6 space-y-4"
-                  >
-                    {getWitnessInteractions(selectedWitness.id).map((interaction) => (
-                      <div key={interaction.id} className="space-y-2">
-                        <div className="bg-blue-600/10 border border-blue-500/30 rounded-lg p-4">
-                          <div className="text-xs text-blue-400 mb-1">You asked:</div>
-                          <p className="text-white">{interaction.question}</p>
-                        </div>
-                        <div className="bg-slate-750 border border-slate-600 rounded-lg p-4">
-                          <div className="text-xs text-slate-400 mb-1">{selectedWitness.name} responded:</div>
-                          <p className="text-slate-200">{interaction.response}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {isQuestioningLoading && (
-                      <div className="space-y-2">
-                        <div className="bg-blue-600/10 border border-blue-500/30 rounded-lg p-4">
-                          <div className="text-xs text-blue-400 mb-1">You asked:</div>
-                          <p className="text-white">{question}</p>
-                        </div>
-                        <div className="bg-slate-750 border border-slate-600 rounded-lg p-4">
-                          <div className="text-xs text-slate-400 mb-1">{selectedWitness.name} is thinking...</div>
-                          <div className="flex items-center gap-2">
-                            <div className="animate-pulse text-slate-400">●</div>
-                            <div className="animate-pulse text-slate-400" style={{ animationDelay: '0.2s' }}>●</div>
-                            <div className="animate-pulse text-slate-400" style={{ animationDelay: '0.4s' }}>●</div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t border-slate-700 p-4 flex-shrink-0 bg-slate-800">
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <textarea
-                          value={question}
-                          onChange={(e) => setQuestion(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleAskQuestion();
-                            }
-                          }}
-                          placeholder={`Ask ${selectedWitness.name} a question... (Shift+Enter for a new line)`}
-                          disabled={isQuestioningLoading}
-                          rows={2}
-                          className="w-full px-4 py-2 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[2.75rem] max-h-40"
-                        />
-                        {speechSupported && (
-                          <button
-                            type="button"
-                            onClick={() => isListening ? stopListening() : startListening()}
-                            disabled={isQuestioningLoading}
-                            title={isListening ? 'Stop recording' : 'Speak your question'}
-                            className={`absolute right-2 top-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                              isListening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
-                            }`}
-                          >
-                            <Mic className="w-4 h-4 text-white" />
-                          </button>
-                        )}
-                      </div>
-                      <button
-                        onClick={handleAskQuestion}
-                        disabled={!question.trim() || isQuestioningLoading}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
-                      >
-                        {isQuestioningLoading ? (
-                          <span className="flex items-center gap-2">
-                            <span className="animate-spin">⏳</span>
-                            Thinking...
-                          </span>
-                        ) : (
-                          <Send className="w-5 h-5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex-1 hidden lg:flex items-center justify-center text-slate-400">
-                  <div className="text-center">
-                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Select a witness to begin questioning</p>
+            {history.map(interaction => (
+              <div key={interaction.id} className="space-y-2">
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[#FFD43B]/15 border border-[#FFD43B]/40 px-4 py-2.5">
+                    <div className="text-[10px] font-black tracking-widest text-[#FFD43B] mb-0.5">YOU</div>
+                    <p className="text-white leading-snug">{interaction.question}</p>
                   </div>
                 </div>
-              )}
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-white/10 border border-white/15 px-4 py-2.5">
+                    <div className="text-[10px] font-black tracking-widest text-white/50 mb-0.5">{selectedWitness.name.toUpperCase()}</div>
+                    <p className="text-white/90 leading-snug">{interaction.response}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {isQuestioningLoading && (
+              <div className="space-y-2">
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[#FFD43B]/15 border border-[#FFD43B]/40 px-4 py-2.5">
+                    <div className="text-[10px] font-black tracking-widest text-[#FFD43B] mb-0.5">YOU</div>
+                    <p className="text-white leading-snug">{question}</p>
+                  </div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="rounded-2xl rounded-bl-md bg-white/10 border border-white/15 px-4 py-3 flex items-center gap-1.5" aria-label={`${selectedWitness.name} is thinking`}>
+                    <span className="animate-pulse text-white/60">●</span>
+                    <span className="animate-pulse text-white/60" style={{ animationDelay: '0.2s' }}>●</span>
+                    <span className="animate-pulse text-white/60" style={{ animationDelay: '0.4s' }}>●</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-none px-4 pt-3 border-t border-white/10 bg-black/50 backdrop-blur-sm" style={safeBottom}>
+            <div className="flex items-end gap-2">
+              <div className="relative flex-1">
+                <textarea
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAskQuestion();
+                    }
+                  }}
+                  placeholder={`Ask ${selectedWitness.name.split(' ')[0]} a question…`}
+                  disabled={isQuestioningLoading}
+                  rows={2}
+                  className="w-full px-4 py-3 pr-12 bg-black/50 border border-white/20 rounded-2xl text-white placeholder-white/35 focus:outline-none focus:border-[#FFD43B] resize-none"
+                />
+                {speechSupported && (
+                  <button
+                    type="button"
+                    onClick={() => (isListening ? stopListening() : startListening())}
+                    disabled={isQuestioningLoading}
+                    title={isListening ? 'Stop recording' : 'Speak your question'}
+                    className={`absolute right-2 top-2 w-9 h-9 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
+                      isListening ? 'bg-red-600 animate-pulse' : 'bg-white/15 hover:bg-white/25'
+                    }`}
+                  >
+                    <Mic className="w-4 h-4 text-white" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={handleAskQuestion}
+                disabled={!question.trim() || isQuestioningLoading}
+                aria-label="Send question"
+                className="flex-none flex items-center justify-center w-14 h-14 rounded-2xl bg-[#FFD43B] text-black border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale"
+              >
+                <Send className="w-6 h-6" />
+              </button>
             </div>
           </div>
+        </div>
+        {reviewModals}
+      </div>
+    );
+  }
+
+  /* ───────────── Main investigation screen ───────────── */
+  const tabs: Array<{ key: 'overview' | 'evidence' | 'witnesses'; label: string; icon: typeof Info; count?: number }> = [
+    { key: 'overview', label: 'BRIEF', icon: Info },
+    { key: 'evidence', label: 'EVIDENCE', icon: FileText, count: evidence.length },
+    { key: 'witnesses', label: 'WITNESSES', icon: Users, count: witnesses.length }
+  ];
+
+  const caseTypeLabel = caseDetails?.case_type ? String(caseDetails.case_type).replace(/_/g, ' ') : '';
+  const shownDefendant = caseDetails?.defendant_name || (caseDetails?.truth_state as any)?.defendant_name;
+  const interviewedCount = new Set(interactions.map(i => i.witness_id)).size;
+
+  return (
+    <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14]">
+      <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
+
+      <div className="relative z-10 h-full flex flex-col max-w-2xl mx-auto">
+        <div className="flex-none px-4" style={safeTop}>
+          <header className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              aria-label="Back"
+              className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="logo-gold font-game text-4xl leading-none">INVESTIGATION</h1>
+              <p className="text-white/60 text-xs mt-1 truncate">{caseDetails?.title || 'Examine the evidence. Question the witnesses.'}</p>
+            </div>
+          </header>
+
+          <nav className="mt-3 grid grid-cols-3 gap-2" aria-label="Investigation sections">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              const active = selectedTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setSelectedTab(tab.key)}
+                  aria-pressed={active}
+                  className={`flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-black tracking-wide transition-all border-b-4 active:translate-y-0.5 active:border-b-2 ${
+                    active ? 'bg-[#FFD43B] text-black border-[#B8860B]' : 'bg-black/60 text-white/80 border-white/20 border-x border-t border-x-white/10 border-t-white/10'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                  {tab.count !== undefined && (
+                    <span className={`rounded-full px-1.5 min-w-[20px] text-[11px] leading-5 ${active ? 'bg-black/15' : 'bg-white/15'}`}>{tab.count}</span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3">
+          {selectedTab === 'overview' && (
+            caseDetails ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {caseTypeLabel && (
+                    <span className="rounded-full bg-sky-500/20 border border-sky-400/50 px-3 py-1 text-xs font-black tracking-wide text-sky-200 uppercase">{caseTypeLabel}</span>
+                  )}
+                  {shownDefendant && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/15 px-3 py-1 text-xs font-bold text-white/85">
+                      <User className="w-3.5 h-3.5" /> Defendant: {shownDefendant}
+                    </span>
+                  )}
+                </div>
+
+                <div className="rounded-3xl bg-black/65 border border-white/15 backdrop-blur-sm p-5">
+                  <h2 className="font-game text-4xl text-white leading-none">{caseDetails.title}</h2>
+                  <p className="mt-3 text-[15px] text-white/80 leading-relaxed whitespace-pre-line">{caseDetails.description}</p>
+                </div>
+
+                {caseDetails.case_summary && (
+                  <div className="rounded-3xl bg-black/65 border border-white/15 backdrop-blur-sm p-5">
+                    <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-2">CASE SUMMARY</h3>
+                    <p className="text-[15px] text-white/80 leading-relaxed whitespace-pre-line">{caseDetails.case_summary}</p>
+                  </div>
+                )}
+
+                <div className="rounded-3xl bg-black/65 border border-white/15 backdrop-blur-sm p-4">
+                  <h3 className="font-game text-2xl text-white/90 leading-none mb-3">YOUR GAME PLAN</h3>
+                  <ol className="space-y-2">
+                    <li>
+                      <button onClick={() => setSelectedTab('evidence')} className="w-full flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 p-3 text-left">
+                        <span className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-[#FFD43B] text-black font-black text-sm">1</span>
+                        <span className="flex-1 text-white font-semibold">Review the evidence</span>
+                        <ChevronRight className="w-5 h-5 text-[#FFD43B]" />
+                      </button>
+                    </li>
+                    <li>
+                      <button onClick={() => setSelectedTab('witnesses')} className="w-full flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 p-3 text-left">
+                        <span className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-[#FFD43B] text-black font-black text-sm">2</span>
+                        <span className="flex-1 text-white font-semibold">Interview the witnesses</span>
+                        <ChevronRight className="w-5 h-5 text-[#FFD43B]" />
+                      </button>
+                    </li>
+                    <li className="flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 p-3">
+                      <span className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-[#FFD43B] text-black font-black text-sm">3</span>
+                      <span className="flex-1 text-white font-semibold">Take it to trial</span>
+                    </li>
+                  </ol>
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-white/50 py-10">Loading the case file…</p>
+            )
+          )}
+
+          {selectedTab === 'evidence' && (
+            evidence.length === 0 ? (
+              <p className="text-center text-white/50 py-10">No evidence available</p>
+            ) : (
+              evidence.map(item => {
+                const Icon = getEvidenceIcon(item.evidence_type);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setSelectedEvidence(item)}
+                    className="w-full flex items-center gap-3 rounded-2xl bg-black/65 border border-white/15 backdrop-blur-sm p-3 text-left border-b-4 border-b-white/25 active:translate-y-0.5 active:border-b-2 transition-all"
+                  >
+                    <span className="flex-none flex items-center justify-center w-14 h-14 rounded-xl bg-amber-500 text-black font-game text-3xl">
+                      {(item.exhibit_label || 'E').replace(/exhibit\s*/i, '').slice(0, 2)}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-bold text-white leading-tight">{item.title}</span>
+                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-white/70">
+                        <Icon className="w-3 h-3" /> {formatEvidenceType(item.evidence_type)}
+                      </span>
+                      {item.description && <span className="block mt-1 text-sm text-white/60 line-clamp-2">{item.description}</span>}
+                    </span>
+                    <ChevronRight className="flex-none w-5 h-5 text-[#FFD43B]" />
+                  </button>
+                );
+              })
+            )
+          )}
+
+          {selectedTab === 'witnesses' && (
+            witnesses.length === 0 ? (
+              <p className="text-center text-white/50 py-10">No witnesses available</p>
+            ) : (
+              <>
+                <p className="text-sm text-white/60 px-1">Tap a witness to interview them. Their answers are saved for your trial.</p>
+                {witnesses.map(witness => {
+                  const count = getWitnessInteractions(witness.id).length;
+                  return (
+                    <button
+                      key={witness.id}
+                      onClick={() => setSelectedWitness(witness)}
+                      className="w-full flex items-center gap-3 rounded-2xl bg-black/65 border border-white/15 backdrop-blur-sm p-3 text-left border-b-4 border-b-white/25 active:translate-y-0.5 active:border-b-2 transition-all"
+                    >
+                      <InitialsAvatar name={witness.name} size="lg" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-bold text-white leading-tight truncate">{witness.name}</span>
+                        <span className="block text-sm text-white/60 capitalize truncate">{witness.role}</span>
+                        <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          count > 0 ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-300' : 'bg-white/10 text-white/55'
+                        }`}>
+                          {count > 0 && <Check className="w-3 h-3" />}
+                          {count > 0 ? `${count} question${count === 1 ? '' : 's'} asked` : 'Not interviewed yet'}
+                        </span>
+                      </span>
+                      <ChevronRight className="flex-none w-5 h-5 text-[#FFD43B]" />
+                    </button>
+                  );
+                })}
+              </>
+            )
+          )}
+        </div>
+
+        <div className="flex-none px-4 pt-2" style={safeBottom}>
+          <p className="text-center text-[11px] font-bold tracking-wider text-white/45 mb-1.5">
+            {witnesses.length > 0 ? `${interviewedCount}/${witnesses.length} WITNESSES INTERVIEWED · ${totalQuestions} QUESTION${totalQuestions === 1 ? '' : 'S'} ASKED` : 'READY WHEN YOU ARE'}
+          </p>
+          <button
+            onClick={onProceedToTrial}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
+          >
+            PROCEED TO TRIAL
+            <ArrowRight className="w-6 h-6" />
+          </button>
         </div>
       </div>
 
-      {showPitchModal && caseForReview && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 max-w-2xl w-full">
-            <h2 className="text-2xl font-bold text-white mb-4">
-              Case Brief — {caseForReview.title}
-            </h2>
-            <div className="prose prose-invert max-w-none mb-6">
-              <p className="text-slate-300 leading-relaxed whitespace-pre-line">
-                {caseForReview.description}
-              </p>
-              {caseForReview.case_summary && (
-                <p className="text-slate-300 leading-relaxed mt-4 whitespace-pre-line">
-                  {caseForReview.case_summary}
-                </p>
-              )}
-            </div>
+      {reviewModals}
+    </div>
+  );
+}
 
-            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-6">
-              <p className="text-slate-300 text-center">
-                <span className="font-semibold text-white">{caseForReview.defendant_name || (caseForReview.truth_state as any)?.defendant_name || caseDetails?.defendant_name || (caseDetails?.truth_state as any)?.defendant_name || 'The defendant'}</span> has requested legal representation.
-              </p>
-            </div>
+/* ───────────── Review modals (shared by both entry paths) ───────────── */
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowPitchModal(false);
-                  if (onReviewReject) {
-                    onReviewReject();
-                  }
-                }}
-                className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium"
-              >
-                Reject
-              </button>
-              <button
-                onClick={handleAcceptCase}
-                className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-              >
-                Accept Case
-              </button>
-            </div>
+function CaseBriefModal({
+  caseForReview,
+  defendantName,
+  onReject,
+  onAccept
+}: {
+  caseForReview: Case;
+  defendantName: string;
+  onReject: () => void;
+  onAccept: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
+      <div className="w-full max-w-lg max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#14161f] border border-white/10 text-white">
+        <div className="flex-1 min-h-0 overflow-y-auto p-5">
+          <span className="inline-block rounded-full bg-[#FFD43B] text-black px-3 py-1 text-[11px] font-black tracking-[0.15em]">CASE BRIEF</span>
+          <h2 className="font-game text-4xl leading-none mt-3">{caseForReview.title}</h2>
+          <p className="mt-3 text-[15px] text-white/75 leading-relaxed whitespace-pre-line">{caseForReview.description}</p>
+          {caseForReview.case_summary && (
+            <p className="mt-3 text-[15px] text-white/75 leading-relaxed whitespace-pre-line">{caseForReview.case_summary}</p>
+          )}
+          <div className="mt-4 rounded-2xl bg-white/5 border border-white/15 p-3 text-center">
+            <span className="font-bold text-[#FFD43B]">{defendantName}</span>
+            <span className="text-white/75"> has requested legal representation.</span>
           </div>
         </div>
-      )}
-
-      {showAcceptModal && caseForReview && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 max-w-lg w-full">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-
-              <h2 className="text-2xl font-bold text-white">
-                You are now representing {caseForReview.defendant_name || (caseForReview.truth_state as any)?.defendant_name || caseDetails?.defendant_name || (caseDetails?.truth_state as any)?.defendant_name || 'the defendant'}.
-              </h2>
-
-              <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
-                <p className="text-slate-300 font-medium mb-2">Your task:</p>
-                <ul className="text-slate-400 text-sm space-y-1 text-left">
-                  <li>• Review evidence</li>
-                  <li>• Interview witnesses</li>
-                  <li>• Prepare for trial</li>
-                </ul>
-              </div>
-
-              <p className="text-slate-400 italic">The court is waiting.</p>
-
-              <button
-                onClick={handleBeginInvestigation}
-                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold"
-              >
-                Begin Investigation
-              </button>
-            </div>
-          </div>
+        <div className="flex-none grid grid-cols-2 gap-3 p-5 pt-3 border-t border-white/10">
+          <button onClick={onReject} className="rounded-xl bg-white/10 border border-white/20 text-white font-game text-2xl py-3">
+            REJECT
+          </button>
+          <button
+            onClick={onAccept}
+            className="rounded-xl bg-[#FFD43B] text-black font-game text-2xl py-3 border-b-[5px] border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
+          >
+            ACCEPT CASE
+          </button>
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+function AcceptedModal({ defendantName, onBegin }: { defendantName: string; onBegin: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
+      <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-[#14161f] border border-white/10 text-white p-6 text-center" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}>
+        <span className="mx-auto flex items-center justify-center w-16 h-16 rounded-full bg-[#FFD43B] text-black">
+          <Check className="w-9 h-9" strokeWidth={3} />
+        </span>
+        <h2 className="logo-gold font-game text-4xl leading-none mt-4">YOU'RE ON THE CASE</h2>
+        <p className="mt-2 text-white/75">You are now representing <span className="font-bold text-white">{defendantName}</span>.</p>
+
+        <ul className="mt-4 space-y-2 text-left">
+          {['Review the evidence', 'Interview the witnesses', 'Prepare for trial'].map((task, i) => (
+            <li key={task} className="flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 p-3">
+              <span className="flex-none flex items-center justify-center w-7 h-7 rounded-full bg-[#FFD43B] text-black font-black text-sm">{i + 1}</span>
+              <span className="font-semibold">{task}</span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-3 text-sm italic text-white/50">The court is waiting.</p>
+        <button
+          onClick={onBegin}
+          className="mt-4 w-full rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
+        >
+          BEGIN INVESTIGATION
+        </button>
+      </div>
     </div>
   );
 }

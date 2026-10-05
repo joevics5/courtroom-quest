@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Scale, Users, Clock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Scale, Users } from 'lucide-react';
+import HeroBackground from './HeroBackground';
 import type { TrialType, TrialDuration } from '../types';
 
 interface Props {
@@ -7,144 +8,141 @@ interface Props {
   onCancel: () => void;
 }
 
+const COURTS: Array<{
+  type: TrialType;
+  icon: typeof Scale;
+  iconBg: string;
+  title: string;
+  tagline: string;
+  perks: string[];
+}> = [
+  {
+    type: 'judge',
+    icon: Scale,
+    iconBg: 'bg-blue-600',
+    title: 'BENCH TRIAL',
+    tagline: 'The judge alone decides the verdict.',
+    perks: ['Faster', 'Legal expertise', 'Simpler']
+  },
+  {
+    type: 'jury',
+    icon: Users,
+    iconBg: 'bg-purple-600',
+    title: 'JURY TRIAL',
+    tagline: 'You pick 6 jurors. 12 citizens decide.',
+    perks: ['Pick your jurors', 'Persuade people', 'More realistic']
+  }
+];
+
+const LENGTHS: Array<{ value: TrialDuration; big: string; unit: string; label: string }> = [
+  { value: 15, big: '15', unit: 'MIN', label: 'Quick' },
+  { value: 30, big: '30', unit: 'MIN', label: 'Standard' },
+  { value: 60, big: '1', unit: 'HOUR', label: 'Full trial' }
+];
+
+/**
+ * One screen, no scrolling: pick the court, pick how long, confirm.
+ * The confirm button is always on screen at the bottom.
+ */
 export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
   const [selectedType, setSelectedType] = useState<TrialType | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<TrialDuration>(30);
 
-  const options: Array<{ type: TrialType; icon: typeof Scale; title: string; description: string }> = [
-    {
-      type: 'judge',
-      icon: Scale,
-      title: 'Judge Trial (Bench Trial)',
-      description: 'The judge alone decides the verdict based on the law and facts presented'
-    },
-    {
-      type: 'jury',
-      icon: Users,
-      title: 'Jury Trial',
-      description: 'A panel of 6-12 citizens deliberates and determines the verdict'
-    }
-  ];
-
-  const durationOptions: Array<{ value: TrialDuration; label: string; description: string }> = [
-    { value: 15, label: '15 Minutes', description: 'Quick trial' },
-    { value: 30, label: '30 Minutes', description: 'Standard trial' },
-    { value: 60, label: '1 Hour', description: 'Full trial' }
-  ];
-
-  const handleConfirm = () => {
-    if (selectedType) {
-      onSelect(selectedType, selectedDuration);
-    }
+  const confirm = () => {
+    if (selectedType) onSelect(selectedType, selectedDuration);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl">
-        <h2 className="text-2xl font-bold text-white mb-2 text-center">Select Trial Type</h2>
-        <p className="text-white/60 text-center mb-6 text-sm">
-          Choose who will decide the outcome of this case
-        </p>
+    <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14]">
+      <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {options.map((option) => {
-            const Icon = option.icon;
+      <div
+        className="relative z-10 h-full flex flex-col px-4 max-w-lg mx-auto"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
+      >
+        <header className="flex-none flex items-center gap-3">
+          <button
+            onClick={onCancel}
+            aria-label="Back"
+            className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="logo-gold font-game text-4xl leading-none truncate">CHOOSE YOUR COURT</h1>
+            <p className="text-white/60 text-xs mt-1">Who decides the outcome, and for how long?</p>
+          </div>
+        </header>
+
+        {/* Court + length share the space; on very short phones this region scrolls rather than clipping */}
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-center gap-3 py-3">
+          {COURTS.map(court => {
+            const Icon = court.icon;
+            const selected = selectedType === court.type;
             return (
               <button
-                key={option.type}
-                onClick={() => setSelectedType(option.type)}
-                className={`bg-white/5 hover:bg-white/10 border-2 ${
-                  selectedType === option.type ? 'border-blue-500' : 'border-white/10 hover:border-blue-500'
-                } rounded-lg p-4 text-left transition-all group`}
+                key={court.type}
+                onClick={() => setSelectedType(court.type)}
+                aria-pressed={selected}
+                className={`relative flex items-center gap-4 rounded-3xl border-2 border-b-[6px] p-4 text-left transition-all active:translate-y-0.5 active:border-b-2 ${
+                  selected ? 'border-[#FFD43B] bg-[#FFD43B]/10' : 'border-white/15 bg-black/60 backdrop-blur-sm'
+                }`}
               >
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg group-hover:from-blue-500/30 group-hover:to-purple-500/30 transition-all">
-                    <Icon className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-white mb-1">{option.title}</h3>
-                    <p className="text-white/70 text-xs leading-relaxed">{option.description}</p>
-                  </div>
-                </div>
-
-                <div className="bg-white/5 rounded-lg p-3 mt-2">
-                  <div className="text-white/60 text-xs space-y-1">
-                    {option.type === 'judge' ? (
-                      <>
-                        <div className="flex items-start gap-2">
-                          <span className="text-green-400 mt-0.5">✓</span>
-                          <span>Faster proceedings</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-green-400 mt-0.5">✓</span>
-                          <span>Legal expertise applied</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-green-400 mt-0.5">✓</span>
-                          <span>Simpler presentation</span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-start gap-2">
-                          <span className="text-green-400 mt-0.5">✓</span>
-                          <span>Jury selection process</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-green-400 mt-0.5">✓</span>
-                          <span>Persuade diverse perspectives</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-green-400 mt-0.5">✓</span>
-                          <span>More realistic trial experience</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
+                {selected && (
+                  <span className="absolute -top-2.5 -right-1.5 flex items-center justify-center w-7 h-7 rounded-full bg-[#FFD43B] text-black">
+                    <Check className="w-4 h-4" strokeWidth={3} />
+                  </span>
+                )}
+                <span className={`flex-none flex items-center justify-center w-16 h-16 rounded-2xl ${court.iconBg}`}>
+                  <Icon className="w-8 h-8 text-white" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-game text-3xl text-white leading-none">{court.title}</span>
+                  <span className="block mt-1 text-sm text-white/70 leading-snug">{court.tagline}</span>
+                  <span className="mt-2 flex flex-wrap gap-1.5">
+                    {court.perks.map(perk => (
+                      <span key={perk} className="rounded-full bg-white/10 border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/80">
+                        {perk}
+                      </span>
+                    ))}
+                  </span>
+                </span>
               </button>
             );
           })}
+
+          <div className="rounded-3xl bg-black/60 backdrop-blur-sm border border-white/15 p-3">
+            <h2 className="font-game text-2xl text-white/90 leading-none mb-2.5 px-1">HOW LONG?</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {LENGTHS.map(len => {
+                const selected = selectedDuration === len.value;
+                return (
+                  <button
+                    key={len.value}
+                    onClick={() => setSelectedDuration(len.value)}
+                    aria-pressed={selected}
+                    className={`rounded-2xl border-2 py-2 text-center transition-all active:translate-y-0.5 ${
+                      selected ? 'border-[#FFD43B] bg-[#FFD43B] text-black' : 'border-white/15 bg-white/5 text-white'
+                    }`}
+                  >
+                    <span className="block font-game text-4xl leading-none">{len.big}</span>
+                    <span className="block text-[11px] font-black tracking-widest">{len.unit}</span>
+                    <span className={`block text-[11px] font-semibold ${selected ? 'text-black/70' : 'text-white/55'}`}>{len.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white/5 rounded-lg p-4 mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-4 h-4 text-blue-400" />
-            <h3 className="text-base font-semibold text-white">Proceedings Length</h3>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {durationOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setSelectedDuration(option.value)}
-                className={`p-3 rounded-lg border-2 transition-all ${
-                  selectedDuration === option.value
-                    ? 'border-blue-500 bg-blue-500/10'
-                    : 'border-white/10 bg-white/5 hover:border-white/20'
-                }`}
-              >
-                <div className="text-white font-semibold text-sm mb-1">{option.label}</div>
-                <div className="text-white/60 text-xs">{option.description}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex gap-3 justify-center">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-white/60 hover:text-white transition-colors text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!selectedType}
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          >
-            Confirm Selection
-          </button>
-        </div>
+        <button
+          onClick={confirm}
+          disabled={!selectedType}
+          className="flex-none w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale"
+        >
+          {selectedType === 'jury' ? 'PICK YOUR JURY' : selectedType === 'judge' ? 'TO THE COURTROOM' : 'PICK A COURT'}
+          {selectedType && <ArrowRight className="w-6 h-6" />}
+        </button>
       </div>
     </div>
   );

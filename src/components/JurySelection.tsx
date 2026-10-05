@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Users, Check, X, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { db } from '../lib/database';
+import HeroBackground from './HeroBackground';
+import InitialsAvatar from './InitialsAvatar';
 import type { Juror, JurySelection as JurySelectionType } from '../types';
 
 interface Props {
@@ -19,14 +21,22 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
 
   useEffect(() => {
     loadJurors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadJurors = async () => {
     try {
-      const jurors = await db.jurors.getRandomJurors(30);
-      setJurorPool(jurors);
-
+      // Jurors already picked in an earlier visit must stay in the pool: the
+      // random 30 are different every time, so without this a resumed game
+      // would show empty seats for people it had already chosen.
       const existing = await db.jurySelections.getSessionJurySelections(sessionId);
+      const pickedIds = existing.map(s => s.juror_id);
+      const [picked, random] = await Promise.all([
+        pickedIds.length > 0 ? db.jurors.getJurorsByIds(pickedIds) : Promise.resolve([] as Juror[]),
+        db.jurors.getRandomJurors(30)
+      ]);
+      const pool = [...random, ...picked.filter(p => !random.some(r => r.id === p.id))];
+      setJurorPool(pool);
       setSelectedJurors(existing);
 
       if (existing.length > 0) {
@@ -61,8 +71,6 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
       setSelectedJurors(newSelections);
 
       const prosCount = newSelections.filter(j => j.selected_by === 'prosecution').length;
-      const newDefCount = newSelections.filter(j => j.selected_by === 'defense').length;
-
       if (prosCount < maxJurors / 2) {
         await autoSelectForProsecution(newSelections);
       }
@@ -93,8 +101,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
         selection_order: currentSelections.length + 1
       });
 
-      const newSelections = [...currentSelections, selection];
-      setSelectedJurors(newSelections);
+      setSelectedJurors([...currentSelections, selection]);
       setCurrentSide('defense');
     } catch (error) {
       console.error('Error auto-selecting for prosecution:', error);
@@ -112,177 +119,166 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
     }
   };
 
+  const perSide = maxJurors / 2;
   const prosecutionJurors = selectedJurors.filter(j => j.selected_by === 'prosecution');
   const defenseJurors = selectedJurors.filter(j => j.selected_by === 'defense');
-  const isComplete = prosecutionJurors.length === maxJurors / 2 && defenseJurors.length === maxJurors / 2;
+  const isComplete = prosecutionJurors.length === perSide && defenseJurors.length === perSide;
+  const defenseFull = defenseJurors.length >= perSide;
+  const remaining = perSide - defenseJurors.length;
+  const available = jurorPool.filter(j => !selectedJurors.some(s => s.juror_id === j.id));
+  const canPick = currentSide === 'defense' && !isAutoSelecting && !defenseFull;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading juror pool...</div>
+      <div className="relative min-h-[100dvh] bg-[#0b0d14] flex items-center justify-center">
+        <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
+        <div className="relative z-10 text-center">
+          <h1 className="logo-gold font-game text-5xl leading-none">JURY SELECTION</h1>
+          <p className="mt-3 text-xs font-bold tracking-[0.3em] text-white/50">CALLING THE JURY POOL…</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 border border-white/20 shadow-2xl mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              {onBack && (
-                <button
-                  onClick={onBack}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  <ArrowLeft className="w-6 h-6 text-white" />
-                </button>
-              )}
-              <Users className="w-8 h-8 text-blue-400" />
-              <h1 className="text-3xl font-bold text-white">Jury Selection</h1>
-            </div>
-            {isComplete && (
+  /** One row of seats for a side; filled seats show the juror, tap to strike them */
+  const renderSeats = (side: 'prosecution' | 'defense', picks: JurySelectionType[]) => {
+    const isDefense = side === 'defense';
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-[88px] flex-none">
+          <div className={`text-[11px] font-black tracking-wider ${isDefense ? 'text-blue-300' : 'text-red-300'}`}>
+            {isDefense ? 'YOUR PICKS' : 'PROSECUTION'}
+          </div>
+          <div className="font-game text-2xl text-white leading-none">
+            {picks.length}/{perSide}
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-between gap-1.5">
+          {Array.from({ length: perSide }).map((_, i) => {
+            const pick = picks[i];
+            const juror = pick ? jurorPool.find(j => j.id === pick.juror_id) : undefined;
+            if (!pick || !juror) {
+              return (
+                <span
+                  key={i}
+                  className={`w-10 h-10 rounded-full border-2 border-dashed ${isDefense ? 'border-blue-400/40' : 'border-red-400/40'} ${
+                    !isDefense && isAutoSelecting && i === picks.length ? 'animate-pulse bg-red-500/20' : ''
+                  }`}
+                />
+              );
+            }
+            return (
               <button
-                onClick={onComplete}
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all"
+                key={pick.id}
+                onClick={() => handleRemoveJuror(pick.id)}
+                aria-label={`Remove ${juror.name}`}
+                title={`${juror.name} — tap to remove`}
+                className={`relative rounded-full ring-2 ${isDefense ? 'ring-blue-400' : 'ring-red-400'}`}
               >
-                Proceed to Trial
+                <InitialsAvatar name={juror.name} size="sm" />
+                <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-black border border-white/40">
+                  <X className="w-2.5 h-2.5 text-white" />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14]">
+      <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
+
+      <div className="relative z-10 h-full flex flex-col max-w-2xl mx-auto">
+        {/* Header + the jury box stay pinned while the pool scrolls */}
+        <div className="flex-none px-4" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
+          <header className="flex items-center gap-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                aria-label="Back"
+                className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
+              >
+                <ArrowLeft className="w-5 h-5" />
               </button>
             )}
+            <div className="min-w-0">
+              <h1 className="logo-gold font-game text-4xl leading-none">JURY SELECTION</h1>
+              <p className="text-white/60 text-xs mt-1">Each side picks {perSide} jurors.</p>
+            </div>
+          </header>
+
+          <div className="mt-3 rounded-3xl bg-black/65 border border-white/15 backdrop-blur-sm p-3 space-y-2.5">
+            {renderSeats('defense', defenseJurors)}
+            <div className="h-px bg-white/10" />
+            {renderSeats('prosecution', prosecutionJurors)}
           </div>
 
-          <div className="bg-white/5 rounded-lg p-4 mb-6">
-            <p className="text-white/80 text-center">
-              Each side selects {maxJurors / 2} jurors. Currently selecting for: <span className="font-bold text-blue-400">{currentSide === 'prosecution' ? 'Prosecution' : 'Defense'}</span>
-            </p>
-            <div className="mt-4 flex justify-center gap-8">
-              <div className="text-center">
-                <div className="text-sm text-white/60">Prosecution</div>
-                <div className="text-2xl font-bold text-white">{prosecutionJurors.length}/{maxJurors / 2}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm text-white/60">Defense</div>
-                <div className="text-2xl font-bold text-white">{defenseJurors.length}/{maxJurors / 2}</div>
-              </div>
-            </div>
+          <div
+            className={`mt-2.5 rounded-full px-4 py-2 text-center text-sm font-bold ${
+              isComplete
+                ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-300'
+                : isAutoSelecting
+                  ? 'bg-red-500/15 border border-red-400/40 text-red-200 animate-pulse'
+                  : 'bg-[#FFD43B]/15 border border-[#FFD43B]/50 text-[#FFD43B]'
+            }`}
+          >
+            {isComplete
+              ? 'The jury is seated.'
+              : isAutoSelecting
+                ? 'The prosecution is choosing a juror…'
+                : defenseFull
+                  ? 'Waiting for the prosecution to finish…'
+                  : `Your pick — ${remaining} more for the defense`}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <h2 className="text-xl font-bold text-white mb-4">Available Jurors</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {jurorPool.map((juror) => {
-                const isSelected = selectedJurors.some(s => s.juror_id === juror.id);
-                const selection = selectedJurors.find(s => s.juror_id === juror.id);
-
-                return (
-                  <div
-                    key={juror.id}
-                    className={`bg-white/10 backdrop-blur-lg rounded-lg p-4 border transition-all ${
-                      isSelected
-                        ? 'border-green-500 opacity-50'
-                        : 'border-white/20 hover:border-blue-400 cursor-pointer'
-                    }`}
-                    onClick={() => !isSelected && handleSelectJuror(juror)}
-                  >
-                    <div className="flex items-start gap-3 mb-2">
-                      <img
-                        src={juror.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(juror.name)}&background=random&size=48`}
-                        alt={juror.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="text-white font-semibold">{juror.name}</h3>
-                            <p className="text-white/60 text-sm">{juror.age} years old</p>
-                          </div>
-                          {isSelected && selection && (
-                            <div className={`text-xs px-2 py-1 rounded ${
-                              selection.selected_by === 'prosecution' ? 'bg-blue-500' : 'bg-purple-500'
-                            }`}>
-                              {selection.selected_by === 'prosecution' ? 'Prosecution' : 'Defense'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-white/80 text-sm font-medium mb-2">{juror.occupation}</p>
-                    <p className="text-white/60 text-xs mb-3 line-clamp-2">{juror.background}</p>
-                    {juror.personality_traits && juror.personality_traits.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {juror.personality_traits.slice(0, 3).map((trait, idx) => (
-                          <span key={idx} className="text-xs bg-white/10 px-2 py-1 rounded text-white/70">
-                            {trait}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-xl font-bold text-white mb-4">Selected Jury</h2>
-            <div className="space-y-4">
-              <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 border border-blue-500/50">
-                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  Prosecution Jurors ({prosecutionJurors.length}/{maxJurors / 2})
-                </h3>
-                <div className="space-y-2">
-                  {prosecutionJurors.map((selection) => {
-                    const juror = jurorPool.find(j => j.id === selection.juror_id);
-                    if (!juror) return null;
-                    return (
-                      <div key={selection.id} className="bg-white/5 p-3 rounded flex items-center justify-between">
-                        <div>
-                          <div className="text-white text-sm font-medium">{juror.name}</div>
-                          <div className="text-white/60 text-xs">{juror.occupation}</div>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveJuror(selection.id)}
-                          className="text-red-400 hover:text-red-300 p-1"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
+        {/* Pool */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-3 space-y-3">
+          <h2 className="font-game text-2xl text-white/90 leading-none">JUROR POOL</h2>
+          {available.map(juror => (
+            <article key={juror.id} className="rounded-2xl bg-black/60 border border-white/15 backdrop-blur-sm p-3">
+              <div className="flex items-center gap-3">
+                <InitialsAvatar name={juror.name} size="md" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-white leading-tight truncate">{juror.name}</h3>
+                  <p className="text-sm text-white/65 truncate">{juror.age} · {juror.occupation}</p>
                 </div>
+                <button
+                  onClick={() => handleSelectJuror(juror)}
+                  disabled={!canPick}
+                  className="flex-none rounded-xl bg-[#FFD43B] text-black font-game text-xl px-4 py-1.5 border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all disabled:opacity-35 disabled:grayscale"
+                >
+                  PICK
+                </button>
               </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 border border-purple-500/50">
-                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                  <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                  Defense Jurors ({defenseJurors.length}/{maxJurors / 2})
-                </h3>
-                <div className="space-y-2">
-                  {defenseJurors.map((selection) => {
-                    const juror = jurorPool.find(j => j.id === selection.juror_id);
-                    if (!juror) return null;
-                    return (
-                      <div key={selection.id} className="bg-white/5 p-3 rounded flex items-center justify-between">
-                        <div>
-                          <div className="text-white text-sm font-medium">{juror.name}</div>
-                          <div className="text-white/60 text-xs">{juror.occupation}</div>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveJuror(selection.id)}
-                          className="text-red-400 hover:text-red-300 p-1"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
+              {juror.background && <p className="mt-2 text-sm text-white/65 leading-snug line-clamp-2">{juror.background}</p>}
+              {juror.personality_traits && juror.personality_traits.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {juror.personality_traits.slice(0, 3).map((trait, idx) => (
+                    <span key={idx} className="rounded-full bg-white/10 border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/75">
+                      {trait}
+                    </span>
+                  ))}
                 </div>
-              </div>
-            </div>
-          </div>
+              )}
+            </article>
+          ))}
+          {available.length === 0 && <p className="text-center text-white/50 text-sm py-6">No more jurors in the pool.</p>}
+        </div>
+
+        {/* Always-visible footer */}
+        <div className="flex-none px-4 pt-2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
+          <button
+            onClick={onComplete}
+            disabled={!isComplete}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale"
+          >
+            {isComplete ? 'PROCEED TO TRIAL' : defenseFull ? 'WAITING…' : `PICK ${remaining} MORE JUROR${remaining === 1 ? '' : 'S'}`}
+            {isComplete && <ArrowRight className="w-6 h-6" />}
+          </button>
         </div>
       </div>
     </div>
