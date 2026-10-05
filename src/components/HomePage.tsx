@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, X } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playGavelTap } from '../lib/soundEffects';
 import { HOME_ART } from '../lib/heroAssets';
+import { DEFAULT_ART_SHIFT, computeArtShift } from '../lib/homeArt';
 import PlayModePopup, { type PlayMode } from './PlayModePopup';
 
 interface HomePageProps {
@@ -21,9 +22,13 @@ interface HomePageProps {
   onOpenDashboard: () => void;
 }
 
-// Dark covering behind the controls: transparent at the top edge, ~55% at PLAY, ~90%+ below, eased so no band shows.
+// Mild dark covering behind the controls: clear at its top edge, then ~30% at PLAY easing to ~60% at the bottom, so the
+// artwork stays visible as a background while the text stays readable.
 const ACTIONS_SHADE =
-  'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.93) 35%, rgba(0,0,0,0.86) 62%, rgba(0,0,0,0.6) 86%, rgba(0,0,0,0.25) 95%, rgba(0,0,0,0) 100%)';
+  'linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.58) 40%, rgba(0,0,0,0.44) 72%, rgba(0,0,0,0.22) 90%, rgba(0,0,0,0) 100%)';
+
+// The picture column never gets wider than this (matches max-w-[560px] below)
+const ART_MAX_WIDTH = 560;
 
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
@@ -34,6 +39,36 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
   const [busy, setBusy] = useState<'play' | 'settings' | null>(null);
   const [artLoaded, setArtLoaded] = useState(false);
   const artRef = useRef<HTMLImageElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const playRef = useRef<HTMLButtonElement>(null);
+  const taglineRef = useRef<HTMLParagraphElement>(null);
+  const [artShift, setArtShift] = useState(DEFAULT_ART_SHIFT);
+
+  // Raise the picture just enough that the judge's gavel clears the PLAY button on this screen (see lib/homeArt).
+  useLayoutEffect(() => {
+    const measure = () => {
+      const page = pageRef.current, play = playRef.current, tagline = taglineRef.current;
+      if (!page || !play || !tagline) return;
+      const pr = page.getBoundingClientRect();
+      if (!pr.width || !pr.height) return;
+      const next = computeArtShift({
+        width: Math.min(pr.width, ART_MAX_WIDTH),
+        height: pr.height,
+        controlsTop: play.getBoundingClientRect().top - pr.top,
+        taglineBottom: tagline.getBoundingClientRect().bottom - pr.top,
+      });
+      setArtShift(prev => (prev === next ? prev : next));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (ro && pageRef.current) ro.observe(pageRef.current);
+    document.fonts?.ready.then(measure).catch(() => undefined); // text height can change once the logo font arrives
+    return () => {
+      window.removeEventListener('resize', measure);
+      ro?.disconnect();
+    };
+  }, [signedIn, hasAccount]);
 
   useEffect(() => {
     setSoundOn(isSoundEnabled());
@@ -62,12 +97,15 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
   };
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-[#05060a]">
+    <div ref={pageRef} className="relative min-h-[100dvh] overflow-hidden bg-[#05060a]">
       {/* The artwork fills the whole screen: clear at the top, then dimmed behind the buttons (see the Actions gradient) */}
       <div aria-hidden="true" className="absolute inset-0 flex justify-center">
         <div className="relative h-full w-full max-w-[560px]">
-          {/* The picture is nudged up 3rem (clipped off-screen) so the judge's face clears the PLAY button on shorter phones */}
-          <div className="absolute inset-x-0 -top-12 h-[calc(100%+3rem)] bg-cover bg-top" style={{ backgroundImage: `url(${HOME_ART.lqip})` }}>
+          {/* The picture is raised by artShift px (the extra is clipped off the top of the screen) so the judge and gavel sit above PLAY */}
+          <div
+            className="absolute inset-x-0 bg-cover bg-top"
+            style={{ top: -artShift, height: `calc(100% + ${artShift}px)`, backgroundImage: `url(${HOME_ART.lqip})` }}
+          >
             <picture>
               <source srcSet={HOME_ART.webp} type="image/webp" />
               <img
@@ -105,7 +143,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             <span className="logo-gold block text-4xl sm:text-5xl">COURTROOM</span>
             <span className="logo-gold block text-6xl sm:text-7xl">QUEST</span>
           </h1>
-          <p className="mt-2.5 rounded-full bg-black/60 border border-[#F2B705]/60 px-4 py-1 text-[11px] sm:text-xs font-bold tracking-[0.2em] text-white backdrop-blur-sm">
+          <p ref={taglineRef} className="mt-2.5 rounded-full bg-black/60 border border-[#F2B705]/60 px-4 py-1 text-[11px] sm:text-xs font-bold tracking-[0.2em] text-white backdrop-blur-sm">
             EVERY CASE HAS A LOOPHOLE
           </p>
         </div>
@@ -114,15 +152,16 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
         <div className="flex-1 min-h-[120px]" />
 
         {/* Actions: sit on a dark covering that starts just above PLAY, so the artwork becomes a quiet background behind the text */}
-        <div className="px-5 pt-8" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)', background: ACTIONS_SHADE }}>
-        <div className="w-full max-w-sm mx-auto space-y-3">
+        <div className="px-5 pt-8" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)', background: ACTIONS_SHADE }}>
+        <div className="w-full max-w-sm mx-auto space-y-2.5">
           <button
+            ref={playRef}
             onClick={() => {
               playGavelTap();
               setShowModes(true);
             }}
             disabled={busy !== null}
-            className="w-full rounded-2xl bg-[#FFD43B] text-black font-game text-4xl py-3.5 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-70"
+            className="w-full rounded-2xl bg-[#FFD43B] text-black font-game text-4xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-70"
           >
             {busy === 'play' ? 'ONE SEC…' : 'PLAY'}
           </button>
@@ -131,7 +170,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             {signedIn ? (
               <button
                 onClick={onOpenDashboard}
-                className="relative rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2.5 active:translate-y-0.5 transition-transform"
+                className="relative rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2 active:translate-y-0.5 transition-transform"
               >
                 {waitingCount > 0 && (
                   <span className="absolute -top-2 -right-1 min-w-[22px] h-[22px] px-1.5 flex items-center justify-center rounded-full bg-red-600 text-white text-xs font-black">
@@ -144,7 +183,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             ) : (
               <button
                 onClick={() => setShowLearnMore(true)}
-                className="rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2.5 active:translate-y-0.5 transition-transform"
+                className="rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2 active:translate-y-0.5 transition-transform"
               >
                 <span className="block font-game text-2xl text-white leading-none">LEARN MORE</span>
                 <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">HOW IT WORKS</span>
@@ -153,16 +192,16 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             <button
               onClick={() => run('settings', onOpenSettings)}
               disabled={busy !== null}
-              className="rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2.5 active:translate-y-0.5 transition-transform disabled:opacity-70"
+              className="rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2 active:translate-y-0.5 transition-transform disabled:opacity-70"
             >
               <span className="block font-game text-2xl text-white leading-none">{busy === 'settings' ? '…' : 'SETTINGS'}</span>
               <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">DIFFICULTY</span>
             </button>
           </div>
 
-          <ol className="flex flex-col items-center gap-1.5 pt-1">
+          <ol className="flex flex-col items-center gap-1 pt-1 [@media(max-height:700px)]:hidden">
             {STEPS.map((text, i) => (
-              <li key={text} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-1.5 pr-5 py-1 backdrop-blur-sm">
+              <li key={text} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-1.5 pr-5 py-0.5 backdrop-blur-sm">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#FFD43B] text-black font-black text-sm">{i + 1}</span>
                 <span className="text-white font-semibold text-[14px]">{text}</span>
               </li>
@@ -170,14 +209,14 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
           </ol>
 
           {(signedIn || !hasAccount) && (
-            <div className="flex items-center justify-center gap-5 pt-1">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 pt-1">
               {signedIn && (
-                <button onClick={() => setShowLearnMore(true)} className="text-[11px] font-bold tracking-[0.2em] text-white/60 underline underline-offset-4">
+                <button onClick={() => setShowLearnMore(true)} className="whitespace-nowrap text-[11px] font-bold tracking-[0.15em] text-white/70 underline underline-offset-4">
                   HOW IT WORKS
                 </button>
               )}
               {!hasAccount && (
-                <button onClick={onSignIn} className="text-[11px] font-bold tracking-[0.2em] text-white/60 underline underline-offset-4">
+                <button onClick={onSignIn} className="whitespace-nowrap text-[11px] font-bold tracking-[0.15em] text-white/70 underline underline-offset-4">
                   HAVE AN ACCOUNT? SIGN IN
                 </button>
               )}

@@ -1,10 +1,11 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 vi.mock('../lib/soundEffects', () => ({ isSoundEnabled: () => false, setSoundEnabled: vi.fn(), playGavelTap: vi.fn() }));
 
 import HomePage from './HomePage';
 import { HOME_ART } from '../lib/heroAssets';
+import { computeArtShift } from '../lib/homeArt';
 
 const props = {
   onPlay: vi.fn().mockResolvedValue(undefined), onOpenSettings: vi.fn().mockResolvedValue(undefined),
@@ -38,6 +39,35 @@ describe('HomePage', () => {
     expect(block.contains(screen.getByText('HAVE AN ACCOUNT? SIGN IN'))).toBe(true);
     expect(block.contains(screen.getByRole('heading', { level: 1 }))).toBe(false);
     expect(block.contains(screen.getByText('EVERY CASE HAS A LOOPHOLE'))).toBe(false);
+  });
+
+  it('raises the picture by the amount computed for this screen, so the judge and gavel clear the PLAY button', () => {
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const rect = (o: Partial<DOMRect>) => ({ x: 0, y: 0, left: 0, right: 0, width: 0, height: 0, top: 0, bottom: 0, toJSON() {}, ...o }) as DOMRect;
+      if (this.textContent?.trim() === 'PLAY') return rect({ top: 483, bottom: 557 });
+      if (this.tagName === 'P' && this.textContent?.includes('LOOPHOLE')) return rect({ top: 126, bottom: 153 });
+      if (this.dataset?.testPage === '1') return rect({ width: 411, height: 778 });
+      return rect({});
+    });
+    try {
+      const { container } = render(<HomePage {...props} />);
+      const page = container.firstElementChild as HTMLElement;
+      page.dataset.testPage = '1';
+      act(() => { window.dispatchEvent(new Event('resize')); });
+      const layer = container.querySelector('picture')?.parentElement as HTMLElement;
+      const expected = computeArtShift({ width: 411, height: 778, controlsTop: 483, taglineBottom: 153 });
+      expect(expected).toBeGreaterThan(100);
+      expect(layer.style.top).toBe(`-${expected}px`);
+      expect(layer.style.height).toBe(`calc(100% + ${expected}px)`);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('hides the three step pills on short screens so the picture gets the room, and keeps them on normal phones', () => {
+    render(<HomePage {...props} />);
+    const steps = screen.getByText('Pick a case and your side').closest('ol') as HTMLElement;
+    expect(steps.className).toContain('[@media(max-height:700px)]:hidden');
   });
 
   it('serves WebP with a JPEG fallback, with dimensions set so the page does not jump while it loads', () => {
