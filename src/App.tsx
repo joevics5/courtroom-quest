@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
+import AvatarCreator from './components/AvatarCreator';
+import { hasSavedAvatar } from './lib/avatars';
 import HomePage from './components/HomePage';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './components/LandingPage';
@@ -248,6 +250,17 @@ function AppContent() {
       return <Auth onBack={() => setShowAuth(false)} />;
     }
     return homeScreen;
+  }
+
+  // Right after signup: pick a username, then build an avatar. Guests skip this
+  // (they get a random avatar); existing accounts are asked once.
+  if (!user.is_anonymous && !hasSavedAvatar(user)) {
+    return (
+      <AvatarCreator
+        initialUsername={user.user_metadata?.nickname || ''}
+        onDone={() => {}}
+      />
+    );
   }
 
   if (showHome) {

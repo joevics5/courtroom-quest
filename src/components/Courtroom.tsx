@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic, Sparkles, Gavel, Shield } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
-import TrialVideoDisplay from './TrialVideoDisplay';
+import TrialStage from './TrialStage';
+import { avatarFromSeed, getUserAvatar } from '../lib/avatars';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
 import ObjectionSelector from './ObjectionSelector';
@@ -98,6 +99,18 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   const humanDisplayName = getUserDisplayName(user);
   const effectiveProsecutorName = playerRole === 'prosecution' ? humanDisplayName : (prosecutorName || 'Prosecution');
   const effectiveDefenseName = playerRole === 'defense' ? humanDisplayName : 'Defense Counsel';
+  // Avatars for the stage: the human plays their own saved avatar; the judge and the
+  // AI counsel come from the ready-made sets (same name -> same face every time).
+  const myAvatar = useMemo(() => getUserAvatar(user), [user]);
+  const judgeAvatar = useMemo(() => avatarFromSeed(judgeName || 'Judge', 'judge'), [judgeName]);
+  const prosecutionAvatar = useMemo(
+    () => (playerRole === 'prosecution' ? myAvatar : avatarFromSeed(effectiveProsecutorName, 'counsel')),
+    [playerRole, myAvatar, effectiveProsecutorName]
+  );
+  const defenseAvatar = useMemo(
+    () => (playerRole === 'defense' ? myAvatar : avatarFromSeed(`${session.id}-${effectiveDefenseName}`, 'counsel')),
+    [playerRole, myAvatar, effectiveDefenseName, session.id]
+  );
   const [trialDuration, setTrialDuration] = useState<TrialDuration | null>(
     session.trial_duration as TrialDuration || null
   );
@@ -2035,10 +2048,10 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
               <button
                 onClick={() => setShowVideoDisplay(!showVideoDisplay)}
                 className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title={showVideoDisplay ? 'Hide Video' : 'Show Video'}
+                title={showVideoDisplay ? 'Hide Avatars' : 'Show Avatars'}
               >
                 {showVideoDisplay ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-                <span className="hidden sm:inline">{showVideoDisplay ? 'Hide Video' : 'Show Video'}</span>
+                <span className="hidden sm:inline">{showVideoDisplay ? 'Hide Avatars' : 'Show Avatars'}</span>
               </button>
               <button
                 onClick={() => setShowRealVoiceInfo(true)}
@@ -2082,17 +2095,16 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
 
           <div className="lg:col-span-3">
             <div className="relative bg-slate-800 rounded-lg border border-slate-700 flex flex-col overflow-hidden h-[calc(100vh-360px)]">
-              {/* Video Display - Conditionally Rendered */}
+              {/* Avatar stage - Conditionally Rendered */}
               {showVideoDisplay && (
                 <div className="relative h-64 flex-shrink-0">
-                  <TrialVideoDisplay
-                    currentPhase={currentPhase}
+                  <TrialStage
                     currentSpeaker={currentSpeaker}
+                    phaseName={phase?.name}
+                    judge={{ name: judgeName || 'Judge', avatar: judgeAvatar }}
+                    prosecution={{ name: effectiveProsecutorName, avatar: prosecutionAvatar }}
+                    defense={{ name: effectiveDefenseName, avatar: defenseAvatar }}
                   />
-                  <div className="absolute bottom-4 left-4 bg-slate-900/90 px-4 py-2 rounded-lg">
-                    <p className="text-white font-medium">{phase?.name}</p>
-                    <p className="text-slate-400 text-sm capitalize">{currentSpeaker} speaking</p>
-                  </div>
                 </div>
               )}
 
