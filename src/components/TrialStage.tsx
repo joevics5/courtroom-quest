@@ -44,7 +44,7 @@ function Tile({
   return (
     <div
       className={`relative min-w-0 rounded-xl overflow-hidden bg-slate-800 transition-shadow duration-200 ${
-        active ? 'ring-4 ring-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.45)]' : 'ring-1 ring-slate-600'
+        active ? 'ring-4 ring-[#FFD43B] shadow-[0_0_24px_rgba(255,212,59,0.5)]' : 'ring-1 ring-slate-600'
       }`}
       aria-current={active ? 'true' : undefined}
     >
@@ -79,7 +79,7 @@ export default function TrialStage({ currentSpeaker, phaseName, judge, prosecuti
       {(phaseName || floorLabel) && (
         <div className="absolute top-2 left-3 right-3 flex justify-between gap-2 pointer-events-none">
           {phaseName && <p className="bg-slate-900/85 text-white text-xs sm:text-sm px-3 py-1 rounded-lg truncate">{phaseName}</p>}
-          {floorLabel && <p className="bg-emerald-500/90 text-white text-xs sm:text-sm px-3 py-1 rounded-lg">{floorLabel}</p>}
+          {floorLabel && <p className="bg-[#FFD43B] text-black font-bold text-xs sm:text-sm px-3 py-1 rounded-lg">{floorLabel}</p>}
         </div>
       )}
     </div>

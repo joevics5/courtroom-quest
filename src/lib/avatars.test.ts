@@ -26,6 +26,30 @@ describe('avatars', () => {
     expect(randomAvatar('abc')).toEqual(randomAvatar('abc'));
   });
 
+  it('gives the judges and counsel clearly different faces', () => {
+    const face = (a: (typeof JUDGE_AVATARS)[number]) =>
+      [a.headShape, a.eyeShape, a.noseShape, a.mouthShape, a.browShape].join('-');
+    expect(new Set(JUDGE_AVATARS.map(face)).size).toBeGreaterThanOrEqual(8);
+    expect(new Set(COUNSEL_AVATARS.map(face)).size).toBeGreaterThanOrEqual(8);
+  });
+
+  it('accepts avatars saved before the face options existed', () => {
+    const old = {
+      skin: 2,
+      hairStyle: 'short',
+      hairColor: 1,
+      attire: 'suit',
+      attireColor: 0,
+      beard: 'none',
+      glasses: false,
+      backdrop: 0
+    };
+    const parsed = parseAvatar(old);
+    expect(parsed).not.toBeNull();
+    expect(parsed).toEqual(parseAvatar(old));
+    expect(parsed!.headShape).toBeGreaterThanOrEqual(0);
+  });
+
   it('rejects bad stored data', () => {
     expect(parseAvatar(null)).toBeNull();
     expect(parseAvatar({ skin: 99 })).toBeNull();

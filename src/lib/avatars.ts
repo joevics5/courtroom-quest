@@ -6,14 +6,25 @@
  * metadata, next to their nickname.
  */
 
-export const SKIN_TONES = ['#f6d5b8', '#e8b98f', '#c98e63', '#a86a42', '#7a4a2c', '#4e2e1b'] as const;
-export const HAIR_COLORS = ['#1b1512', '#3a2518', '#6b4226', '#b07a3c', '#c9c9c9', '#8a2d1e'] as const;
-export const ATTIRE_COLORS = ['#1f2937', '#7c1d1d', '#1e3a8a', '#14532d', '#4b5563', '#3b2a50'] as const;
-export const BACKDROPS = ['#2b3a55', '#3d2b4f', '#2f4a3d', '#5a3d2b', '#33414d', '#4a2f3a'] as const;
+export const SKIN_TONES = ['#fbdcc3', '#efc29a', '#d39a6c', '#b2774a', '#85522f', '#583420'] as const;
+export const HAIR_COLORS = ['#1b1512', '#3a2518', '#6b4226', '#b9803c', '#d4d4d4', '#9a321f'] as const;
+export const ATTIRE_COLORS = ['#22304f', '#7c1d2a', '#1f4d3a', '#3b2a6b', '#44505e', '#2b2b33'] as const;
+/** Trim, tie and scarf colours: the pop of colour on an outfit. */
+export const ACCENT_COLORS = ['#FFD43B', '#E5484D', '#2EC4B6', '#8B5CF6', '#FF8A3D', '#F4F1EA'] as const;
+export const BACKDROPS = ['#2c4a7a', '#7a4630', '#2d6a52', '#7a3558', '#2a6a78', '#8a6a2a'] as const;
+export const EYE_COLORS = ['#5b3a21', '#2b1b12', '#7a5a2a', '#3f7a4f', '#3f6fb0'] as const;
 
-export const HAIR_STYLES = ['short', 'long', 'bun', 'curly', 'afro', 'wig', 'bald'] as const;
+export const HAIR_STYLES = ['short', 'slick', 'bob', 'long', 'bun', 'curly', 'afro', 'wig', 'bald'] as const;
 export const ATTIRES = ['robe', 'suit', 'blazer', 'collar'] as const;
-export const BEARDS = ['none', 'stubble', 'full'] as const;
+export const BEARDS = ['none', 'stubble', 'full', 'goatee'] as const;
+
+/** How many looks each face-shape option has. */
+export const HEAD_SHAPES = 4;
+export const EYE_SHAPES = 4;
+export const NOSE_SHAPES = 4;
+export const MOUTH_SHAPES = 3;
+export const BROW_SHAPES = 4;
+export const AGES = 3;
 
 export type HairStyle = (typeof HAIR_STYLES)[number];
 export type Attire = (typeof ATTIRES)[number];
@@ -21,10 +32,19 @@ export type Beard = (typeof BEARDS)[number];
 
 export interface AvatarConfig {
   skin: number;
+  headShape: number;
+  eyeShape: number;
+  eyeColor: number;
+  noseShape: number;
+  mouthShape: number;
+  browShape: number;
+  /** 0 young, 1 middle-aged, 2 senior (adds lines and eye bags) */
+  age: number;
   hairStyle: HairStyle;
   hairColor: number;
   attire: Attire;
   attireColor: number;
+  accent: number;
   beard: Beard;
   glasses: boolean;
   backdrop: number;
@@ -32,48 +52,22 @@ export interface AvatarConfig {
 
 export const DEFAULT_AVATAR: AvatarConfig = {
   skin: 2,
+  headShape: 0,
+  eyeShape: 0,
+  eyeColor: 0,
+  noseShape: 0,
+  mouthShape: 0,
+  browShape: 1,
+  age: 0,
   hairStyle: 'short',
   hairColor: 1,
   attire: 'suit',
   attireColor: 0,
+  accent: 0,
   beard: 'none',
   glasses: false,
   backdrop: 0
 };
-
-function make(partial: Partial<AvatarConfig>): AvatarConfig {
-  return { ...DEFAULT_AVATAR, ...partial };
-}
-
-/** Ten judges: robes, some in wigs, a spread of ages-by-hair and skin tones. */
-export const JUDGE_AVATARS: AvatarConfig[] = [
-  make({ skin: 0, hairStyle: 'wig', hairColor: 4, attire: 'robe', attireColor: 0, backdrop: 4 }),
-  make({ skin: 4, hairStyle: 'short', hairColor: 4, attire: 'robe', attireColor: 0, beard: 'stubble', glasses: true, backdrop: 1 }),
-  make({ skin: 2, hairStyle: 'bun', hairColor: 0, attire: 'robe', attireColor: 1, glasses: true, backdrop: 0 }),
-  make({ skin: 5, hairStyle: 'bald', hairColor: 0, attire: 'robe', attireColor: 0, beard: 'full', backdrop: 3 }),
-  make({ skin: 1, hairStyle: 'long', hairColor: 4, attire: 'robe', attireColor: 5, backdrop: 2 }),
-  make({ skin: 3, hairStyle: 'wig', hairColor: 4, attire: 'robe', attireColor: 1, beard: 'none', glasses: true, backdrop: 5 }),
-  make({ skin: 0, hairStyle: 'bald', hairColor: 4, attire: 'robe', attireColor: 2, beard: 'full', glasses: true, backdrop: 4 }),
-  make({ skin: 4, hairStyle: 'afro', hairColor: 4, attire: 'robe', attireColor: 0, backdrop: 0 }),
-  make({ skin: 2, hairStyle: 'curly', hairColor: 0, attire: 'robe', attireColor: 3, glasses: true, backdrop: 2 }),
-  make({ skin: 1, hairStyle: 'short', hairColor: 0, attire: 'robe', attireColor: 4, beard: 'stubble', backdrop: 3 })
-];
-
-/** Ten opposing counsel: courtroom business wear, varied looks. */
-export const COUNSEL_AVATARS: AvatarConfig[] = [
-  make({ skin: 1, hairStyle: 'short', hairColor: 3, attire: 'suit', attireColor: 0, backdrop: 0 }),
-  make({ skin: 4, hairStyle: 'short', hairColor: 0, attire: 'suit', attireColor: 2, beard: 'stubble', backdrop: 1 }),
-  make({ skin: 0, hairStyle: 'long', hairColor: 5, attire: 'blazer', attireColor: 1, backdrop: 2 }),
-  make({ skin: 3, hairStyle: 'bun', hairColor: 0, attire: 'blazer', attireColor: 4, glasses: true, backdrop: 4 }),
-  make({ skin: 5, hairStyle: 'afro', hairColor: 0, attire: 'suit', attireColor: 5, backdrop: 3 }),
-  make({ skin: 2, hairStyle: 'curly', hairColor: 1, attire: 'blazer', attireColor: 0, glasses: true, backdrop: 5 }),
-  make({ skin: 0, hairStyle: 'bald', hairColor: 0, attire: 'suit', attireColor: 3, beard: 'full', backdrop: 0 }),
-  make({ skin: 1, hairStyle: 'short', hairColor: 4, attire: 'collar', attireColor: 2, glasses: true, backdrop: 1 }),
-  make({ skin: 4, hairStyle: 'long', hairColor: 0, attire: 'blazer', attireColor: 5, backdrop: 2 }),
-  make({ skin: 2, hairStyle: 'short', hairColor: 2, attire: 'suit', attireColor: 1, beard: 'stubble', backdrop: 4 })
-];
-
-export type AvatarKind = 'judge' | 'counsel' | 'player';
 
 function hashString(s: string): number {
   let h = 2166136261;
@@ -100,20 +94,78 @@ function pick<T>(list: readonly T[], rand: () => number): T {
   return list[Math.floor(rand() * list.length)];
 }
 
+const int = (rand: () => number, n: number) => Math.floor(rand() * n);
+
+/** Face structure (head, eyes, nose, mouth, brows) chosen from a seed. */
+function faceStructure(seed: string) {
+  const rand = seededRandom(seed);
+  return {
+    headShape: int(rand, HEAD_SHAPES),
+    eyeShape: int(rand, EYE_SHAPES),
+    eyeColor: int(rand, EYE_COLORS.length),
+    noseShape: int(rand, NOSE_SHAPES),
+    mouthShape: int(rand, MOUTH_SHAPES),
+    browShape: int(rand, BROW_SHAPES)
+  };
+}
+
+/** A ready-made character: the look is spelled out, the face structure is fixed per seed. */
+function character(seed: string, look: Partial<AvatarConfig>): AvatarConfig {
+  return { ...DEFAULT_AVATAR, ...faceStructure(seed), ...look };
+}
+
+/** Ten judges: robes with coloured trim, wigs and varied faces; mostly older. */
+export const JUDGE_AVATARS: AvatarConfig[] = [
+  character('judge-1', { skin: 0, hairStyle: 'wig', hairColor: 4, attire: 'robe', accent: 0, age: 2, browShape: 2, backdrop: 1 }),
+  character('judge-2', { skin: 4, hairStyle: 'short', hairColor: 4, attire: 'robe', accent: 1, beard: 'stubble', glasses: true, age: 2, backdrop: 0 }),
+  character('judge-3', { skin: 2, hairStyle: 'bun', hairColor: 0, attire: 'robe', accent: 2, glasses: true, age: 1, backdrop: 3 }),
+  character('judge-4', { skin: 5, hairStyle: 'bald', attire: 'robe', accent: 0, beard: 'full', age: 1, browShape: 2, backdrop: 1 }),
+  character('judge-5', { skin: 1, hairStyle: 'long', hairColor: 4, attire: 'robe', accent: 3, age: 2, backdrop: 2 }),
+  character('judge-6', { skin: 3, hairStyle: 'wig', hairColor: 4, attire: 'robe', accent: 1, glasses: true, age: 1, backdrop: 3 }),
+  character('judge-7', { skin: 0, hairStyle: 'bald', attire: 'robe', accent: 4, beard: 'goatee', glasses: true, age: 2, browShape: 2, backdrop: 4 }),
+  character('judge-8', { skin: 4, hairStyle: 'afro', hairColor: 4, attire: 'robe', accent: 0, age: 2, backdrop: 5 }),
+  character('judge-9', { skin: 2, hairStyle: 'curly', hairColor: 0, attire: 'robe', accent: 2, glasses: true, age: 1, backdrop: 0 }),
+  character('judge-10', { skin: 1, hairStyle: 'slick', hairColor: 4, attire: 'robe', accent: 5, beard: 'stubble', age: 2, backdrop: 1 })
+];
+
+/** Ten opposing counsel: sharp business wear, younger, varied faces. */
+export const COUNSEL_AVATARS: AvatarConfig[] = [
+  character('counsel-1', { skin: 1, hairStyle: 'slick', hairColor: 3, attire: 'suit', attireColor: 0, accent: 1, backdrop: 0 }),
+  character('counsel-2', { skin: 4, hairStyle: 'short', hairColor: 0, attire: 'suit', attireColor: 3, accent: 0, beard: 'stubble', backdrop: 3 }),
+  character('counsel-3', { skin: 0, hairStyle: 'long', hairColor: 5, attire: 'blazer', attireColor: 1, accent: 5, backdrop: 2 }),
+  character('counsel-4', { skin: 3, hairStyle: 'bun', hairColor: 0, attire: 'blazer', attireColor: 4, accent: 2, glasses: true, backdrop: 4 }),
+  character('counsel-5', { skin: 5, hairStyle: 'afro', hairColor: 0, attire: 'suit', attireColor: 5, accent: 4, backdrop: 5 }),
+  character('counsel-6', { skin: 2, hairStyle: 'curly', hairColor: 1, attire: 'blazer', attireColor: 2, accent: 0, glasses: true, backdrop: 1 }),
+  character('counsel-7', { skin: 0, hairStyle: 'bald', attire: 'suit', attireColor: 0, accent: 3, beard: 'full', age: 1, backdrop: 0 }),
+  character('counsel-8', { skin: 1, hairStyle: 'bob', hairColor: 2, attire: 'collar', attireColor: 3, accent: 1, glasses: true, backdrop: 3 }),
+  character('counsel-9', { skin: 4, hairStyle: 'bob', hairColor: 0, attire: 'blazer', attireColor: 1, accent: 0, backdrop: 2 }),
+  character('counsel-10', { skin: 2, hairStyle: 'short', hairColor: 2, attire: 'suit', attireColor: 4, accent: 2, beard: 'goatee', age: 1, backdrop: 4 })
+];
+
 /** A random player avatar. Without a seed it is different every call. */
 export function randomAvatar(seed?: string): AvatarConfig {
   const rand = seed ? seededRandom(seed) : Math.random;
   return {
-    skin: Math.floor(rand() * SKIN_TONES.length),
+    skin: int(rand, SKIN_TONES.length),
+    headShape: int(rand, HEAD_SHAPES),
+    eyeShape: int(rand, EYE_SHAPES),
+    eyeColor: int(rand, EYE_COLORS.length),
+    noseShape: int(rand, NOSE_SHAPES),
+    mouthShape: int(rand, MOUTH_SHAPES),
+    browShape: int(rand, BROW_SHAPES),
+    age: Math.min(AGES - 1, int(rand, AGES + 1)),
     hairStyle: pick(HAIR_STYLES, rand),
-    hairColor: Math.floor(rand() * HAIR_COLORS.length),
+    hairColor: int(rand, HAIR_COLORS.length),
     attire: pick(['suit', 'blazer', 'collar'] as const, rand),
-    attireColor: Math.floor(rand() * ATTIRE_COLORS.length),
+    attireColor: int(rand, ATTIRE_COLORS.length),
+    accent: int(rand, ACCENT_COLORS.length),
     beard: pick(BEARDS, rand),
     glasses: rand() < 0.3,
-    backdrop: Math.floor(rand() * BACKDROPS.length)
+    backdrop: int(rand, BACKDROPS.length)
   };
 }
+
+export type AvatarKind = 'judge' | 'counsel' | 'player';
 
 /**
  * Avatar for someone who has not built one: judges and AI counsel come from the
@@ -130,7 +182,11 @@ function inRange(n: unknown, length: number): n is number {
   return typeof n === 'number' && Number.isInteger(n) && n >= 0 && n < length;
 }
 
-/** Validates stored data. Returns null if it is missing or not a usable avatar. */
+/**
+ * Validates stored data. Returns null if it is missing or not a usable avatar.
+ * Avatars saved before the face-shape options existed are still accepted: the
+ * missing options are filled in from a stable look based on the saved values.
+ */
 export function parseAvatar(raw: unknown): AvatarConfig | null {
   if (!raw || typeof raw !== 'object') return null;
   const a = raw as Record<string, unknown>;
@@ -146,12 +202,22 @@ export function parseAvatar(raw: unknown): AvatarConfig | null {
   ) {
     return null;
   }
+  const filler = faceStructure(`legacy-${a.skin}-${a.hairStyle}-${a.hairColor}-${a.attire}-${a.attireColor}-${a.backdrop}`);
+  const opt = (value: unknown, length: number, fallback: number) => (inRange(value, length) ? value : fallback);
   return {
     skin: a.skin,
+    headShape: opt(a.headShape, HEAD_SHAPES, filler.headShape),
+    eyeShape: opt(a.eyeShape, EYE_SHAPES, filler.eyeShape),
+    eyeColor: opt(a.eyeColor, EYE_COLORS.length, filler.eyeColor),
+    noseShape: opt(a.noseShape, NOSE_SHAPES, filler.noseShape),
+    mouthShape: opt(a.mouthShape, MOUTH_SHAPES, filler.mouthShape),
+    browShape: opt(a.browShape, BROW_SHAPES, filler.browShape),
+    age: opt(a.age, AGES, 0),
     hairStyle: a.hairStyle as HairStyle,
     hairColor: a.hairColor,
     attire: a.attire as Attire,
     attireColor: a.attireColor,
+    accent: opt(a.accent, ACCENT_COLORS.length, 0),
     beard: a.beard as Beard,
     glasses: a.glasses,
     backdrop: a.backdrop

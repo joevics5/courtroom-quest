@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { ArrowLeft, X, Feather, Scale as ScaleIcon, Flame, Check } from 'lucide-react';
 import HeroBackground from './HeroBackground';
+import AvatarCreator from './AvatarCreator';
+import AvatarFace from './AvatarFace';
+import { getUserAvatar } from '../lib/avatars';
 import { db } from '../lib/database';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,6 +39,7 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
   const [nameStatus, setNameStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [nameError, setNameError] = useState('');
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [changingAvatar, setChangingAvatar] = useState(false);
 
   const handleSaveNickname = async () => {
     const value = nickname.trim().replace(/\s+/g, ' ');
@@ -171,6 +175,25 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
           {nameStatus === 'error' && <p className="mt-3 text-sm text-red-400">{nameError}</p>}
         </div>
 
+        {/* Avatar */}
+        <div className={PANEL}>
+          <h2 className="font-game text-3xl text-white leading-none mb-3">AVATAR</h2>
+          <div className="flex items-center gap-4">
+            <div className="flex-none w-24 h-24 rounded-2xl overflow-hidden border-4 border-[#FFD43B]">
+              <AvatarFace config={getUserAvatar(user)} label="Your avatar" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white/60 mb-3">This is how you look to the judge and your opponent in court.</p>
+              <button
+                onClick={() => setChangingAvatar(true)}
+                className="rounded-xl bg-[#FFD43B] text-black font-game text-xl px-4 py-2 border-b-[5px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
+              >
+                CHANGE AVATAR
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Account */}
         <div className={PANEL}>
           <h2 className="font-game text-3xl text-white leading-none mb-2">ACCOUNT</h2>
@@ -206,6 +229,19 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
       </div>
     </div>
   );
+
+  if (changingAvatar && user) {
+    return (
+      <div className="fixed inset-0 z-[70] overflow-y-auto bg-[#0b0d14]">
+        <AvatarCreator
+          mode="change"
+          initialAvatar={getUserAvatar(user)}
+          onBack={() => setChangingAvatar(false)}
+          onDone={() => setChangingAvatar(false)}
+        />
+      </div>
+    );
+  }
 
   if (popup) {
     return <div className="p-4 sm:p-5">{content}</div>;
