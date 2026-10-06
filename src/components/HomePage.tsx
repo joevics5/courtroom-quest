@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, X } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playGavelTap } from '../lib/soundEffects';
 import { HOME_ART } from '../lib/heroAssets';
-import { DEFAULT_ART_SHIFT, computeArtShift } from '../lib/homeArt';
+import { computeArtLayout } from '../lib/homeArt';
+import type { ArtLayout } from '../lib/homeArt';
 import PlayModePopup, { type PlayMode } from './PlayModePopup';
 
 interface HomePageProps {
@@ -42,22 +43,22 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
   const pageRef = useRef<HTMLDivElement>(null);
   const playRef = useRef<HTMLButtonElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
-  const [artShift, setArtShift] = useState(DEFAULT_ART_SHIFT);
+  const [artLayout, setArtLayout] = useState<ArtLayout | null>(null);
 
-  // Raise the picture just enough that the judge's gavel clears the PLAY button on this screen (see lib/homeArt).
+  // Size and place the picture for this screen: lawyers under the tagline, judge, gavel and desk top above PLAY (see lib/homeArt).
   useLayoutEffect(() => {
     const measure = () => {
       const page = pageRef.current, play = playRef.current, tagline = taglineRef.current;
       if (!page || !play || !tagline) return;
       const pr = page.getBoundingClientRect();
       if (!pr.width || !pr.height) return;
-      const next = computeArtShift({
-        width: Math.min(pr.width, ART_MAX_WIDTH),
-        height: pr.height,
+      const next = computeArtLayout({
+        columnWidth: Math.min(pr.width, ART_MAX_WIDTH),
+        pageHeight: pr.height,
         controlsTop: play.getBoundingClientRect().top - pr.top,
         taglineBottom: tagline.getBoundingClientRect().bottom - pr.top,
       });
-      setArtShift(prev => (prev === next ? prev : next));
+      setArtLayout(prev => (prev && next && prev.scale === next.scale && prev.top === next.top && prev.left === next.left ? prev : next));
     };
     measure();
     window.addEventListener('resize', measure);
@@ -101,10 +102,16 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
       {/* The artwork fills the whole screen: clear at the top, then dimmed behind the buttons (see the Actions gradient) */}
       <div aria-hidden="true" className="absolute inset-0 flex justify-center">
         <div className="relative h-full w-full max-w-[560px]">
-          {/* The picture is raised by artShift px (the extra is clipped off the top of the screen) so the judge and gavel sit above PLAY */}
+          {/* The picture is sized and placed by computeArtLayout (before it is measured it simply covers the column) */}
           <div
-            className="absolute inset-x-0 bg-cover bg-top"
-            style={{ top: -artShift, height: `calc(100% + ${artShift}px)`, backgroundImage: `url(${HOME_ART.lqip})` }}
+            className="absolute"
+            style={{
+              ...(artLayout
+                ? { left: artLayout.left, top: artLayout.top, width: artLayout.width, height: artLayout.height }
+                : { left: 0, top: 0, width: '100%', height: '100%' }),
+              backgroundImage: `url(${HOME_ART.lqip})`,
+              backgroundSize: '100% 100%',
+            }}
           >
             <picture>
               <source srcSet={HOME_ART.webp} type="image/webp" />

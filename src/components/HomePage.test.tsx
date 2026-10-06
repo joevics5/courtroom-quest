@@ -5,7 +5,7 @@ vi.mock('../lib/soundEffects', () => ({ isSoundEnabled: () => false, setSoundEna
 
 import HomePage from './HomePage';
 import { HOME_ART } from '../lib/heroAssets';
-import { computeArtShift } from '../lib/homeArt';
+import { computeArtLayout } from '../lib/homeArt';
 
 const props = {
   onPlay: vi.fn().mockResolvedValue(undefined), onOpenSettings: vi.fn().mockResolvedValue(undefined),
@@ -41,7 +41,7 @@ describe('HomePage', () => {
     expect(block.contains(screen.getByText('EVERY CASE HAS A LOOPHOLE'))).toBe(false);
   });
 
-  it('raises the picture by the amount computed for this screen, so the judge and gavel clear the PLAY button', () => {
+  it('sizes and places the picture with the layout computed for this screen (smaller characters, desk above PLAY)', () => {
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const rect = (o: Partial<DOMRect>) => ({ x: 0, y: 0, left: 0, right: 0, width: 0, height: 0, top: 0, bottom: 0, toJSON() {}, ...o }) as DOMRect;
       if (this.textContent?.trim() === 'PLAY') return rect({ top: 483, bottom: 557 });
@@ -51,17 +51,25 @@ describe('HomePage', () => {
     });
     try {
       const { container } = render(<HomePage {...props} />);
-      const page = container.firstElementChild as HTMLElement;
-      page.dataset.testPage = '1';
+      (container.firstElementChild as HTMLElement).dataset.testPage = '1';
       act(() => { window.dispatchEvent(new Event('resize')); });
-      const layer = container.querySelector('picture')?.parentElement as HTMLElement;
-      const expected = computeArtShift({ width: 411, height: 778, controlsTop: 483, taglineBottom: 153 });
-      expect(expected).toBeGreaterThan(100);
-      expect(layer.style.top).toBe(`-${expected}px`);
-      expect(layer.style.height).toBe(`calc(100% + ${expected}px)`);
+      const box = container.querySelector('picture')?.parentElement as HTMLElement;
+      const expected = computeArtLayout({ columnWidth: 411, pageHeight: 778, controlsTop: 483, taglineBottom: 153 })!;
+      expect(parseFloat(box.style.width)).toBeCloseTo(expected.width, 1);
+      expect(parseFloat(box.style.height)).toBeCloseTo(expected.height, 1);
+      expect(parseFloat(box.style.top)).toBeCloseTo(expected.top, 1);
+      expect(parseFloat(box.style.left)).toBeCloseTo(expected.left, 1);
+      expect(expected.scale).toBeLessThan(411 / 900 * 0.85);     // smaller characters than the old full-width look
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it('before it is measured, the picture simply covers the screen', () => {
+    const { container } = render(<HomePage {...props} />);
+    const box = container.querySelector('picture')?.parentElement as HTMLElement;
+    expect(box.style.width).toBe('100%');
+    expect(box.style.height).toBe('100%');
   });
 
   it('hides the three step pills on short screens so the picture gets the room, and keeps them on normal phones', () => {
