@@ -234,14 +234,18 @@ function Attire({
   type,
   color,
   accent,
-  uid
+  uid,
+  fem
 }: {
   type: AvatarConfig['attire'];
   color: string;
   accent: string;
   uid: string;
+  fem: boolean;
 }) {
-  const body = 'M14 200 C14 166 52 152 100 152 C148 152 186 166 186 200 Z';
+  const body = fem
+    ? 'M26 200 C26 168 60 153 100 153 C140 153 174 168 174 200 Z'
+    : 'M12 200 C12 164 52 152 100 152 C148 152 188 164 188 200 Z';
   return (
     <g>
       <path d={body} fill={`url(#${uid}-body)`} />
@@ -297,7 +301,9 @@ function Eye({
   iris,
   uid,
   side,
-  lid
+  lid,
+  fem,
+  shadow
 }: {
   cx: number;
   cy: number;
@@ -306,6 +312,8 @@ function Eye({
   uid: string;
   side: 'l' | 'r';
   lid: string;
+  fem: boolean;
+  shadow: string;
 }) {
   const { rx, ry, lift } = shape;
   const outer = side === 'l' ? -1 : 1;
@@ -326,11 +334,23 @@ function Eye({
       <path
         d={`M${cx - rx - 0.6} ${cy + 0.2} Q${cx} ${cy - ry * 1.7} ${cx + rx + 0.6} ${cy + 0.2}`}
         stroke={INK}
-        strokeWidth="2.3"
+        strokeWidth={fem ? 2.9 : 2.3}
         strokeLinecap="round"
         fill="none"
         transform={lift ? `rotate(${outer * -lift} ${cx} ${cy})` : undefined}
       />
+      {fem && (
+        <g>
+          <ellipse cx={cx} cy={cy - ry - 1.2} rx={rx + 1} ry="3.4" fill={shadow} opacity="0.2" />
+          <path
+            d={`M${cx + outer * (rx + 0.4)} ${cy - 0.4} q${outer * 2.8} -0.6 ${outer * 3.8} -3.4`}
+            stroke={INK}
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </g>
+      )}
       <path
         d={`M${cx - rx + 1} ${cy + ry * 0.7} Q${cx} ${cy + ry * 1.15} ${cx + rx - 1} ${cy + ry * 0.7}`}
         stroke={lid}
@@ -362,7 +382,12 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
   const reducedMotion = usePrefersReducedMotion();
   const uid = `av${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
-  const head = HEADS[config.headShape] ?? HEADS[0];
+  const fem = config.gender === 'female';
+  const baseHead = HEADS[config.headShape] ?? HEADS[0];
+  // Male: broader jaw. Female: narrower, softer jaw and a slightly shorter chin.
+  const head = fem
+    ? { tw: baseHead.tw - 2, jw: Math.max(12, baseHead.jw - 6), chin: baseHead.chin - 2 }
+    : { tw: baseHead.tw + 1, jw: baseHead.jw + 4, chin: baseHead.chin };
   const eye = EYES[config.eyeShape] ?? EYES[0];
   const mouth = MOUTHS[config.mouthShape] ?? MOUTHS[0];
   const nose = NOSES[config.noseShape] ?? NOSES[0];
@@ -371,7 +396,7 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
   const skinHi = lighten(skin, 0.14);
   const skinLo = darken(skin, 0.2);
   const lid = darken(skin, 0.3);
-  const lip = mix(skin, '#a23a3f', 0.55);
+  const lip = fem ? mix(skin, '#c2325a', 0.6) : mix(skin, '#8a4a40', 0.42);
   const isWig = config.hairStyle === 'wig';
   const hairBase = HAIR_COLORS[config.hairColor];
   const hairFill = isWig ? WIG : hairBase;
@@ -388,6 +413,7 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
   const glassesColor = GLASSES[config.attireColor % GLASSES.length];
   const viewBox = crop === 'face' ? '40 22 120 120' : '0 0 200 200';
   const mouthW = mouth.w;
+  const beard = fem ? 'none' : config.beard;
 
   const speakValues = reducedMotion ? '1 0.7' : '1 0.25;1 1;1 0.45;1 0.95;1 0.3;1 0.8;1 0.25';
 
@@ -453,13 +479,16 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       </g>
 
       {/* neck and outfit */}
-      <path d="M85 118 L85 158 C92 166 108 166 115 158 L115 118 Z" fill={`url(#${uid}-neck)`} />
-      <Attire type={config.attire} color={attire} accent={accent} uid={uid} />
+      <path
+        d={fem ? 'M87 118 L87 158 C93 165 107 165 113 158 L113 118 Z' : 'M82 118 L82 158 C90 168 110 168 118 158 L118 118 Z'}
+        fill={`url(#${uid}-neck)`}
+      />
+      <Attire type={config.attire} color={attire} accent={accent} uid={uid} fem={fem} />
 
       {/* ears */}
       <g>
-        <ellipse cx={100 - tw} cy="98" rx="6.5" ry="9" fill={skin} />
-        <ellipse cx={100 + tw} cy="98" rx="6.5" ry="9" fill={skin} />
+        <ellipse cx={100 - tw} cy="98" rx={fem ? 5.6 : 7} ry={fem ? 8 : 9.6} fill={skin} />
+        <ellipse cx={100 + tw} cy="98" rx={fem ? 5.6 : 7} ry={fem ? 8 : 9.6} fill={skin} />
         <ellipse cx={100 - tw} cy="99" rx="3" ry="5" fill={skinLo} opacity="0.55" />
         <ellipse cx={100 + tw} cy="99" rx="3" ry="5" fill={skinLo} opacity="0.55" />
       </g>
@@ -468,11 +497,19 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       <path d={headPath(head)} fill={`url(#${uid}-face)`} />
       <g clipPath={`url(#${uid}-head)`}>
         <rect x="0" y="0" width="200" height="200" fill={`url(#${uid}-rim)`} />
-        <ellipse cx="78" cy="119" rx="10" ry="6.5" fill="#e0556a" opacity={config.skin >= 4 ? 0.1 : 0.17} />
-        <ellipse cx="122" cy="119" rx="10" ry="6.5" fill="#e0556a" opacity={config.skin >= 4 ? 0.1 : 0.17} />
+        <ellipse cx="78" cy="119" rx="10" ry="6.5" fill="#e0556a" opacity={(config.skin >= 4 ? 0.1 : 0.17) * (fem ? 1.5 : 0.8)} />
+        <ellipse cx="122" cy="119" rx="10" ry="6.5" fill="#e0556a" opacity={(config.skin >= 4 ? 0.1 : 0.17) * (fem ? 1.5 : 0.8)} />
         <ellipse cx="94" cy="72" rx="16" ry="7" fill="#fff" opacity="0.1" />
         <ellipse cx="100" cy={chin + 2} rx={jw + 6} ry="9" fill={lid} opacity="0.18" />
       </g>
+
+      {/* earrings */}
+      {fem && (
+        <g fill={accent} stroke={darken(accent, 0.3)} strokeWidth="0.8">
+          <circle cx={100 - tw - 0.5} cy="107" r="2.8" />
+          <circle cx={100 + tw + 0.5} cy="107" r="2.8" />
+        </g>
+      )}
 
       {/* hair front */}
       <HairFront style={config.hairStyle} fill={`url(#${uid}-hair)`} light={hairLight} tw={tw} />
@@ -496,14 +533,14 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       )}
 
       {/* brows */}
-      <g stroke={browColor} strokeWidth={old ? 4.4 : 3.8} strokeLinecap="round" fill="none">
+      <g stroke={browColor} strokeWidth={fem ? (old ? 3.2 : 2.7) : old ? 5.2 : 4.6} strokeLinecap="round" fill="none">
         <path d={BROWS[config.browShape] ?? BROWS[0]} transform="translate(86 83)" />
         <path d={BROWS[config.browShape] ?? BROWS[0]} transform="translate(114 83) scale(-1 1)" />
       </g>
 
       {/* eyes */}
-      <Eye cx={86} cy={95} shape={eye} iris={iris} uid={uid} side="l" lid={lid} />
-      <Eye cx={114} cy={95} shape={eye} iris={iris} uid={uid} side="r" lid={lid} />
+      <Eye cx={86} cy={95} shape={eye} iris={iris} uid={uid} side="l" lid={lid} fem={fem} shadow={accent} />
+      <Eye cx={114} cy={95} shape={eye} iris={iris} uid={uid} side="r" lid={lid} fem={fem} shadow={accent} />
 
       {/* nose */}
       <g fill="none" strokeLinecap="round">
@@ -528,20 +565,20 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       )}
 
       {/* facial hair */}
-      {config.beard === 'stubble' && (
+      {beard === 'stubble' && (
         <path
           d={`M${100 - tw + 2} 102 C${100 - tw} ${chin - 12} ${100 - jw} ${chin + 4} 100 ${chin + 5} C${100 + jw} ${chin + 4} ${100 + tw} ${chin - 12} ${100 + tw - 2} 102 C${100 + tw - 10} 120 ${100 - tw + 10} 120 ${100 - tw + 2} 102 Z`}
           fill={beardFill}
           opacity="0.28"
         />
       )}
-      {config.beard === 'full' && (
+      {beard === 'full' && (
         <g fill={beardFill}>
           <path d={`M${100 - tw + 1} 98 C${100 - tw - 2} ${chin - 6} ${100 - jw} ${chin + 10} 100 ${chin + 12} C${100 + jw} ${chin + 10} ${100 + tw + 2} ${chin - 6} ${100 + tw - 1} 98 C${100 + tw - 6} 116 ${100 + 16} 114 100 116 C${100 - 16} 114 ${100 - tw + 6} 116 ${100 - tw + 1} 98 Z`} />
           <path d="M86 122 Q100 113 114 122 Q100 125 86 122 Z" />
         </g>
       )}
-      {config.beard === 'goatee' && (
+      {beard === 'goatee' && (
         <g fill={beardFill}>
           <path d={`M91 ${chin - 8} Q100 ${chin - 14} 109 ${chin - 8} Q108 ${chin + 8} 100 ${chin + 9} Q92 ${chin + 8} 91 ${chin - 8} Z`} />
           <path d="M87 122 Q100 114 113 122 Q100 125 87 122 Z" />
@@ -567,7 +604,8 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
           </g>
         ) : (
           <g>
-            <path d={`M${-mouthW} 0 Q0 ${mouth.c + 7.5} ${mouthW} 0 Q0 ${mouth.c} ${-mouthW} 0 Z`} fill={lighten(lip, 0.08)} />
+            <path d={`M${-mouthW} 0 Q0 ${mouth.c + (fem ? 10 : 6.5)} ${mouthW} 0 Q0 ${mouth.c} ${-mouthW} 0 Z`} fill={lighten(lip, 0.08)} />
+            {fem && <ellipse cx="0" cy={mouth.c + 4.2} rx={mouthW * 0.35} ry="1" fill="#fff" opacity="0.4" />}
             <path
               d={`M${-mouthW} 0 Q${-mouthW * 0.45} -3.6 0 -2.6 Q${mouthW * 0.45} -3.6 ${mouthW} 0 Q0 ${mouth.c} ${-mouthW} 0 Z`}
               fill={darken(lip, 0.1)}

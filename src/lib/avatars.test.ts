@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   COUNSEL_AVATARS,
+  adaptToGender,
+  hairStylesFor,
   JUDGE_AVATARS,
   avatarFromSeed,
   getUserAvatar,
@@ -48,6 +50,31 @@ describe('avatars', () => {
     expect(parsed).not.toBeNull();
     expect(parsed).toEqual(parseAvatar(old));
     expect(parsed!.headShape).toBeGreaterThanOrEqual(0);
+  });
+
+  it('has both male and female judges and counsel, and women have no beards', () => {
+    for (const set of [JUDGE_AVATARS, COUNSEL_AVATARS]) {
+      expect(set.filter(a => a.gender === 'female')).toHaveLength(5);
+      expect(set.filter(a => a.gender === 'male')).toHaveLength(5);
+    }
+    expect([...JUDGE_AVATARS, ...COUNSEL_AVATARS].filter(a => a.gender === 'female').every(a => a.beard === 'none')).toBe(true);
+  });
+
+  it('switching version keeps the look but swaps what does not fit', () => {
+    const man = { ...JUDGE_AVATARS[3], beard: 'full' as const, hairStyle: 'bald' as const };
+    const woman = adaptToGender(man, 'female');
+    expect(woman.gender).toBe('female');
+    expect(woman.beard).toBe('none');
+    expect(hairStylesFor('female')).toContain(woman.hairStyle);
+    const back = adaptToGender({ ...woman, hairStyle: 'bob' }, 'male');
+    expect(hairStylesFor('male')).toContain(back.hairStyle);
+    expect(adaptToGender(man, 'male')).toBe(man);
+  });
+
+  it('guesses a version for avatars saved before there was one', () => {
+    const base = { skin: 2, hairColor: 1, attire: 'suit', attireColor: 0, beard: 'none', glasses: false, backdrop: 0 };
+    expect(parseAvatar({ ...base, hairStyle: 'long' })!.gender).toBe('female');
+    expect(parseAvatar({ ...base, hairStyle: 'bald', beard: 'full' })!.gender).toBe('male');
   });
 
   it('rejects bad stored data', () => {

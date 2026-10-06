@@ -13,6 +13,7 @@ import {
   BROW_SHAPES,
   EYE_COLORS,
   EYE_SHAPES,
+  GENDERS,
   HAIR_COLORS,
   HAIR_STYLES,
   HEAD_SHAPES,
@@ -20,6 +21,8 @@ import {
   NOSE_SHAPES,
   SKIN_TONES,
   USERNAME_MAX,
+  adaptToGender,
+  hairStylesFor,
   randomAvatar,
   validateUsername
 } from '../lib/avatars';
@@ -63,6 +66,7 @@ const HAIR_LABELS: Record<(typeof HAIR_STYLES)[number], string> = {
 };
 const ATTIRE_LABELS: Record<(typeof ATTIRES)[number], string> = { robe: 'Robe', suit: 'Suit', blazer: 'Blazer', collar: 'Shirt' };
 const BEARD_LABELS: Record<(typeof BEARDS)[number], string> = { none: 'None', stubble: 'Stubble', full: 'Full', goatee: 'Goatee' };
+const GENDER_LABELS = { male: 'Male', female: 'Female' } as const;
 const AGE_LABELS = { '0': 'Young', '1': 'Mature', '2': 'Senior' } as const;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -311,6 +315,14 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
         <div className="space-y-5 max-h-[44dvh] overflow-y-auto pr-1">
           {tab === 'face' && (
             <>
+              <PickGrid
+                label="VERSION"
+                options={GENDERS}
+                names={GENDER_LABELS}
+                value={avatar.gender}
+                preview={o => adaptToGender(avatar, o)}
+                onPick={o => setAvatar(prev => adaptToGender(prev, o))}
+              />
               <Swatches label="SKIN" colors={SKIN_TONES} value={avatar.skin} onChange={i => set('skin', i)} />
               {shapes('HEAD', 'headShape', HEAD_SHAPES)}
               {shapes('EYES', 'eyeShape', EYE_SHAPES)}
@@ -332,7 +344,7 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
             <>
               <PickGrid
                 label="HAIR STYLE"
-                options={HAIR_STYLES}
+                options={hairStylesFor(avatar.gender)}
                 names={HAIR_LABELS}
                 value={avatar.hairStyle}
                 preview={o => withValue('hairStyle', o)}
@@ -341,6 +353,7 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
               {avatar.hairStyle !== 'bald' && avatar.hairStyle !== 'wig' && (
                 <Swatches label="HAIR COLOR" colors={HAIR_COLORS} value={avatar.hairColor} onChange={i => set('hairColor', i)} />
               )}
+              {avatar.gender === 'male' && (
               <PickGrid
                 label="FACIAL HAIR"
                 options={BEARDS}
@@ -349,6 +362,7 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
                 preview={o => withValue('beard', o)}
                 onPick={o => set('beard', o)}
               />
+              )}
             </>
           )}
           {tab === 'outfit' && (

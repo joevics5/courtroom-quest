@@ -26,11 +26,14 @@ export const MOUTH_SHAPES = 3;
 export const BROW_SHAPES = 4;
 export const AGES = 3;
 
+export const GENDERS = ['male', 'female'] as const;
+export type Gender = (typeof GENDERS)[number];
 export type HairStyle = (typeof HAIR_STYLES)[number];
 export type Attire = (typeof ATTIRES)[number];
 export type Beard = (typeof BEARDS)[number];
 
 export interface AvatarConfig {
+  gender: Gender;
   skin: number;
   headShape: number;
   eyeShape: number;
@@ -51,6 +54,7 @@ export interface AvatarConfig {
 }
 
 export const DEFAULT_AVATAR: AvatarConfig = {
+  gender: 'male',
   skin: 2,
   headShape: 0,
   eyeShape: 0,
@@ -68,6 +72,26 @@ export const DEFAULT_AVATAR: AvatarConfig = {
   glasses: false,
   backdrop: 0
 };
+
+/** Hair styles offered for each version (the rest read oddly on that face). */
+export function hairStylesFor(gender: Gender): HairStyle[] {
+  const skip: HairStyle[] = gender === 'female' ? ['slick', 'bald'] : ['bob'];
+  return HAIR_STYLES.filter(h => !skip.includes(h));
+}
+
+/** Switches the male/female version, keeping what still fits and swapping what does not. */
+export function adaptToGender(a: AvatarConfig, gender: Gender): AvatarConfig {
+  if (a.gender === gender) return a;
+  const next: AvatarConfig = { ...a, gender };
+  if (gender === 'female') {
+    next.beard = 'none';
+    if (a.hairStyle === 'slick' || a.hairStyle === 'bald') next.hairStyle = 'long';
+    else if (a.hairStyle === 'short') next.hairStyle = 'bob';
+  } else if (a.hairStyle === 'bob' || a.hairStyle === 'long' || a.hairStyle === 'bun') {
+    next.hairStyle = 'short';
+  }
+  return next;
+}
 
 function hashString(s: string): number {
   let h = 2166136261;
@@ -116,36 +140,38 @@ function character(seed: string, look: Partial<AvatarConfig>): AvatarConfig {
 
 /** Ten judges: robes with coloured trim, wigs and varied faces; mostly older. */
 export const JUDGE_AVATARS: AvatarConfig[] = [
-  character('judge-1', { skin: 0, hairStyle: 'wig', hairColor: 4, attire: 'robe', accent: 0, age: 2, browShape: 2, backdrop: 1 }),
-  character('judge-2', { skin: 4, hairStyle: 'short', hairColor: 4, attire: 'robe', accent: 1, beard: 'stubble', glasses: true, age: 2, backdrop: 0 }),
-  character('judge-3', { skin: 2, hairStyle: 'bun', hairColor: 0, attire: 'robe', accent: 2, glasses: true, age: 1, backdrop: 3 }),
-  character('judge-4', { skin: 5, hairStyle: 'bald', attire: 'robe', accent: 0, beard: 'full', age: 1, browShape: 2, backdrop: 1 }),
-  character('judge-5', { skin: 1, hairStyle: 'long', hairColor: 4, attire: 'robe', accent: 3, age: 2, backdrop: 2 }),
-  character('judge-6', { skin: 3, hairStyle: 'wig', hairColor: 4, attire: 'robe', accent: 1, glasses: true, age: 1, backdrop: 3 }),
-  character('judge-7', { skin: 0, hairStyle: 'bald', attire: 'robe', accent: 4, beard: 'goatee', glasses: true, age: 2, browShape: 2, backdrop: 4 }),
-  character('judge-8', { skin: 4, hairStyle: 'afro', hairColor: 4, attire: 'robe', accent: 0, age: 2, backdrop: 5 }),
-  character('judge-9', { skin: 2, hairStyle: 'curly', hairColor: 0, attire: 'robe', accent: 2, glasses: true, age: 1, backdrop: 0 }),
-  character('judge-10', { skin: 1, hairStyle: 'slick', hairColor: 4, attire: 'robe', accent: 5, beard: 'stubble', age: 2, backdrop: 1 })
+  character('judge-1', { gender: 'male', skin: 0, hairStyle: 'wig', hairColor: 4, attire: 'robe', accent: 0, age: 2, browShape: 2, backdrop: 1 }),
+  character('judge-2', { gender: 'male', skin: 4, hairStyle: 'short', hairColor: 4, attire: 'robe', accent: 1, beard: 'stubble', glasses: true, age: 2, backdrop: 0 }),
+  character('judge-3', { gender: 'female', skin: 2, hairStyle: 'bun', hairColor: 0, attire: 'robe', accent: 2, glasses: true, age: 1, backdrop: 3 }),
+  character('judge-4', { gender: 'male', skin: 5, hairStyle: 'bald', attire: 'robe', accent: 0, beard: 'full', age: 1, browShape: 2, backdrop: 1 }),
+  character('judge-5', { gender: 'female', skin: 1, hairStyle: 'long', hairColor: 4, attire: 'robe', accent: 3, age: 2, backdrop: 2 }),
+  character('judge-6', { gender: 'female', skin: 3, hairStyle: 'wig', hairColor: 4, attire: 'robe', accent: 1, glasses: true, age: 1, backdrop: 3 }),
+  character('judge-7', { gender: 'male', skin: 0, hairStyle: 'bald', attire: 'robe', accent: 4, beard: 'goatee', glasses: true, age: 2, browShape: 2, backdrop: 4 }),
+  character('judge-8', { gender: 'female', skin: 4, hairStyle: 'afro', hairColor: 4, attire: 'robe', accent: 0, age: 2, backdrop: 5 }),
+  character('judge-9', { gender: 'female', skin: 2, hairStyle: 'curly', hairColor: 0, attire: 'robe', accent: 2, glasses: true, age: 1, backdrop: 0 }),
+  character('judge-10', { gender: 'male', skin: 1, hairStyle: 'slick', hairColor: 4, attire: 'robe', accent: 5, beard: 'stubble', age: 2, backdrop: 1 })
 ];
 
 /** Ten opposing counsel: sharp business wear, younger, varied faces. */
 export const COUNSEL_AVATARS: AvatarConfig[] = [
-  character('counsel-1', { skin: 1, hairStyle: 'slick', hairColor: 3, attire: 'suit', attireColor: 0, accent: 1, backdrop: 0 }),
-  character('counsel-2', { skin: 4, hairStyle: 'short', hairColor: 0, attire: 'suit', attireColor: 3, accent: 0, beard: 'stubble', backdrop: 3 }),
-  character('counsel-3', { skin: 0, hairStyle: 'long', hairColor: 5, attire: 'blazer', attireColor: 1, accent: 5, backdrop: 2 }),
-  character('counsel-4', { skin: 3, hairStyle: 'bun', hairColor: 0, attire: 'blazer', attireColor: 4, accent: 2, glasses: true, backdrop: 4 }),
-  character('counsel-5', { skin: 5, hairStyle: 'afro', hairColor: 0, attire: 'suit', attireColor: 5, accent: 4, backdrop: 5 }),
-  character('counsel-6', { skin: 2, hairStyle: 'curly', hairColor: 1, attire: 'blazer', attireColor: 2, accent: 0, glasses: true, backdrop: 1 }),
-  character('counsel-7', { skin: 0, hairStyle: 'bald', attire: 'suit', attireColor: 0, accent: 3, beard: 'full', age: 1, backdrop: 0 }),
-  character('counsel-8', { skin: 1, hairStyle: 'bob', hairColor: 2, attire: 'collar', attireColor: 3, accent: 1, glasses: true, backdrop: 3 }),
-  character('counsel-9', { skin: 4, hairStyle: 'bob', hairColor: 0, attire: 'blazer', attireColor: 1, accent: 0, backdrop: 2 }),
-  character('counsel-10', { skin: 2, hairStyle: 'short', hairColor: 2, attire: 'suit', attireColor: 4, accent: 2, beard: 'goatee', age: 1, backdrop: 4 })
+  character('counsel-1', { gender: 'male', skin: 1, hairStyle: 'slick', hairColor: 3, attire: 'suit', attireColor: 0, accent: 1, backdrop: 0 }),
+  character('counsel-2', { gender: 'male', skin: 4, hairStyle: 'short', hairColor: 0, attire: 'suit', attireColor: 3, accent: 0, beard: 'stubble', backdrop: 3 }),
+  character('counsel-3', { gender: 'female', skin: 0, hairStyle: 'long', hairColor: 5, attire: 'blazer', attireColor: 1, accent: 5, backdrop: 2 }),
+  character('counsel-4', { gender: 'female', skin: 3, hairStyle: 'bun', hairColor: 0, attire: 'blazer', attireColor: 4, accent: 2, glasses: true, backdrop: 4 }),
+  character('counsel-5', { gender: 'male', skin: 5, hairStyle: 'afro', hairColor: 0, attire: 'suit', attireColor: 5, accent: 4, backdrop: 5 }),
+  character('counsel-6', { gender: 'female', skin: 2, hairStyle: 'curly', hairColor: 1, attire: 'blazer', attireColor: 2, accent: 0, glasses: true, backdrop: 1 }),
+  character('counsel-7', { gender: 'male', skin: 0, hairStyle: 'bald', attire: 'suit', attireColor: 0, accent: 3, beard: 'full', age: 1, backdrop: 0 }),
+  character('counsel-8', { gender: 'female', skin: 1, hairStyle: 'bob', hairColor: 2, attire: 'collar', attireColor: 3, accent: 1, glasses: true, backdrop: 3 }),
+  character('counsel-9', { gender: 'female', skin: 4, hairStyle: 'bob', hairColor: 0, attire: 'blazer', attireColor: 1, accent: 0, backdrop: 2 }),
+  character('counsel-10', { gender: 'male', skin: 2, hairStyle: 'short', hairColor: 2, attire: 'suit', attireColor: 4, accent: 2, beard: 'goatee', age: 1, backdrop: 4 })
 ];
 
 /** A random player avatar. Without a seed it is different every call. */
 export function randomAvatar(seed?: string): AvatarConfig {
   const rand = seed ? seededRandom(seed) : Math.random;
+  const gender: Gender = rand() < 0.5 ? 'male' : 'female';
   return {
+    gender,
     skin: int(rand, SKIN_TONES.length),
     headShape: int(rand, HEAD_SHAPES),
     eyeShape: int(rand, EYE_SHAPES),
@@ -154,12 +180,12 @@ export function randomAvatar(seed?: string): AvatarConfig {
     mouthShape: int(rand, MOUTH_SHAPES),
     browShape: int(rand, BROW_SHAPES),
     age: Math.min(AGES - 1, int(rand, AGES + 1)),
-    hairStyle: pick(HAIR_STYLES, rand),
+    hairStyle: pick(hairStylesFor(gender), rand),
     hairColor: int(rand, HAIR_COLORS.length),
     attire: pick(['suit', 'blazer', 'collar'] as const, rand),
     attireColor: int(rand, ATTIRE_COLORS.length),
     accent: int(rand, ACCENT_COLORS.length),
-    beard: pick(BEARDS, rand),
+    beard: gender === 'male' ? pick(BEARDS, rand) : 'none',
     glasses: rand() < 0.3,
     backdrop: int(rand, BACKDROPS.length)
   };
@@ -204,7 +230,18 @@ export function parseAvatar(raw: unknown): AvatarConfig | null {
   }
   const filler = faceStructure(`legacy-${a.skin}-${a.hairStyle}-${a.hairColor}-${a.attire}-${a.attireColor}-${a.backdrop}`);
   const opt = (value: unknown, length: number, fallback: number) => (inRange(value, length) ? value : fallback);
+  const gender: Gender =
+    a.gender === 'male' || a.gender === 'female'
+      ? a.gender
+      : ['long', 'bob', 'bun'].includes(a.hairStyle as string)
+        ? 'female'
+        : a.beard !== 'none' || a.hairStyle === 'bald' || a.hairStyle === 'slick'
+          ? 'male'
+          : hashString(`${a.skin}-${a.hairStyle}-${a.attireColor}`) % 2 === 0
+            ? 'male'
+            : 'female';
   return {
+    gender,
     skin: a.skin,
     headShape: opt(a.headShape, HEAD_SHAPES, filler.headShape),
     eyeShape: opt(a.eyeShape, EYE_SHAPES, filler.eyeShape),
@@ -218,7 +255,7 @@ export function parseAvatar(raw: unknown): AvatarConfig | null {
     attire: a.attire as Attire,
     attireColor: a.attireColor,
     accent: opt(a.accent, ACCENT_COLORS.length, 0),
-    beard: a.beard as Beard,
+    beard: gender === 'female' ? 'none' : (a.beard as Beard),
     glasses: a.glasses,
     backdrop: a.backdrop
   };

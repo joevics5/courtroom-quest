@@ -26,7 +26,9 @@ import { getSessionPlayerRole } from './lib/verdictUtils';
 import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import CasePreview from './components/CasePreview';
 import ChallengeBoard from './components/ChallengeBoard';
+import { supabase } from './lib/supabase';
 import Tutorial from './components/Tutorial';
+import { markTutorialSeen, tutorialAlreadySeen } from './lib/tutorialSeen';
 import Settings from './components/Settings';
 
 type AppView =
@@ -165,14 +167,17 @@ function AppContent() {
     }
   }, [user]);
 
+  // The intro wizard is for brand-new players only, once (see lib/tutorialSeen).
+  const needsTutorial = !!user && !!userProfile && !tutorialAlreadySeen(userProfile, user);
+
   // First-login tutorial: fires as soon as the profile loads, while still
   // on the landing view. Independent of case selection — previously this
   // only showed up after picking a case, deep inside the case flow.
   useEffect(() => {
-    if (view === 'landing' && userProfile && !userProfile.tutorial_completed) {
+    if (view === 'landing' && needsTutorial) {
       setView('tutorial');
     }
-  }, [view, userProfile]);
+  }, [view, needsTutorial]);
 
   // Instant play: tapping a button on the home screen starts a guest
   // account when nobody is signed in. If guest sign-in isn't available
@@ -271,14 +276,20 @@ function AppContent() {
     return null;
   }
 
-  const handleTutorialDone = async () => {
+  const handleTutorialDone = () => {
     if (user) {
-      try {
-        const updated = await db.users.updateProfile(user.id, { tutorial_completed: true });
-        setUserProfile(updated);
-      } catch (error) {
-        console.error('Failed to mark tutorial complete:', error);
-      }
+      // Close for good right away, in this browser and in memory, so a failed save
+      // below can never bring the wizard back.
+      markTutorialSeen(user);
+      setUserProfile(prev => (prev ? { ...prev, tutorial_completed: true } : prev));
+      // Remember it on the account (works on other devices) and in the database.
+      supabase.auth.updateUser({ data: { tutorial_done: true } }).catch(error => {
+        console.error('Failed to save tutorial_done on the account:', error);
+      });
+      db.users
+        .updateProfile(user.id, { tutorial_completed: true })
+        .then(updated => setUserProfile(updated))
+        .catch(error => console.error('Failed to mark tutorial complete:', error));
     }
     // New players who picked a two-player mode on the home screen continue into it
     setView(challengeSeed && !challengeSeed.withCase ? 'challenge-board' : 'landing');
@@ -289,7 +300,7 @@ function AppContent() {
   // and tutorial_completed is false — no race where a quick click into a
   // case beats the async profile fetch, and no chance of it firing later
   // mid-case if the user happens to navigate back through 'landing'.
-  if (!userProfile.tutorial_completed) {
+  if (needsTutorial) {
     return <Tutorial onComplete={handleTutorialDone} onSkip={handleTutorialDone} />;
   }
 
