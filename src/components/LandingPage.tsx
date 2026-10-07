@@ -1,3 +1,4 @@
+import { getLevelForWins, getNextLevel, getRankProgress } from '../lib/levels';
 import { ArrowLeft, Briefcase, FileText, Mail, Swords, Settings as SettingsIcon, Trophy } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getPublicName } from '../lib/userName';
@@ -81,8 +82,18 @@ export default function LandingPage({
             <span className="font-game text-xl text-white leading-none truncate">{getPublicName(user)}</span>
             <span className="text-white/30">·</span>
             <span className="text-xs text-white/70 whitespace-nowrap">
-              {userProfile.current_level} · {userProfile.wins_count} {userProfile.wins_count === 1 ? 'win' : 'wins'}
+              {getLevelForWins(userProfile.wins_count ?? 0).title} · {userProfile.wins_count ?? 0} {userProfile.wins_count === 1 ? 'win' : 'wins'}
             </span>
+          </div>
+        )}
+        {userProfile && getNextLevel(userProfile.wins_count ?? 0) && (
+          <div className="mt-2 self-start w-full max-w-[16rem]">
+            <div className="h-1.5 rounded-full bg-white/15 overflow-hidden" aria-hidden="true">
+              <div className="h-full rounded-full bg-[#FFD43B]" style={{ width: `${Math.round(getRankProgress(userProfile.wins_count ?? 0) * 100)}%` }} />
+            </div>
+            <p className="mt-1 text-[11px] text-white/60">
+              {getNextLevel(userProfile.wins_count ?? 0)!.winsNeeded} more {getNextLevel(userProfile.wins_count ?? 0)!.winsNeeded === 1 ? 'win' : 'wins'} to {getNextLevel(userProfile.wins_count ?? 0)!.nextTitle}
+            </p>
           </div>
         )}
 

@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { Check, Shuffle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { isUsernameAvailable, savePublicProfile } from '../lib/publicProfile';
 import ScreenShell from './ScreenShell';
 import AvatarFace from './AvatarFace';
 import {
@@ -210,11 +211,20 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
     speakTimer.current = window.setTimeout(() => setPreviewSpeaking(false), 2200);
   };
 
-  const submitUsername = (e: React.FormEvent) => {
+  const [checkingName, setCheckingName] = useState(false);
+
+  const submitUsername = async (e: React.FormEvent) => {
     e.preventDefault();
     const problem = validateUsername(username);
     if (problem) {
       setUsernameError(problem);
+      return;
+    }
+    setCheckingName(true);
+    const free = await isUsernameAvailable(username);
+    setCheckingName(false);
+    if (!free) {
+      setUsernameError('That username is taken. Try another one.');
       return;
     }
     setUsernameError('');
@@ -224,8 +234,21 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
   const save = async () => {
     setSaving(true);
     setSaveError('');
+    const name = mode === 'signup' ? username.trim().replace(/\s+/g, ' ') : undefined;
+    // Claim the name first: it is unique, so someone may have taken it meanwhile.
+    const shared = await savePublicProfile({ username: name, avatar });
+    if (!shared.ok) {
+      setSaving(false);
+      if (shared.error === 'taken') {
+        setStep('username');
+        setUsernameError('That username was just taken. Pick another one.');
+      } else {
+        setSaveError('Could not save your avatar. Check your connection and try again.');
+      }
+      return;
+    }
     const data: Record<string, unknown> = { avatar };
-    if (mode === 'signup') data.nickname = username.trim().replace(/\s+/g, ' ');
+    if (name) data.nickname = name;
     const { error } = await supabase.auth.updateUser({ data });
     setSaving(false);
     if (error) {
@@ -258,8 +281,8 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
             <p className="mt-2 text-xs text-white/50">3 to {USERNAME_MAX} characters. Your email is never shown.</p>
             {usernameError && <p className="mt-2 text-sm text-red-400">{usernameError}</p>}
           </div>
-          <button type="submit" className={`${GOLD_BUTTON} w-full`}>
-            CONTINUE
+          <button type="submit" disabled={checkingName} className={`${GOLD_BUTTON} w-full`}>
+            {checkingName ? 'CHECKING...' : 'CONTINUE'}
           </button>
         </form>
       </ScreenShell>

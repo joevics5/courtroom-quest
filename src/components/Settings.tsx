@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, X, Feather, Scale as ScaleIcon, Flame, Check } from 'lucide-react';
 import HeroBackground from './HeroBackground';
 import AvatarCreator from './AvatarCreator';
+import { savePublicProfile } from '../lib/publicProfile';
 import AvatarFace from './AvatarFace';
 import { getUserAvatar } from '../lib/avatars';
 import { db } from '../lib/database';
@@ -43,8 +44,8 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
 
   const handleSaveNickname = async () => {
     const value = nickname.trim().replace(/\s+/g, ' ');
-    if (value.length < 2 || value.length > 20) {
-      setNameError('Use 2–20 characters.');
+    if (value.length < 3 || value.length > 20) {
+      setNameError('Use 3–20 characters.');
       setNameStatus('error');
       return;
     }
@@ -55,6 +56,14 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
     }
     setNameStatus('saving');
     setNameError('');
+    const claimed = await savePublicProfile({ username: value });
+    if (!claimed.ok) {
+      setNameError(
+        claimed.error === 'taken' ? 'That username is taken. Try another one.' : claimed.error === 'invalid' ? 'Use 3–20 characters, no @.' : 'Could not save. Try again.'
+      );
+      setNameStatus('error');
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ data: { nickname: value } });
     if (error) {
       console.error('Failed to save nickname:', error);

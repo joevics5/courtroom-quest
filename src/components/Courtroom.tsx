@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
 import TrialStage from './TrialStage';
 import { avatarFromSeed, getUserAvatar } from '../lib/avatars';
+import { fetchPublicProfile, type PublicProfile } from '../lib/publicProfile';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
 import ObjectionSelector from './ObjectionSelector';
@@ -103,13 +104,44 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
   // AI counsel come from the ready-made sets (same name -> same face every time).
   const myAvatar = useMemo(() => getUserAvatar(user), [user]);
   const judgeAvatar = useMemo(() => avatarFromSeed(judgeName || 'Judge', 'judge'), [judgeName]);
+  // In a two-player game the opponent is a real person: show the avatar and name they chose.
+  const opponentUserId: string | null =
+    isMultiplayer && !sameDevicePlay
+      ? ((playerRole === 'prosecution'
+          ? (session.session_state as any)?.defenseUserId
+          : (session.session_state as any)?.prosecutionUserId) ?? null)
+      : null;
+  const [opponentProfile, setOpponentProfile] = useState<PublicProfile | null>(null);
+  useEffect(() => {
+    if (!opponentUserId) {
+      setOpponentProfile(null);
+      return;
+    }
+    let cancelled = false;
+    fetchPublicProfile(opponentUserId).then(profile => {
+      if (!cancelled) setOpponentProfile(profile);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opponentUserId]);
+  const stageProsecutorName =
+    playerRole === 'prosecution' ? effectiveProsecutorName : opponentProfile?.username || effectiveProsecutorName;
+  const stageDefenseName =
+    playerRole === 'defense' ? effectiveDefenseName : opponentProfile?.username || effectiveDefenseName;
   const prosecutionAvatar = useMemo(
-    () => (playerRole === 'prosecution' ? myAvatar : avatarFromSeed(effectiveProsecutorName, 'counsel')),
-    [playerRole, myAvatar, effectiveProsecutorName]
+    () =>
+      playerRole === 'prosecution'
+        ? myAvatar
+        : opponentProfile?.avatar || avatarFromSeed(opponentUserId || effectiveProsecutorName, 'counsel'),
+    [playerRole, myAvatar, opponentProfile, opponentUserId, effectiveProsecutorName]
   );
   const defenseAvatar = useMemo(
-    () => (playerRole === 'defense' ? myAvatar : avatarFromSeed(`${session.id}-${effectiveDefenseName}`, 'counsel')),
-    [playerRole, myAvatar, effectiveDefenseName, session.id]
+    () =>
+      playerRole === 'defense'
+        ? myAvatar
+        : opponentProfile?.avatar || avatarFromSeed(opponentUserId || `${session.id}-${effectiveDefenseName}`, 'counsel'),
+    [playerRole, myAvatar, opponentProfile, opponentUserId, effectiveDefenseName, session.id]
   );
   const [trialDuration, setTrialDuration] = useState<TrialDuration | null>(
     session.trial_duration as TrialDuration || null
@@ -2105,8 +2137,8 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                     floor={turnState?.current_turn}
                     phaseName={phase?.name}
                     judge={{ name: judgeName || 'Judge', avatar: judgeAvatar }}
-                    prosecution={{ name: effectiveProsecutorName, avatar: prosecutionAvatar }}
-                    defense={{ name: effectiveDefenseName, avatar: defenseAvatar }}
+                    prosecution={{ name: stageProsecutorName, avatar: prosecutionAvatar }}
+                    defense={{ name: stageDefenseName, avatar: defenseAvatar }}
                   />
                 </div>
               )}

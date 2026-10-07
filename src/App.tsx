@@ -19,7 +19,7 @@ import JurySelection from './components/JurySelection';
 import PreTrialScript from './components/PreTrialScript';
 import SubscriptionGate, { getTrialLimit, canCreateCustomCase } from './components/SubscriptionGate';
 import { db } from './lib/database';
-import { getLevelForWins } from './lib/levels';
+import { getLevelForWins, STARTING_RANK } from './lib/levels';
 import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import { getSessionPlayerRole } from './lib/verdictUtils';
@@ -149,7 +149,7 @@ function AppContent() {
               trial_count: 0,
               case_creation_count: 0,
               wins_count: 0,
-              current_level: 'Practicing Attorney',
+              current_level: STARTING_RANK,
               is_admin: isUserAdmin,
               tutorial_completed: false,
               difficulty: 'medium',
