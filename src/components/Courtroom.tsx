@@ -2097,9 +2097,12 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
             <div className="relative bg-slate-800 rounded-lg border border-slate-700 flex flex-col overflow-hidden h-[calc(100vh-360px)]">
               {/* Avatar stage - Conditionally Rendered */}
               {showVideoDisplay && (
-                <div className="relative h-64 flex-shrink-0">
+                <div className="relative flex-shrink-0">
                   <TrialStage
                     currentSpeaker={currentSpeaker}
+                    lastRole={events[events.length - 1]?.speaker_role}
+                    lastEventKey={events[events.length - 1]?.id}
+                    floor={turnState?.current_turn}
                     phaseName={phase?.name}
                     judge={{ name: judgeName || 'Judge', avatar: judgeAvatar }}
                     prosecution={{ name: effectiveProsecutorName, avatar: prosecutionAvatar }}
