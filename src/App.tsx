@@ -914,6 +914,8 @@ function AppContent() {
           judgeName={(currentSession.session_state as any)?.judgeName || ''}
           prosecutorName={(currentSession.session_state as any)?.prosecutorName || ''}
           playerRole={(currentSession.session_state as any)?.playerRole || 'defense'}
+          sessionId={currentSession.id}
+          playerWins={userProfile?.wins_count ?? 0}
           onComplete={handlePreTrialComplete}
         />
       )}

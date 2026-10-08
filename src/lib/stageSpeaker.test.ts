@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getTrialFloor, normalizeRole, pickActiveSpeaker } from './stageSpeaker';
+import { describeTurn, getTrialFloor, normalizeRole, pickActiveSpeaker } from './stageSpeaker';
 
 describe('pickActiveSpeaker', () => {
   it('moves the glow to the side whose turn it is once the judge has finished', () => {
@@ -28,7 +28,8 @@ describe('pickActiveSpeaker', () => {
   it('reads "counsel" as the side holding the floor', () => {
     expect(normalizeRole('counsel', 'prosecution')).toBe('prosecution');
     expect(normalizeRole('counsel', 'judge')).toBe('defense');
-    expect(normalizeRole('recorder')).toBeUndefined();
+    expect(normalizeRole('recorder')).toBe('bailiff');
+    expect(normalizeRole('mystery')).toBeUndefined();
   });
 });
 
@@ -65,5 +66,23 @@ describe('getTrialFloor (the turn-by-turn switch)', () => {
     expect(pickActiveSpeaker({ lastRole: 'judge', floor, ttsSpeaking: false })).toBe('defense');
     // while the judge is still being read aloud the glow stays on the judge
     expect(pickActiveSpeaker({ lastRole: 'judge', floor, ttsSpeaking: true })).toBe('judge');
+  });
+});
+
+describe('describeTurn', () => {
+  it('says YOUR TURN when the floor is on the player\'s side', () => {
+    expect(describeTurn({ floor: 'defense', playerRole: 'defense' })).toEqual({ kind: 'you', label: 'YOUR TURN' });
+    expect(describeTurn({ floor: 'prosecution', playerRole: 'prosecution' }).kind).toBe('you');
+  });
+  it('names the other side, the witness and the judge', () => {
+    expect(describeTurn({ floor: 'prosecution', playerRole: 'defense' })).toEqual({ kind: 'other', label: "PROSECUTION'S TURN" });
+    expect(describeTurn({ floor: 'witness', playerRole: 'defense' }).label).toBe('WITNESS ANSWERING');
+    expect(describeTurn({ floor: 'judge', playerRole: 'defense' })).toEqual({ kind: 'judge', label: "JUDGE'S TURN" });
+  });
+  it('on a shared device there is no "you", just the side', () => {
+    expect(describeTurn({ floor: 'defense', playerRole: 'prosecution', sameDevicePlay: true })).toEqual({ kind: 'you', label: "DEFENSE'S TURN" });
+  });
+  it('shows nothing when the turn is unknown', () => {
+    expect(describeTurn({ floor: null, playerRole: 'defense' })).toEqual({ kind: 'none', label: '' });
   });
 });

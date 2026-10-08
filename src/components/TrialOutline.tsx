@@ -165,8 +165,8 @@ export default function TrialOutline({
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden h-full flex flex-col">
-      <div className="border-b border-slate-700 px-4 py-3 bg-slate-750">
+    <div className="bg-black/55 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden h-full flex flex-col">
+      <div className="border-b border-white/10 px-4 py-3 bg-black/30">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-white">Trial Outline</h3>
           {practiceMode ? (

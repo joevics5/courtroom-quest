@@ -4,10 +4,15 @@ import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
 import TrialStage from './TrialStage';
-import { avatarFromSeed, getUserAvatar } from '../lib/avatars';
+import SceneBackdrop from './SceneBackdrop';
+import TranscriptMessage from './TranscriptMessage';
+import { gameButton, ICON_BUTTON, PANEL_SOFT } from './ui';
+import { useKeyboardOpen } from './stage/signals';
+import { getUserAvatar } from '../lib/avatars';
 import { fetchPublicProfile, type PublicProfile } from '../lib/publicProfile';
 import { getLevelForWins } from '../lib/levels';
-import { getTrialFloor } from '../lib/stageSpeaker';
+import { describeTurn, getTrialFloor } from '../lib/stageSpeaker';
+import { aiRank, castAvatars } from '../lib/stageCast';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
 import ObjectionSelector from './ObjectionSelector';
@@ -107,7 +112,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // Avatars for the stage: the human plays their own saved avatar; the judge and the
   // AI counsel come from the ready-made sets (same name -> same face every time).
   const myAvatar = useMemo(() => getUserAvatar(user), [user]);
-  const judgeAvatar = useMemo(() => avatarFromSeed(judgeName || 'Judge', 'judge'), [judgeName]);
   // In a two-player game the opponent is a real person: show the avatar and name they chose.
   const opponentUserId: string | null =
     isMultiplayer && !sameDevicePlay
@@ -132,30 +136,25 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // Ranks on the stage: you wear your own; a real opponent wears theirs; AI counsel get a
   // steady mid-ladder rank (same name, same rank) so they look experienced but beatable.
   const myRank = getLevelForWins(playerWins).level;
-  const aiRank = (seed: string) => {
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-    return 3 + (h % 5);
-  };
   const prosecutionRank = playerRole === 'prosecution' ? myRank : opponentProfile?.rank || aiRank(opponentUserId || effectiveProsecutorName);
   const defenseRank = playerRole === 'defense' ? myRank : opponentProfile?.rank || aiRank(opponentUserId || effectiveDefenseName);
   const stageProsecutorName =
     playerRole === 'prosecution' ? effectiveProsecutorName : opponentProfile?.username || effectiveProsecutorName;
   const stageDefenseName =
     playerRole === 'defense' ? effectiveDefenseName : opponentProfile?.username || effectiveDefenseName;
-  const prosecutionAvatar = useMemo(
+  // Same helper the pre-trial scene uses, so nobody changes face between the two.
+  const cast = useMemo(
     () =>
-      playerRole === 'prosecution'
-        ? myAvatar
-        : opponentProfile?.avatar || avatarFromSeed(opponentUserId || effectiveProsecutorName, 'counsel'),
-    [playerRole, myAvatar, opponentProfile, opponentUserId, effectiveProsecutorName]
-  );
-  const defenseAvatar = useMemo(
-    () =>
-      playerRole === 'defense'
-        ? myAvatar
-        : opponentProfile?.avatar || avatarFromSeed(opponentUserId || `${session.id}-${effectiveDefenseName}`, 'counsel'),
-    [playerRole, myAvatar, opponentProfile, opponentUserId, effectiveDefenseName, session.id]
+      castAvatars({
+        judgeName,
+        prosecutorName,
+        playerRole,
+        myAvatar,
+        sessionId: session.id,
+        opponentAvatar: opponentProfile?.avatar,
+        opponentUserId
+      }),
+    [judgeName, prosecutorName, playerRole, myAvatar, session.id, opponentProfile, opponentUserId]
   );
   const [trialDuration, setTrialDuration] = useState<TrialDuration | null>(
     session.trial_duration as TrialDuration || null
@@ -2057,35 +2056,38 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }
   }, [isProcessing, inWitnessExam, isPlayerTurn, inputOpen]);
 
+  // The trial's turn-by-turn switch, used by both the stage glow and the turn badge.
+  const stageFloor = getTrialFloor({
+    phaseName: phase?.name,
+    currentTurn: turnState?.current_turn,
+    judgeSpeaking: judgeInstructionPending
+  });
+  const turnBadge = describeTurn({ floor: stageFloor, playerRole, sameDevicePlay });
+  const keyboardOpen = useKeyboardOpen();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+    <div className="relative min-h-[100dvh] bg-[#0b0d14] flex flex-col">
+      <SceneBackdrop />
       {/* Fixed Header - Non-scrolling */}
-      <div className="fixed top-0 left-0 right-0 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 z-50 w-full">
-        <div className="w-full max-w-[1800px] mx-auto px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-              <button
-                onClick={onBack}
-                className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 shrink-0 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-white" />
+      <div className="fixed top-0 left-0 right-0 bg-black/70 backdrop-blur-md border-b border-white/10 z-50 w-full" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="w-full max-w-[1800px] mx-auto px-3 sm:px-6 py-2.5 sm:py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <button onClick={onBack} aria-label="Back" className={ICON_BUTTON}>
+                <ArrowLeft className="w-5 h-5" />
               </button>
-              <div className="hidden sm:flex items-center justify-center w-10 h-10 shrink-0 bg-red-600 rounded-full">
-                <Scale className="w-5 h-5 text-white" />
-              </div>
                <div className="min-w-0">
-                 <h1 className="text-base sm:text-2xl font-bold text-white truncate">Courtroom Session</h1>
-                 <p className="text-slate-400 text-xs sm:text-sm truncate">{phase?.name}</p>
+                 <h1 className="logo-gold font-game text-2xl sm:text-3xl leading-none truncate">{phase?.name || 'COURTROOM'}</h1>
                  {practiceMode
-                   ? <p className="text-amber-400 text-xs sm:text-sm font-semibold">Practice Mode — no time limit</p>
-                   : timerActive && <p className="text-slate-400 text-xs sm:text-sm">{formatTime(totalTimeRemaining)} remaining</p>}
+                   ? <p className="text-[#FFD43B] text-xs sm:text-sm font-semibold mt-1">Practice Mode — no time limit</p>
+                   : timerActive && <p className="text-white/70 text-xs sm:text-sm mt-1">{formatTime(totalTimeRemaining)} remaining</p>}
                </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                <button
                  onClick={handleEndTrial}
-                 className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                 className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-[#E5484D] text-white font-semibold text-sm transition-colors active:bg-[#c93a3f]"
                  title="End Trial"
                >
                  <RotateCcw className="w-4 h-4" />
@@ -2093,7 +2095,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                </button>
               <button
                 onClick={() => setShowVideoDisplay(!showVideoDisplay)}
-                className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-black/55 border border-white/15 text-white text-sm transition-colors active:bg-white/15"
                 title={showVideoDisplay ? 'Hide Avatars' : 'Show Avatars'}
               >
                 {showVideoDisplay ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
@@ -2101,7 +2103,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               </button>
               <button
                 onClick={() => setShowRealVoiceInfo(true)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-gradient-to-r from-purple-600/30 to-fuchsia-600/30 hover:from-purple-600/40 hover:to-fuchsia-600/40 border border-purple-500/40 text-purple-200 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 h-10 px-3 rounded-full bg-gradient-to-r from-purple-600/30 to-fuchsia-600/30 border border-purple-500/40 text-purple-200 transition-colors"
                 title="Real Voice — Coming Soon"
               >
                 <Sparkles className="w-4 h-4" />
@@ -2110,7 +2112,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                {timerActive && (
                  <button
                    onClick={togglePause}
-                   className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                   className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-[#FFD43B] text-black font-semibold text-sm transition-colors active:bg-[#e6bd2c]"
                  >
                    {timerPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                     <span className="hidden sm:inline">{timerPaused ? (pausedForDefense ? 'Start' : 'Resume') : 'Pause'}</span>
@@ -2122,7 +2124,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       </div>
 
       {/* Scrollable Content Area - Padding to account for fixed header (header is ~90px tall) */}
-      <div className="flex-1 pb-56 sm:pb-48 px-3 sm:px-6 overflow-y-auto" style={{ paddingTop: '110px' }}>
+      <div className="relative z-10 flex-1 pb-56 sm:pb-48 px-3 sm:px-6 overflow-y-auto" style={{ paddingTop: 'calc(84px + env(safe-area-inset-top))' }}>
         <div className="max-w-[1800px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="hidden lg:block lg:col-span-1">
@@ -2140,7 +2142,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           </div>
 
           <div className="lg:col-span-3">
-            <div className="relative bg-slate-800 rounded-lg border border-slate-700 flex flex-col overflow-hidden h-[calc(100vh-360px)]">
+            <div className={`relative ${PANEL_SOFT} flex flex-col overflow-hidden h-[calc(100dvh-330px)] min-h-[24rem]`}>
               {/* Avatar stage - Conditionally Rendered */}
               {showVideoDisplay && (
                 <div className="relative flex-shrink-0">
@@ -2148,58 +2150,29 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                     currentSpeaker={currentSpeaker}
                     lastRole={events[events.length - 1]?.speaker_role}
                     lastEventKey={events[events.length - 1]?.id}
-                    floor={getTrialFloor({
-                      phaseName: phase?.name,
-                      currentTurn: turnState?.current_turn,
-                      judgeSpeaking: judgeInstructionPending
-                    })}
+                    floor={stageFloor}
                     phaseName={phase?.name}
-                    judge={{ name: judgeName || 'Judge', avatar: judgeAvatar, rank: 6 }}
-                    prosecution={{ name: stageProsecutorName, avatar: prosecutionAvatar, rank: prosecutionRank }}
-                    defense={{ name: stageDefenseName, avatar: defenseAvatar, rank: defenseRank }}
+                    playerRole={playerRole}
+                    turn={turnBadge}
+                    compact={keyboardOpen}
+                    judge={{ name: judgeName || 'Judge', avatar: cast.judge, rank: 6 }}
+                    prosecution={{ name: stageProsecutorName, avatar: cast.prosecution, rank: prosecutionRank }}
+                    defense={{ name: stageDefenseName, avatar: cast.defense, rank: defenseRank }}
                   />
                 </div>
               )}
 
               {/* Transcript/Conversation Area - Expanded when video is hidden */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-900/50 min-h-0">
-                {events.map((event) => {
-                  const isJudge = event.speaker_role === 'judge';
-                  const isProsecution = event.speaker_role === 'prosecution';
-                  const isDefense = event.speaker_role === 'defense' || event.speaker_role === 'counsel';
-                  const isWitness = event.speaker_role === 'witness';
-                  const isEvidence = event.event_type === 'evidence_submission';
-                  const isWitnessCall = event.event_type === 'witness_call';
-                  
-                  return (
-                    <div
-                      key={event.id}
-                      className={`p-4 rounded-lg ${
-                        isJudge
-                          ? 'bg-amber-500/10 border border-amber-500/30'
-                          : isProsecution
-                          ? 'bg-red-500/10 border border-red-500/30'
-                          : isDefense
-                          ? 'bg-blue-500/10 border border-blue-500/30'
-                          : isWitness
-                          ? 'bg-green-500/10 border border-green-500/30'
-                          : isEvidence
-                          ? 'bg-purple-500/10 border border-purple-500/30'
-                          : 'bg-slate-750 border border-slate-600'
-                      }`}
-                    >
-                      <div className="text-xs text-slate-400 mb-1 flex items-center gap-2">
-                        {isEvidence && <FileText className="w-3 h-3" />}
-                        {isWitnessCall && <User className="w-3 h-3" />}
-                        {event.speaker_name || event.speaker_role}
-                        {event.event_type === 'objection' && (
-                          <span className="text-red-400 font-semibold">OBJECTION</span>
-                        )}
-                      </div>
-                      <p className="text-white whitespace-pre-wrap break-words">{event.content}</p>
-                    </div>
-                  );
-                })}
+              <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 min-h-0 border-t border-white/10">
+                {events.map((event) => (
+                  <TranscriptMessage
+                    key={event.id}
+                    event={event}
+                    avatars={cast}
+                    prosecutorName={stageProsecutorName}
+                    playerRole={playerRole}
+                  />
+                ))}
               </div>
 
               {/* Status/Thinking Messages — the label and action wording
@@ -2209,10 +2182,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                   regardless of who's turn it is or what phase is active. */}
               <div className="absolute bottom-0 inset-x-0 z-10 pointer-events-none px-3 pb-3 space-y-2">
               {isProsecutionThinking && (
-                <div className="rounded-xl border border-slate-600/60 bg-slate-900/85 backdrop-blur-sm shadow-lg p-3">
+                <div className="rounded-2xl border border-white/15 bg-black/75 backdrop-blur-md shadow-lg p-3">
                   <div className="flex flex-col items-center justify-center gap-1">
-                    <div className="flex items-center gap-3 text-slate-300">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-400 border-t-transparent"></div>
+                    <div className="flex items-center gap-3 text-white/85">
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#FFD43B] border-t-transparent"></div>
                       <span className="font-medium text-lg">
                         {aiRole === 'prosecution' ? 'Prosecution' : 'Defense'} is {(() => {
                           const phaseNameLower = trialDuration
@@ -2224,16 +2197,16 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                         })()}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">Generating response with AI</p>
+                    <p className="text-xs text-white/45">Generating response with AI</p>
                   </div>
                 </div>
               )}
               
               {!isProsecutionThinking && autoRestSecondsLeft !== null && (
-                <div className="pointer-events-auto rounded-xl border border-slate-600/60 bg-slate-900/85 backdrop-blur-sm shadow-lg p-2">
+                <div className="pointer-events-auto rounded-2xl border border-white/15 bg-black/75 backdrop-blur-md shadow-lg p-2">
                   <button
                     onClick={toggleAutoRestPause}
-                    className="w-full text-center text-slate-300 py-1 hover:text-white transition-colors flex items-center justify-center gap-2"
+                    className="w-full text-center text-white/85 py-1 hover:text-white transition-colors flex items-center justify-center gap-2"
                     title={autoRestPaused ? 'Tap to resume' : 'Tap to pause'}
                   >
                     {autoRestPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
@@ -2245,8 +2218,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               )}
 
               {!isProsecutionThinking && autoRestSecondsLeft === null && !sameDevicePlay && turnState?.current_turn === aiRole && (
-                <div className="rounded-xl border border-slate-600/60 bg-slate-900/85 backdrop-blur-sm shadow-lg p-2">
-                  <div className="text-center text-slate-300 py-1 text-sm">
+                <div className="rounded-2xl border border-white/15 bg-black/75 backdrop-blur-md shadow-lg p-2">
+                  <div className="text-center text-white/85 py-1 text-sm">
                     Waiting for {aiRole === 'prosecution' ? 'prosecution' : 'the defense'} to act...
                   </div>
                 </div>
@@ -2288,7 +2261,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       )}
 
                {/* Fixed Bottom Input Bar - Static, doesn't scroll - MUST be at bottom */}
-               <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}>
+               <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md border-t border-white/10 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
                  {/* Courtroom actions button (witnesses/evidence) — sits just ABOVE
                      the button row, anchored to the top of this fixed bar so it
                      never covers Submit/Rest/Object. Still draggable vertically. */}
@@ -2300,7 +2273,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                      onPointerUp={handleFloatingButtonPointerUp}
                      onPointerCancel={handleFloatingButtonPointerUp}
                      style={{ bottom: `calc(100% + 12px + ${floatingButtonOffset}px)`, touchAction: 'none' }}
-                     className="absolute right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-40 cursor-grab active:cursor-grabbing select-none"
+                     className="absolute right-4 w-14 h-14 bg-[#FFD43B] active:bg-[#e6bd2c] text-black rounded-full shadow-[0_4px_0_#B8860B,0_8px_18px_rgba(0,0,0,0.5)] flex items-center justify-center transition-colors z-40 cursor-grab active:cursor-grabbing select-none"
                      title="Witnesses & Evidence (drag to move)"
                    >
                      <Scale className="w-6 h-6" />
@@ -2326,7 +2299,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                          }
                          disabled={!inputOpen}
                          rows={2}
-                         className="w-full px-4 py-3 pr-12 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base resize-y min-h-[3rem] max-h-40"
+                         className="w-full px-4 py-3 pr-12 bg-black/50 border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-[#FFD43B] disabled:opacity-50 text-base resize-y min-h-[3rem] max-h-40"
                        />
                        {speechSupported && (
                          <button
@@ -2335,7 +2308,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                            disabled={isProcessing || !inputOpen}
                            title={isListening ? 'Stop recording' : 'Speak your statement'}
                            className={`absolute right-2 top-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                             isListening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
+                             isListening ? 'bg-[#E5484D] animate-pulse' : 'bg-white/15 active:bg-white/25'
                            }`}
                          >
                            <Mic className="w-4 h-4 text-white" />
@@ -2346,7 +2319,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                        <button
                          onClick={handleSubmit}
                          disabled={!input.trim() || isProcessing || !inputOpen}
-                         className="flex-1 sm:flex-none justify-center px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex items-center gap-2"
+                         className={`flex-1 sm:flex-none ${gameButton('gold', 'sm')}`}
                        >
                          <Send className="w-5 h-5" />
                          Submit
@@ -2354,7 +2327,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                         <button
                            onClick={handleRestPhase}
                            disabled={!isPlayerTurn}
-                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+                           className={`flex-1 sm:flex-none ${gameButton('ghost', 'sm')}`}
                          >
                            <SkipForward className="w-5 h-5" />
                            Rest
@@ -2364,7 +2337,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                            onClick={() => setShowObjectionSelector(true)}
                            disabled={isProcessingObjection || (isPlayerTurn && !sameDevicePlay)}
                            title={isPlayerTurn && !sameDevicePlay ? "You can't object during your own turn" : "Object"}
-                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+                           className={`flex-1 sm:flex-none ${gameButton('danger', 'sm')}`}
                          >
                            <AlertCircle className="w-5 h-5" />
                            Object
@@ -2375,7 +2348,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                            onClick={() => setShowWitnessSelector(true)}
                            disabled={!isPlayerTurn}
                            title={!isPlayerTurn ? "Not your turn to call a witness" : "Call Witness"}
-                           className="flex-1 sm:flex-none justify-center px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+                           className={`flex-1 sm:flex-none ${gameButton('outline', 'sm')}`}
                          >
                            <User className="w-4 h-4" />
                            Call Witness

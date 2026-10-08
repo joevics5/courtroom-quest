@@ -1,4 +1,4 @@
-export type StageSpeaker = 'judge' | 'prosecution' | 'defense' | 'witness' | 'jury';
+export type StageSpeaker = 'judge' | 'prosecution' | 'defense' | 'witness' | 'jury' | 'bailiff';
 
 /** Turns an event's speaker_role into a stage role. "counsel" means whoever holds the floor. */
 export function normalizeRole(role: string | null | undefined, floor?: StageSpeaker): StageSpeaker | undefined {
@@ -8,7 +8,10 @@ export function normalizeRole(role: string | null | undefined, floor?: StageSpea
     case 'defense':
     case 'witness':
     case 'jury':
+    case 'bailiff':
       return role;
+    case 'recorder':
+      return 'bailiff';
     case 'counsel':
       return floor === 'prosecution' || floor === 'defense' ? floor : 'defense';
     default:
@@ -66,4 +69,27 @@ export function getTrialFloor(input: {
     return turn === 'prosecution' || turn === 'defense' || turn === 'witness' || turn === 'judge' ? turn : null;
   }
   return null;
+}
+
+/** What the "whose turn" badge says, from the same turn the stage highlight follows. */
+export interface TurnBadge {
+  /** "you": the player acts now. "other": the opponent or a witness. "judge": the judge. "none": unknown. */
+  kind: 'you' | 'other' | 'judge' | 'none';
+  label: string;
+}
+
+export function describeTurn(input: {
+  floor: StageSpeaker | null;
+  playerRole: 'prosecution' | 'defense';
+  /** Two players share one device: there is no "you", just a side. */
+  sameDevicePlay?: boolean;
+}): TurnBadge {
+  const { floor, playerRole, sameDevicePlay } = input;
+  if (!floor) return { kind: 'none', label: '' };
+  if (floor === 'judge' || floor === 'bailiff') return { kind: 'judge', label: floor === 'judge' ? "JUDGE'S TURN" : 'COURT IN SESSION' };
+  if (floor === 'witness') return { kind: 'other', label: 'WITNESS ANSWERING' };
+  if (floor === 'jury') return { kind: 'other', label: 'JURY DELIBERATING' };
+  const side = floor === 'prosecution' ? 'PROSECUTION' : 'DEFENSE';
+  if (sameDevicePlay) return { kind: 'you', label: `${side}'S TURN` };
+  return floor === playerRole ? { kind: 'you', label: 'YOUR TURN' } : { kind: 'other', label: `${side}'S TURN` };
 }

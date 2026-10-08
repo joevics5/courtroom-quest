@@ -166,6 +166,19 @@ export const COUNSEL_AVATARS: AvatarConfig[] = [
   character('counsel-10', { gender: 'male', skin: 2, hairStyle: 'short', hairColor: 2, attire: 'suit', attireColor: 4, accent: 2, beard: 'goatee', age: 1, backdrop: 4 })
 ];
 
+/** The bailiff: calls the court to order in the pre-trial scene. */
+export const BAILIFF_AVATAR: AvatarConfig = character('bailiff', {
+  gender: 'male',
+  skin: 3,
+  hairStyle: 'short',
+  hairColor: 0,
+  attire: 'collar',
+  attireColor: 4,
+  accent: 0,
+  age: 1,
+  backdrop: 5
+});
+
 /** A random player avatar. Without a seed it is different every call. */
 export function randomAvatar(seed?: string): AvatarConfig {
   const rand = seed ? seededRandom(seed) : Math.random;
