@@ -2,6 +2,7 @@ import { pickActiveSpeaker, type StageSpeaker, type TurnBadge } from '../lib/sta
 import { DEFAULT_SCENE, STAGE_SCENES } from './stage/scenes';
 import { TTS_SUPPORTED, useRecentPulse, useTtsSpeaking } from './stage/signals';
 import type { StageParticipant, StageSceneId } from './stage/types';
+import { useSpeechMuted } from './SpeechToggle';
 
 interface TrialStageProps {
   /** Fallback when nothing else says who is speaking. */
@@ -43,7 +44,9 @@ export default function TrialStage({
 }: TrialStageProps) {
   const ttsSpeaking = useTtsSpeaking();
   const recentMessage = useRecentPulse(lastEventKey, 3500);
-  const talking = TTS_SUPPORTED ? ttsSpeaking : recentMessage;
+  const muted = useSpeechMuted();
+  // Muted or no speech: animate briefly when a new message arrives instead.
+  const talking = TTS_SUPPORTED && !muted ? ttsSpeaking : recentMessage;
   const active = pickActiveSpeaker({ lastRole: lastRole ?? currentSpeaker, floor, ttsSpeaking: talking });
   const Scene = STAGE_SCENES[scene] ?? STAGE_SCENES[DEFAULT_SCENE];
 

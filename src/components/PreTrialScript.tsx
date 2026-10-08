@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Gavel } from 'lucide-react';
 import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName } from '../lib/trialConfig';
 import type { PlayerRole } from '../types';
-import { speakAs } from '../lib/speech';
+import { canSpeak, enterSpeechScope, speakAs, stopSpeaking } from '../lib/speech';
+import { AI_DEFENSE_PLEA, LINGER_MS, aiPleaLine, pretrialSteps, readingTimeMs } from '../lib/pretrial';
+import SpeechToggle, { useSpeechMuted } from './SpeechToggle';
 import { useAuth } from '../contexts/AuthContext';
 import AvatarFace from './AvatarFace';
 import SceneBackdrop from './SceneBackdrop';
@@ -49,47 +51,105 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const defenseDisplayName = playerRole === 'defense' ? userName : 'Defense Counsel';
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
   const [pleaGuilty, setPleaGuilty] = useState<boolean | null>(null);
-  const [isLoadingJudgeRequest, setIsLoadingJudgeRequest] = useState(false);
+  const [isLoadingJudgeRequest] = useState(false);
 
   const addTranscript = (speaker: string, text: string) => {
     setTranscript(prev => [...prev, { speaker, text }]);
   };
 
+  // ---- the script: the bailiff reads every line; each line waits for the voice, then lingers ----
+  const steps = useMemo(
+    () => pretrialSteps({ judgeName, caseTitle, prosecutorName: prosecutorDisplayName, defenseName: defenseDisplayName }),
+    [judgeName, caseTitle, prosecutorDisplayName, defenseDisplayName]
+  );
+  /** Bumped to cancel whatever is pending (leaving the screen, or the player pleading). */
+  const runRef = useRef(0);
+  const timersRef = useRef<number[]>([]);
+  const skipRef = useRef<(() => void) | null>(null);
+  const [canSkip, setCanSkip] = useState(false);
+
+  const clearTimers = () => {
+    timersRef.current.forEach(t => window.clearTimeout(t));
+    timersRef.current = [];
+  };
+  const cancelScript = () => {
+    runRef.current += 1;
+    clearTimers();
+    skipRef.current = null;
+    setCanSkip(false);
+    stopSpeaking('discard');
+  };
+
+  // Voice is allowed only on this screen and the trial; leaving stops it.
+  useEffect(() => {
+    const leave = enterSpeechScope();
+    return () => {
+      runRef.current += 1;
+      timersRef.current.forEach(t => window.clearTimeout(t));
+      leave();
+    };
+  }, []);
+
+  /**
+   * Reads one line in the bailiff's voice, then calls `done` after the line has been spoken
+   * and has stayed up a moment (or after a reading-time pause if nothing is spoken).
+   * The player can jump ahead with Next.
+   */
+  const say = (text: string, done: () => void) => {
+    const id = runRef.current;
+    let finished = false;
+    const complete = () => {
+      if (finished || id !== runRef.current) return;
+      finished = true;
+      clearTimers();
+      skipRef.current = null;
+      setCanSkip(false);
+      done();
+    };
+    const completeAfter = (ms: number) => {
+      if (finished || id !== runRef.current) return;
+      clearTimers();
+      timersRef.current.push(window.setTimeout(complete, ms));
+    };
+    skipRef.current = () => {
+      if (id !== runRef.current) return;
+      stopSpeaking('discard');
+      complete();
+    };
+    setCanSkip(true);
+    if (canSpeak()) {
+      speakAs('recorder', text, () => completeAfter(LINGER_MS));
+      // If the voice never reports back, do not leave the player stuck.
+      timersRef.current.push(window.setTimeout(complete, Math.max(20000, readingTimeMs(text) * 4)));
+    } else {
+      completeAfter(readingTimeMs(text));
+    }
+  };
+
+  const playStep = (index: number) => {
+    const step = steps[index];
+    setPhase(step.phase);
+    addTranscript('Bailiff', step.text);
+    say(step.text, () => {
+      if (index + 1 < steps.length) {
+        playStep(index + 1);
+      } else if (playerRole !== 'defense') {
+        // The human is the prosecution, so the AI defense enters the plea.
+        const guilty = AI_DEFENSE_PLEA === 'guilty';
+        const line = aiPleaLine(guilty);
+        addTranscript('Bailiff', line);
+        setPleaGuilty(guilty);
+        say(line, () => setPhase('plea_complete'));
+      }
+    });
+  };
+
   const handleStart = () => {
-    setPhase('bailiff_call');
-    const bailiffText = `All rise. Court is now in session. The Honorable ${judgeName} presiding.`;
-    addTranscript('Bailiff', bailiffText);
-    speakAs('recorder', bailiffText);
-
-    setTimeout(() => {
-      setPhase('case_announcement');
-      const caseText = `This is the case of ${caseTitle}. Counsel, please state your appearances.`;
-      addTranscript(judgeName, caseText);
-      speakAs('judge', caseText);
-
-      setTimeout(() => {
-        setPhase('counsel_appearances');
-        const prosecutorText = `For the prosecution, ${prosecutorDisplayName}.`;
-        addTranscript(prosecutorDisplayName, prosecutorText);
-        speakAs('counsel', prosecutorText);
-
-        setTimeout(() => {
-          const defenseText = `For the defense, ${defenseDisplayName}, representing the defendant.`;
-          addTranscript(defenseDisplayName, defenseText);
-          speakAs('counsel', defenseText);
-
-          setTimeout(() => {
-            setPhase('defendant_plea');
-            const pleaText = 'Defendant, how do you plead to the charges before this court?';
-            addTranscript(judgeName, pleaText);
-            speakAs('judge', pleaText);
-          }, 3000);
-        }, 3000);
-      }, 4000);
-    }, 4000);
+    playStep(0);
   };
 
   const handlePlea = (guilty: boolean) => {
+    cancelScript(); // the voice stops the moment the player answers
     const pleaText = guilty ? 'Guilty, Your Honor.' : 'Not guilty, Your Honor.';
     addTranscript('Defendant', pleaText);
     setPleaGuilty(guilty);
@@ -98,6 +158,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
 
   const handleStartTrial = () => {
     if (pleaGuilty === null) return;
+    cancelScript();
 
     // If guilty plea, complete immediately
     if (pleaGuilty) {
@@ -149,7 +210,8 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const activeRole = (latest ? roleOf(latest.speaker) : 'judge') as 'bailiff' | 'judge' | 'prosecution' | 'defense';
   const ttsSpeaking = useTtsSpeaking();
   const recentLine = useRecentPulse(latest ? String(transcript.length) : null, 3500);
-  const talking = TTS_SUPPORTED ? ttsSpeaking : recentLine;
+  const muted = useSpeechMuted();
+  const talking = TTS_SUPPORTED && !muted ? ttsSpeaking : recentLine;
   const [showTranscript, setShowTranscript] = useState(false);
   const star = cast[activeRole];
   const speakerTone: Record<string, string> = {
@@ -185,7 +247,8 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
         className="relative z-10 min-h-[100dvh] flex flex-col px-4"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}
       >
-        <header className="text-center max-w-md w-full mx-auto">
+        <header className="relative text-center max-w-md w-full mx-auto px-12">
+          <SpeechToggle className="absolute right-0 top-0" />
           <h1 className="logo-gold font-game text-4xl leading-none">COURT IS IN SESSION</h1>
           <p className="text-white/60 text-sm mt-2 truncate">{caseTitle}</p>
         </header>
@@ -245,16 +308,30 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                 <p className="text-white/60 text-sm mt-1">Tap the button to begin proceedings</p>
               </div>
             )}
-            {transcript.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setShowTranscript(v => !v)}
-                className="mt-3 text-xs text-white/55 underline underline-offset-2"
-                aria-expanded={showTranscript}
-              >
-                {showTranscript ? 'Hide transcript' : `Show transcript (${transcript.length})`}
-              </button>
-            )}
+            <div className="mt-3 flex items-center justify-between gap-3">
+              {transcript.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowTranscript(v => !v)}
+                  className="text-xs text-white/55 underline underline-offset-2"
+                  aria-expanded={showTranscript}
+                >
+                  {showTranscript ? 'Hide transcript' : `Show transcript (${transcript.length})`}
+                </button>
+              ) : (
+                <span />
+              )}
+              {canSkip && (
+                <button
+                  type="button"
+                  onClick={() => skipRef.current?.()}
+                  aria-label="Skip to the next line"
+                  className="rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs text-white/85"
+                >
+                  Next ›
+                </button>
+              )}
+            </div>
             {showTranscript && (
               <div className="mt-2 max-h-44 overflow-y-auto space-y-2 border-t border-white/10 pt-2">
                 {transcript.map((entry, index) => (
@@ -276,7 +353,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
               </button>
             )}
 
-            {phase === 'defendant_plea' && transcript.length > 0 && (
+            {phase === 'defendant_plea' && playerRole === 'defense' && !canSkip && transcript.length > 0 && (
               <div>
                 <p className="text-center text-white/70 text-sm mb-3">How does your client plead?</p>
                 <div className="grid grid-cols-2 gap-3">

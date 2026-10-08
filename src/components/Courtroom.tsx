@@ -30,7 +30,8 @@ import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
 import { getUserDisplayName } from '../lib/userName';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
-import { speakAs } from '../lib/speech';
+import { enterSpeechScope, speakAs } from '../lib/speech';
+import SpeechToggle from './SpeechToggle';
 import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case, EventType } from '../types';
 
 // Roughly how long it'd take to read a statement aloud, used to size the
@@ -2064,6 +2065,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   });
   const turnBadge = describeTurn({ floor: stageFloor, playerRole, sameDevicePlay });
   const keyboardOpen = useKeyboardOpen();
+  // Voice is only allowed here and in the pre-trial; leaving the trial stops it at once.
+  useEffect(() => enterSpeechScope(), []);
 
   return (
     <div className="relative min-h-[100dvh] bg-[#0b0d14] flex flex-col">
@@ -2085,6 +2088,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+               <SpeechToggle />
                <button
                  onClick={handleEndTrial}
                  className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-[#E5484D] text-white font-semibold text-sm transition-colors active:bg-[#c93a3f]"
