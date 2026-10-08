@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Gavel, Scale, Users } from 'lucide-react';
 import type { JuryRound } from '../lib/ai/trialAI';
+import JurorAvatar from './avatars/JurorAvatar';
 
 export interface DeliberationState {
   mode: 'jury' | 'judge';
@@ -138,6 +139,15 @@ export default function JuryDeliberation({ state, onContinue }: { state: Deliber
                   }`}
                 >
                   <div className="text-[10px] text-slate-500">Juror {i + 1}</div>
+                  <div className="flex justify-center my-1">
+                    <JurorAvatar
+                      seed={j.id}
+                      name={j.name}
+                      size="md"
+                      muted={!v}
+                      className={`ring-2 ${v ? (v.vote === 'GUILTY' ? 'ring-red-500/70' : 'ring-blue-500/70') : 'ring-slate-700'}`}
+                    />
+                  </div>
                   <div className="text-xs text-slate-200 font-medium truncate">{j.name}</div>
                   <div className="text-[10px] text-slate-400 truncate">{j.occupation}</div>
                   <div className={`mt-1 text-[11px] font-bold ${v ? (v.vote === 'GUILTY' ? 'text-red-400' : 'text-blue-400') : 'text-slate-500'}`}>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { db } from '../lib/database';
 import HeroBackground from './HeroBackground';
-import InitialsAvatar from './InitialsAvatar';
+import JurorAvatar from './avatars/JurorAvatar';
 import { describeJurorTraits } from '../lib/jurorProfile';
 import type { Juror, JurySelection as JurySelectionType } from '../types';
 
@@ -176,7 +176,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
                 title={`${juror.name} — tap to remove`}
                 className={`relative rounded-full ring-2 ${isDefense ? 'ring-blue-400' : 'ring-red-400'}`}
               >
-                <InitialsAvatar name={juror.name} size="sm" />
+                <JurorAvatar seed={juror.id} name={juror.name} size="sm" />
                 <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-black border border-white/40">
                   <X className="w-2.5 h-2.5 text-white" />
                 </span>
@@ -242,7 +242,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
           {available.map(juror => (
             <article key={juror.id} className="rounded-2xl bg-black/60 border border-white/15 backdrop-blur-sm p-3">
               <div className="flex items-center gap-3">
-                <InitialsAvatar name={juror.name} size="md" />
+                <JurorAvatar seed={juror.id} name={juror.name} size="md" />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-white leading-tight truncate">{juror.name}</h3>
                   <p className="text-sm text-white/65 truncate">{juror.age} · {juror.occupation}</p>
