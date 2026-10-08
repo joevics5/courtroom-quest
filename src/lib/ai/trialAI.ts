@@ -10,6 +10,7 @@ import type { TurnState, AllowedAction } from '../trialTurnSystem';
 import type { Witness, TrialEvent, Evidence } from '../../types';
 import { getJudgeDifficultyModifier, getProsecutionDifficultyModifier } from '../trialConfig';
 import { generateTranscript, extractEvidenceCitations } from '../transcriptGenerator';
+import { describeJurorTraits } from '../jurorProfile';
 
 // ============================================================================
 // AGENT TEMPERATURE CONFIG
@@ -457,8 +458,9 @@ export interface JurorProfile {
   age?: number | null;
   occupation?: string | null;
   background?: string;
-  personality_traits?: string[] | null;
-  biases?: string[] | null;
+  /** Stored as jsonb: either a string list or an object like {patient: true, bias: 'high'}. */
+  personality_traits?: unknown;
+  biases?: unknown;
 }
 
 export interface JurorVote {
@@ -556,8 +558,8 @@ export async function generateJuryDeliberation(params: {
     const votes: JurorVote[] = await Promise.all(
       jurors.map(async (juror): Promise<JurorVote> => {
         const occupation = juror.occupation || 'Citizen';
-        const traits = Array.isArray(juror.personality_traits) ? juror.personality_traits.join(', ') : '';
-        const biases = Array.isArray(juror.biases) ? juror.biases.join(', ') : '';
+        const traits = describeJurorTraits(juror.personality_traits).join(', ');
+        const biases = describeJurorTraits(juror.biases).join(', ');
         const myPrevious = prev?.find(v => v.jurorId === juror.id)?.vote;
 
         const system = `You are ${juror.name}, a juror in a criminal trial.

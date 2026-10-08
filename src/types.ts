@@ -247,8 +247,9 @@ export interface Juror {
   age: number;
   occupation: string;
   background: string;
-  personality_traits: string[];
-  biases: string[];
+  /** jsonb: a string list or an object like {patient: true}; read with describeJurorTraits(). */
+  personality_traits: unknown;
+  biases: unknown;
   photo_url?: string;
   created_at: string;
 }

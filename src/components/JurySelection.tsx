@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { db } from '../lib/database';
 import HeroBackground from './HeroBackground';
 import InitialsAvatar from './InitialsAvatar';
+import { describeJurorTraits } from '../lib/jurorProfile';
 import type { Juror, JurySelection as JurySelectionType } from '../types';
 
 interface Props {
@@ -255,9 +256,9 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
                 </button>
               </div>
               {juror.background && <p className="mt-2 text-sm text-white/65 leading-snug line-clamp-2">{juror.background}</p>}
-              {juror.personality_traits && juror.personality_traits.length > 0 && (
+              {describeJurorTraits(juror.personality_traits).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {juror.personality_traits.slice(0, 3).map((trait, idx) => (
+                  {describeJurorTraits(juror.personality_traits).slice(0, 3).map((trait, idx) => (
                     <span key={idx} className="rounded-full bg-white/10 border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/75">
                       {trait}
                     </span>
