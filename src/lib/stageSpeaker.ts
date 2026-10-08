@@ -34,3 +34,36 @@ export function pickActiveSpeaker(input: {
   if (floor) return floor;
   return spoken ?? 'judge';
 }
+
+/**
+ * Whose turn it is, for the trial stage highlight. This is the "turn by turn switch":
+ *  - the judge has it while giving an instruction or ruling;
+ *  - opening and closing statements belong to the side named in the phase;
+ *  - witness examination follows the trial's own turn tracker (counsel asking, then witness);
+ *  - deliberation and the verdict belong to the judge.
+ * Returns null when nothing says (the stage then falls back to the latest speaker).
+ */
+export function getTrialFloor(input: {
+  phaseName?: string | null;
+  /** turnState.current_turn: only tracked during witness examination. */
+  currentTurn?: string | null;
+  /** True while the judge's instruction for this phase is still being given. */
+  judgeSpeaking?: boolean;
+}): StageSpeaker | null {
+  if (input.judgeSpeaking) return 'judge';
+  const name = (input.phaseName ?? '').toLowerCase();
+
+  if (name.includes('opening statement') || name.includes('closing statement')) {
+    if (name.includes('prosecution')) return 'prosecution';
+    if (name.includes('defense')) return 'defense';
+    return null;
+  }
+  if (name.includes('deliberation') || name.includes('verdict')) return 'judge';
+
+  const witnessPhase = name.includes('direct examination') || name.includes('cross-examination') || name.includes('redirect');
+  if (witnessPhase) {
+    const turn = input.currentTurn;
+    return turn === 'prosecution' || turn === 'defense' || turn === 'witness' || turn === 'judge' ? turn : null;
+  }
+  return null;
+}

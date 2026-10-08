@@ -7,6 +7,7 @@ import TrialStage from './TrialStage';
 import { avatarFromSeed, getUserAvatar } from '../lib/avatars';
 import { fetchPublicProfile, type PublicProfile } from '../lib/publicProfile';
 import { getLevelForWins } from '../lib/levels';
+import { getTrialFloor } from '../lib/stageSpeaker';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
 import ObjectionSelector from './ObjectionSelector';
@@ -2147,7 +2148,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                     currentSpeaker={currentSpeaker}
                     lastRole={events[events.length - 1]?.speaker_role}
                     lastEventKey={events[events.length - 1]?.id}
-                    floor={turnState?.current_turn}
+                    floor={getTrialFloor({
+                      phaseName: phase?.name,
+                      currentTurn: turnState?.current_turn,
+                      judgeSpeaking: judgeInstructionPending
+                    })}
                     phaseName={phase?.name}
                     judge={{ name: judgeName || 'Judge', avatar: judgeAvatar, rank: 6 }}
                     prosecution={{ name: stageProsecutorName, avatar: prosecutionAvatar, rank: prosecutionRank }}

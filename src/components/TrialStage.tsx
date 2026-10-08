@@ -99,8 +99,8 @@ function Tile({
 export default function TrialStage({ currentSpeaker, lastRole, lastEventKey, floor, phaseName, judge, prosecution, defense }: TrialStageProps) {
   const ttsSpeaking = useTtsSpeaking();
   const recentMessage = useRecentPulse(lastEventKey, 3500);
-  const active = pickActiveSpeaker({ lastRole: lastRole ?? currentSpeaker, floor, ttsSpeaking });
   const talking = TTS_SUPPORTED ? ttsSpeaking : recentMessage;
+  const active = pickActiveSpeaker({ lastRole: lastRole ?? currentSpeaker, floor, ttsSpeaking: talking });
   const mouthMoves = (role: Speaker) => active === role && talking;
   const floorLabel =
     active === 'witness' ? 'Witness speaking' : active === 'jury' ? 'Jury deliberating' : null;
