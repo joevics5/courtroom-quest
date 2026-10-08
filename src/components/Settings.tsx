@@ -5,6 +5,7 @@ import AvatarCreator from './AvatarCreator';
 import { savePublicProfile } from '../lib/publicProfile';
 import AvatarFace from './AvatarFace';
 import { getUserAvatar } from '../lib/avatars';
+import { getLevelForWins } from '../lib/levels';
 import { db } from '../lib/database';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -189,10 +190,12 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
           <h2 className="font-game text-3xl text-white leading-none mb-3">AVATAR</h2>
           <div className="flex items-center gap-4">
             <div className="flex-none w-24 h-24 rounded-2xl overflow-hidden border-4 border-[#FFD43B]">
-              <AvatarFace config={getUserAvatar(user)} label="Your avatar" />
+              <AvatarFace config={getUserAvatar(user)} rank={getLevelForWins(userProfile.wins_count ?? 0).level} label="Your avatar" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-white/60 mb-3">This is how you look to the judge and your opponent in court.</p>
+              <p className="text-sm text-white/60 mb-3">
+                {getLevelForWins(userProfile.wins_count ?? 0).title}. Your outfit gets better as you win cases.
+              </p>
               <button
                 onClick={() => setChangingAvatar(true)}
                 className="rounded-xl bg-[#FFD43B] text-black font-game text-xl px-4 py-2 border-b-[5px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
@@ -245,6 +248,7 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
         <AvatarCreator
           mode="change"
           initialAvatar={getUserAvatar(user)}
+          wins={userProfile.wins_count ?? 0}
           onBack={() => setChangingAvatar(false)}
           onDone={() => setChangingAvatar(false)}
         />

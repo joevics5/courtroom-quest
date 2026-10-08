@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import AvatarFace from './AvatarFace';
 import type { AvatarConfig } from '../lib/avatars';
 import { pickActiveSpeaker, type StageSpeaker } from '../lib/stageSpeaker';
+import { LEVELS } from '../lib/levels';
 
 type Speaker = StageSpeaker;
 
 interface Participant {
   name: string;
   avatar: AvatarConfig;
+  /** 1 to 10: dresses the avatar for this rank and shows the rank title. */
+  rank?: number;
 }
 
 interface TrialStageProps {
@@ -59,12 +62,14 @@ function Tile({
   role,
   participant,
   active,
-  moving
+  moving,
+  showRank = true
 }: {
   role: string;
   participant: Participant;
   active: boolean;
   moving: boolean;
+  showRank?: boolean;
 }) {
   return (
     <div
@@ -73,10 +78,13 @@ function Tile({
       }`}
       aria-current={active ? 'true' : undefined}
     >
-      <AvatarFace config={participant.avatar} speaking={moving} label={`${role}: ${participant.name}`} />
+      <AvatarFace config={participant.avatar} speaking={moving} rank={participant.rank} label={`${role}: ${participant.name}`} />
       <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-slate-950/90 to-transparent">
         <p className="text-white text-xs sm:text-sm font-medium truncate">{participant.name}</p>
-        <p className="text-slate-300 text-[11px] truncate">{role}</p>
+        <p className="text-slate-300 text-[11px] truncate">
+          {role}
+          {showRank && participant.rank ? ` · ${LEVELS[participant.rank - 1].title}` : ''}
+        </p>
       </div>
     </div>
   );
@@ -101,7 +109,7 @@ export default function TrialStage({ currentSpeaker, lastRole, lastEventKey, flo
     <div className="relative w-full bg-slate-900 px-3 pb-3 pt-10">
       <div className="grid grid-cols-3 gap-2 sm:gap-3 items-center max-w-2xl mx-auto">
         <Tile role="Prosecution" participant={prosecution} active={active === 'prosecution'} moving={mouthMoves('prosecution')} />
-        <Tile role="Judge" participant={judge} active={active === 'judge'} moving={mouthMoves('judge')} />
+        <Tile role="Judge" participant={judge} active={active === 'judge'} moving={mouthMoves('judge')} showRank={false} />
         <Tile role="Defense" participant={defense} active={active === 'defense'} moving={mouthMoves('defense')} />
       </div>
       {(phaseName || floorLabel) && (

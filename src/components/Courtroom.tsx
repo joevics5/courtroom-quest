@@ -6,6 +6,7 @@ import TrialOutline from './TrialOutline';
 import TrialStage from './TrialStage';
 import { avatarFromSeed, getUserAvatar } from '../lib/avatars';
 import { fetchPublicProfile, type PublicProfile } from '../lib/publicProfile';
+import { getLevelForWins } from '../lib/levels';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
 import ObjectionSelector from './ObjectionSelector';
@@ -46,9 +47,11 @@ interface CourtroomProps {
   session: CaseSession;
   onComplete: (verdict: Verdict) => void;
   onBack: () => void;
+  /** Cases the player has won: sets their rank, which dresses their avatar. */
+  playerWins?: number;
 }
 
-export default function Courtroom({ session, onComplete, onBack }: CourtroomProps) {
+export default function Courtroom({ session, onComplete, onBack, playerWins = 0 }: CourtroomProps) {
   const { user } = useAuth();
   const [showPreTrial, setShowPreTrial] = useState(() => {
     // If session is already in trial phase, skip pretrial
@@ -125,6 +128,16 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
       cancelled = true;
     };
   }, [opponentUserId]);
+  // Ranks on the stage: you wear your own; a real opponent wears theirs; AI counsel get a
+  // steady mid-ladder rank (same name, same rank) so they look experienced but beatable.
+  const myRank = getLevelForWins(playerWins).level;
+  const aiRank = (seed: string) => {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    return 3 + (h % 5);
+  };
+  const prosecutionRank = playerRole === 'prosecution' ? myRank : opponentProfile?.rank || aiRank(opponentUserId || effectiveProsecutorName);
+  const defenseRank = playerRole === 'defense' ? myRank : opponentProfile?.rank || aiRank(opponentUserId || effectiveDefenseName);
   const stageProsecutorName =
     playerRole === 'prosecution' ? effectiveProsecutorName : opponentProfile?.username || effectiveProsecutorName;
   const stageDefenseName =
@@ -2136,9 +2149,9 @@ export default function Courtroom({ session, onComplete, onBack }: CourtroomProp
                     lastEventKey={events[events.length - 1]?.id}
                     floor={turnState?.current_turn}
                     phaseName={phase?.name}
-                    judge={{ name: judgeName || 'Judge', avatar: judgeAvatar }}
-                    prosecution={{ name: stageProsecutorName, avatar: prosecutionAvatar }}
-                    defense={{ name: stageDefenseName, avatar: defenseAvatar }}
+                    judge={{ name: judgeName || 'Judge', avatar: judgeAvatar, rank: 6 }}
+                    prosecution={{ name: stageProsecutorName, avatar: prosecutionAvatar, rank: prosecutionRank }}
+                    defense={{ name: stageDefenseName, avatar: defenseAvatar, rank: defenseRank }}
                   />
                 </div>
               )}

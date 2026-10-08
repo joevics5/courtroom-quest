@@ -80,6 +80,17 @@ describe('AvatarCreator', () => {
     expect(updateUser.mock.calls[0][0].data.nickname).toBeUndefined();
   });
 
+  it('shows rank outfits with the higher ranks locked until earned', async () => {
+    render(<AvatarCreator mode="change" wins={20} onDone={() => {}} onBack={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'OUTFIT' }));
+    expect(screen.getByText(/Rank: Trial Lawyer/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Senior Attorney, locked, 30 wins/ }));
+    expect(screen.getByText(/Previewing: Senior Attorney \(locked\)/)).toBeTruthy();
+    expect(screen.getByText(/win 10 more cases to unlock/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Associate Attorney' }));
+    expect(screen.getByText(/Previewing: Associate Attorney/)).toBeTruthy();
+  });
+
   it('shows an error and stays put when saving fails', async () => {
     updateUser.mockResolvedValue({ error: new Error('offline') });
     const onDone = vi.fn();

@@ -270,7 +270,6 @@ function Attire({
           <path d="M94 156 Q100 164 106 156 L104 162 L96 162 Z" fill={darken(accent, 0.25)} />
           <path d="M83 152 L100 196 L66 200 L60 164 Z" fill={darken(color, 0.12)} />
           <path d="M117 152 L100 196 L134 200 L140 164 Z" fill={darken(color, 0.12)} />
-          <path d="M66 176 L82 174 L80 180 L66 182 Z" fill={accent} opacity="0.9" />
         </g>
       )}
       {type === 'blazer' && (
@@ -290,6 +289,154 @@ function Attire({
           <path d="M70 160 Q100 150 130 160" stroke={accent} strokeWidth="3" fill="none" opacity="0.9" />
         </g>
       )}
+    </g>
+  );
+}
+
+const GOLD = '#FFD43B';
+const GOLD_DARK = '#B8860B';
+
+function Sparkle({ x, y, s: size }: { x: number; y: number; s: number }) {
+  return (
+    <path
+      d="M0 -6 L1.6 -1.6 L6 0 L1.6 1.6 L0 6 L-1.6 1.6 L-6 0 L-1.6 -1.6Z"
+      transform={`translate(${x} ${y}) scale(${size})`}
+      fill={GOLD}
+      opacity="0.9"
+    />
+  );
+}
+
+/** Rank 10 only: a flowing cape behind the shoulders. */
+function RankCape({ accent, uid }: { accent: string; uid: string }) {
+  return (
+    <g data-gear="cape">
+      <path
+        d="M30 166 C8 176 -8 192 -10 206 L210 206 C208 192 192 176 170 166 L150 156 L50 156 Z"
+        fill={`url(#${uid}-cape)`}
+      />
+      <path d="M-10 206 C-8 192 8 176 30 166 M210 206 C208 192 192 176 170 166" stroke={GOLD} strokeWidth="2.6" fill="none" />
+      <path d="M44 170 C30 180 20 192 18 206 M156 170 C170 180 180 192 182 206" stroke={darken(accent, 0.45)} strokeWidth="2" fill="none" opacity="0.6" />
+    </g>
+  );
+}
+
+/**
+ * Outfit upgrades earned with rank. Every rank keeps the upgrades of the ranks below it:
+ *  1 plain · 2 pocket square · 3 lapel pin and tie bar · 4 waistcoat · 5 gold piping and
+ *  watch chain · 6 gold lapel trim · 7 medal ribbons and epaulettes · 8 ceremonial mantle ·
+ *  9 chain of office · 10 cape, golden aura and sparkles (cape and aura are drawn separately).
+ */
+function RankGear({
+  tier,
+  attire,
+  color,
+  accent,
+  fem,
+  body
+}: {
+  tier: number;
+  attire: AvatarConfig['attire'];
+  color: string;
+  accent: string;
+  fem: boolean;
+  body: string;
+}) {
+  if (tier < 2) return null;
+  const robe = attire === 'robe';
+  const ins = fem ? 12 : 0;
+  const vest = darken(color, 0.25);
+  return (
+    <g data-tier={tier}>
+      {tier >= 2 && !robe && (
+        <g data-gear="pocket-square">
+          <path d="M66 180 L82 178 L81 187 L67 188 Z" fill={accent} />
+          <path d="M67 184 L74 179 L81 183" stroke="#fff" strokeWidth="1" fill="none" opacity="0.55" />
+        </g>
+      )}
+      {tier >= 3 && (
+        <g data-gear="pin">
+          <circle cx="79" cy="166" r="3.2" fill={GOLD} stroke={GOLD_DARK} strokeWidth="1" />
+          {attire === 'suit' && <rect x="95" y="170" width="10" height="2.2" rx="1" fill={GOLD} stroke={GOLD_DARK} strokeWidth="0.5" />}
+        </g>
+      )}
+      {tier >= 4 && !robe && (
+        <g data-gear="waistcoat">
+          {attire === 'suit' ? (
+            <g fill={vest}>
+              <path d="M89 168 L96 168 L97 198 L91 194 Z" />
+              <path d="M111 168 L104 168 L103 198 L109 194 Z" />
+            </g>
+          ) : (
+            <path d="M88 166 L112 166 L100 200 Z" fill={vest} />
+          )}
+          <g fill={GOLD}>
+            <circle cx={attire === 'suit' ? 92.5 : 100} cy="178" r="1.5" />
+            <circle cx={attire === 'suit' ? 92.5 : 100} cy="187" r="1.5" />
+            {attire === 'suit' && <circle cx="107.5" cy="178" r="1.5" />}
+            {attire === 'suit' && <circle cx="107.5" cy="187" r="1.5" />}
+          </g>
+        </g>
+      )}
+      {tier >= 5 && (
+        <g data-gear="piping">
+          <path d={body.replace(/ Z$/, '')} stroke={GOLD} strokeWidth="2.6" fill="none" opacity="0.95" />
+          {!robe && (
+            <g stroke={GOLD} strokeWidth="1.6" fill="none" strokeLinecap="round">
+              <path d="M114 176 Q123 187 129 180" />
+              <circle cx="129" cy="180" r="1.8" fill={GOLD} />
+            </g>
+          )}
+        </g>
+      )}
+      {tier >= 6 && (
+        <path data-gear="gold-lapels" d="M84 152 L100 192 L116 152" stroke={GOLD} strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+      {tier >= 7 && (
+        <g data-gear="medals">
+          <rect x="119" y="173" width="21" height="2.6" rx="1" fill={GOLD} />
+          <rect x="119" y="176" width="6" height="10" fill={accent} />
+          <rect x="126" y="176" width="6" height="10" fill="#E5484D" />
+          <rect x="133" y="176" width="6" height="10" fill="#3B82F6" />
+          <g data-gear="epaulettes" fill={GOLD} stroke={GOLD_DARK} strokeWidth="0.8">
+            <g transform={`translate(${34 + ins} 169) rotate(-26)`}>
+              <rect x="-11" y="-3.5" width="22" height="7" rx="2" />
+              <path d="M-9 3.5 v5 M-4 3.5 v5 M1 3.5 v5 M6 3.5 v5" stroke={GOLD} strokeWidth="1.4" fill="none" />
+            </g>
+            <g transform={`translate(${166 - ins} 169) rotate(26)`}>
+              <rect x="-11" y="-3.5" width="22" height="7" rx="2" />
+              <path d="M-6 3.5 v5 M-1 3.5 v5 M4 3.5 v5 M9 3.5 v5" stroke={GOLD} strokeWidth="1.4" fill="none" />
+            </g>
+          </g>
+        </g>
+      )}
+      {tier >= 8 && (
+        <g data-gear="mantle">
+          <path
+            d={`M${34 + ins} 170 C${52 + ins} 158 78 153 100 153 C122 153 ${148 - ins} 158 ${166 - ins} 170 L${158 - ins} 183 C${140 - ins} 171 118 166 100 166 C82 166 ${60 + ins} 171 ${42 + ins} 183 Z`}
+            fill={accent}
+            stroke={GOLD}
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+          <path
+            d={`M${42 + ins} 176 C${60 + ins} 164 82 160 100 160 C118 160 ${140 - ins} 164 ${158 - ins} 176`}
+            stroke={darken(accent, 0.3)}
+            strokeWidth="1.2"
+            fill="none"
+            opacity="0.7"
+          />
+        </g>
+      )}
+      {tier >= 9 && (
+        <g data-gear="chain">
+          <path d="M78 158 Q80 180 100 186 Q120 180 122 158" stroke={GOLD} strokeWidth="3.2" fill="none" strokeDasharray="3.4 2" strokeLinecap="round" />
+          <circle cx="100" cy="190" r="7" fill={GOLD} stroke={GOLD_DARK} strokeWidth="1.4" />
+          <circle cx="100" cy="190" r="3.4" fill={GOLD_DARK} />
+          <circle cx="99" cy="188.6" r="1" fill="#fff" opacity="0.7" />
+        </g>
+      )}
+      {tier >= 10 && <circle data-gear="clasp" cx="100" cy="155" r="4.4" fill={GOLD} stroke={GOLD_DARK} strokeWidth="1.2" />}
     </g>
   );
 }
@@ -370,6 +517,8 @@ interface AvatarFaceProps {
   label?: string;
   /** "face" zooms in on the head, for small pickers. */
   crop?: 'full' | 'face';
+  /** Rank 1 to 10: better outfit details at higher ranks. Defaults to 1 (plain). */
+  rank?: number;
   className?: string;
 }
 
@@ -378,7 +527,8 @@ interface AvatarFaceProps {
  * The mouth is its own layer so it can move while the character is speaking;
  * with reduced motion on it opens and holds instead.
  */
-export default function AvatarFace({ config, speaking = false, label, crop = 'full', className = '' }: AvatarFaceProps) {
+export default function AvatarFace({ config, speaking = false, label, crop = 'full', rank = 1, className = '' }: AvatarFaceProps) {
+  const tier = Math.min(10, Math.max(1, Math.round(rank) || 1));
   const reducedMotion = usePrefersReducedMotion();
   const uid = `av${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
@@ -458,6 +608,15 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
           <stop offset="0" stopColor="#ffd9a0" stopOpacity="0.32" />
           <stop offset="0.45" stopColor="#ffd9a0" stopOpacity="0" />
         </linearGradient>
+        <radialGradient id={`${uid}-aura`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor={GOLD} stopOpacity="0.55" />
+          <stop offset="0.6" stopColor={GOLD} stopOpacity="0.18" />
+          <stop offset="1" stopColor={GOLD} stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`${uid}-cape`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={lighten(accent, 0.1)} />
+          <stop offset="1" stopColor={darken(accent, 0.5)} />
+        </linearGradient>
         <clipPath id={`${uid}-head`}>
           <path d={headPath(head)} />
         </clipPath>
@@ -473,6 +632,16 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       <circle cx="160" cy="26" r="8" fill="#fff" opacity="0.1" />
       <rect width="200" height="200" fill={`url(#${uid}-glow)`} />
 
+      {tier >= 10 && (
+        <g data-gear="aura">
+          <circle cx="100" cy="92" r="84" fill={`url(#${uid}-aura)`} />
+          <Sparkle x={38} y={52} s={1.1} />
+          <Sparkle x={166} y={44} s={0.9} />
+          <Sparkle x={176} y={104} s={0.7} />
+          <Sparkle x={26} y={112} s={0.8} />
+        </g>
+      )}
+
       {/* hair behind */}
       <g fill={`url(#${uid}-hair)`}>
         <HairBack style={config.hairStyle} fill={`url(#${uid}-hair)`} light={hairLight} tw={tw} />
@@ -483,7 +652,16 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
         d={fem ? 'M87 118 L87 158 C93 165 107 165 113 158 L113 118 Z' : 'M82 118 L82 158 C90 168 110 168 118 158 L118 118 Z'}
         fill={`url(#${uid}-neck)`}
       />
+      {tier >= 10 && <RankCape accent={accent} uid={uid} />}
       <Attire type={config.attire} color={attire} accent={accent} uid={uid} fem={fem} />
+      <RankGear
+        tier={tier}
+        attire={config.attire}
+        color={attire}
+        accent={accent}
+        fem={fem}
+        body={fem ? 'M26 200 C26 168 60 153 100 153 C140 153 174 168 174 200 Z' : 'M12 200 C12 164 52 152 100 152 C148 152 188 164 188 200 Z'}
+      />
 
       {/* ears */}
       <g>

@@ -1,9 +1,10 @@
 import { useRef, useState, useEffect } from 'react';
-import { Check, Shuffle } from 'lucide-react';
+import { Check, Lock, Shuffle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isUsernameAvailable, savePublicProfile } from '../lib/publicProfile';
 import ScreenShell from './ScreenShell';
 import AvatarFace from './AvatarFace';
+import { LEVELS, getLevelForWins } from '../lib/levels';
 import {
   ACCENT_COLORS,
   ATTIRES,
@@ -34,6 +35,8 @@ interface AvatarCreatorProps {
   /** Pre-fills the username box (e.g. a nickname chosen earlier). */
   initialUsername?: string;
   initialAvatar?: AvatarConfig;
+  /** Cases won so far: decides which rank outfits are unlocked. */
+  wins?: number;
   onDone: () => void;
   /** Back button (change mode). */
   onBack?: () => void;
@@ -174,7 +177,9 @@ type ShapeField = 'headShape' | 'eyeShape' | 'noseShape' | 'mouthShape' | 'browS
  * then avatar) and again from Settings > Change avatar. Saves to the account
  * metadata, so the avatar appears on the trial screen.
  */
-export default function AvatarCreator({ mode = 'signup', initialUsername = '', initialAvatar, onDone, onBack }: AvatarCreatorProps) {
+export default function AvatarCreator({ mode = 'signup', initialUsername = '', initialAvatar, wins = 0, onDone, onBack }: AvatarCreatorProps) {
+  const myRank = getLevelForWins(wins).level;
+  const [previewRank, setPreviewRank] = useState(myRank);
   const [step, setStep] = useState<'username' | 'avatar'>(mode === 'signup' ? 'username' : 'avatar');
   const [username, setUsername] = useState(initialUsername);
   const [avatar, setAvatar] = useState<AvatarConfig>(() => initialAvatar ?? randomAvatar());
@@ -305,10 +310,15 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
             aria-label="Preview your avatar speaking"
             className="relative w-44 h-44 rounded-3xl overflow-hidden border-4 border-[#FFD43B] shadow-[0_8px_0_#B8860B,0_0_32px_rgba(255,212,59,0.25)] active:translate-y-0.5 transition-transform"
           >
-            <AvatarFace config={avatar} speaking={previewSpeaking} label="Your avatar preview" />
+            <AvatarFace config={avatar} speaking={previewSpeaking} rank={previewRank} label="Your avatar preview" />
           </button>
           <p className="mt-4 font-game text-2xl text-white leading-none truncate max-w-full">
             {mode === 'signup' ? username.trim() : 'Tap to preview'}
+          </p>
+          <p className="mt-1 text-xs text-white/60">
+            {previewRank === myRank
+              ? `Rank: ${LEVELS[myRank - 1].title}`
+              : `Previewing: ${LEVELS[previewRank - 1].title}${previewRank > myRank ? ' (locked)' : ''}`}
           </p>
           <button type="button" onClick={() => setAvatar(randomAvatar())} className={`${GHOST_BUTTON} mt-3 inline-flex items-center gap-2 !text-lg !py-1.5`}>
             <Shuffle className="w-4 h-4" />
@@ -399,6 +409,49 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
                 onPick={o => set('attire', o)}
                 crop="full"
               />
+              <Section title="RANK OUTFITS">
+                <div className="grid grid-cols-5 gap-2">
+                  {LEVELS.map(l => {
+                    const locked = l.level > myRank;
+                    const selected = previewRank === l.level;
+                    return (
+                      <button
+                        key={l.level}
+                        type="button"
+                        onClick={() => setPreviewRank(l.level)}
+                        aria-label={`${l.title}${locked ? `, locked, ${l.wins} wins` : ''}`}
+                        aria-pressed={selected}
+                        className="text-center"
+                      >
+                        <span
+                          className={`relative block aspect-square rounded-xl overflow-hidden border-2 transition-transform active:scale-95 ${
+                            selected ? 'border-[#FFD43B]' : 'border-white/20'
+                          }`}
+                        >
+                          <span className={locked ? 'block w-full h-full opacity-45' : 'block w-full h-full'}>
+                            <AvatarFace config={avatar} rank={l.level} />
+                          </span>
+                          {locked && (
+                            <span className="absolute inset-0 flex items-center justify-center">
+                              <Lock className="w-4 h-4 text-white drop-shadow" />
+                            </span>
+                          )}
+                        </span>
+                        <span className="block mt-1 text-[11px] text-white/65 leading-tight">{l.level}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-white/60">
+                  {LEVELS[previewRank - 1].title}
+                  {previewRank <= myRank
+                    ? previewRank === myRank
+                      ? ': your current outfit.'
+                      : ': unlocked.'
+                    : `: win ${LEVELS[previewRank - 1].wins - wins} more ${LEVELS[previewRank - 1].wins - wins === 1 ? 'case' : 'cases'} to unlock.`}
+                  {' '}Your avatar wears the outfit for your rank automatically.
+                </p>
+              </Section>
               {avatar.attire !== 'robe' && (
                 <Swatches label="OUTFIT COLOR" colors={ATTIRE_COLORS} value={avatar.attireColor} onChange={i => set('attireColor', i)} />
               )}

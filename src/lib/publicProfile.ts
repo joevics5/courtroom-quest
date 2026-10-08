@@ -45,15 +45,21 @@ export async function isUsernameAvailable(name: string): Promise<boolean> {
 export interface PublicProfile {
   username: string | null;
   avatar: AvatarConfig | null;
+  /** 1 to 10, from their wins. */
+  rank: number | null;
 }
 
 /** Another player's public name and avatar, or null if they have none on file. */
 export async function fetchPublicProfile(userId: string): Promise<PublicProfile | null> {
   const { data, error } = await (supabase as any)
     .from('public_profiles')
-    .select('username, avatar')
+    .select('username, avatar, rank_level')
     .eq('user_id', userId)
     .maybeSingle();
   if (error || !data) return null;
-  return { username: data.username ?? null, avatar: parseAvatar(data.avatar) };
+  return {
+    username: data.username ?? null,
+    avatar: parseAvatar(data.avatar),
+    rank: typeof data.rank_level === 'number' ? Math.min(10, Math.max(1, data.rank_level)) : null
+  };
 }

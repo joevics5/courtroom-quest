@@ -48,12 +48,14 @@ describe('publicProfile', () => {
   });
 
   it('fetches an opponent profile and validates the avatar', async () => {
-    maybeSingle.mockResolvedValue({ data: { username: 'Rival', avatar: JUDGE_AVATARS[2] }, error: null });
+    maybeSingle.mockResolvedValue({ data: { username: 'Rival', avatar: JUDGE_AVATARS[2], rank_level: 7 }, error: null });
     const p = await fetchPublicProfile('u2');
     expect(p?.username).toBe('Rival');
+    expect(p?.rank).toBe(7);
     expect(p?.avatar).toEqual(JUDGE_AVATARS[2]);
     maybeSingle.mockResolvedValue({ data: { username: 'X', avatar: { bad: true } }, error: null });
     expect((await fetchPublicProfile('u3'))?.avatar).toBeNull();
+    expect((await fetchPublicProfile('u3'))?.rank).toBeNull();
     maybeSingle.mockResolvedValue({ data: null, error: null });
     expect(await fetchPublicProfile('u4')).toBeNull();
   });

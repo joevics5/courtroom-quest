@@ -923,6 +923,7 @@ function AppContent() {
           session={currentSession}
           onComplete={handleTrialComplete}
           onBack={handleBackFromCourtroom}
+          playerWins={userProfile?.wins_count ?? 0}
         />
       )}
 
