@@ -34,6 +34,22 @@ export const db = {
       return data as UserProfile | null;
     },
 
+    /**
+     * Like getUserProfile, but a failed read THROWS instead of looking like "no profile".
+     * Callers that decide things from the profile (e.g. the intro wizard) must be able to
+     * tell "couldn't load" apart from "has no row yet".
+     */
+    async fetchUserProfile(userId: string): Promise<UserProfile | null> {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as UserProfile | null;
+    },
+
     async isAdmin(userId: string): Promise<boolean> {
       try {
         const profile = await this.getUserProfile(userId);

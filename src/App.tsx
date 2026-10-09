@@ -134,33 +134,52 @@ function AppContent() {
       const isUserAdmin = adminEmails.includes(user.email?.toLowerCase() || '');
       setIsAdmin(isUserAdmin);
 
-      db.users.getUserProfile(user.id)
-        .then((profile) => {
-          if (profile) {
-            setUserProfile(profile);
-          } else {
-            // No row yet (e.g. the signup trigger hasn't caught up) —
-            // use a same-shaped placeholder so the UI doesn't break, but
-            // this should be rare; the real row is what future reads see.
-            setUserProfile({
-              user_id: user.id,
-              subscription_tier: 'free',
-              voice_minutes_remaining: 0,
-              trial_count: 0,
-              case_creation_count: 0,
-              wins_count: 0,
-              current_level: STARTING_RANK,
-              is_admin: isUserAdmin,
-              tutorial_completed: false,
-              difficulty: 'medium',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
+      // A failed read must never look like "brand-new player": the placeholder below
+      // has zero plays and an unset wizard flag, which is exactly what used to bring the
+      // intro wizard back for old accounts whenever the profile request hiccuped.
+      const placeholder = (showWizard: boolean) => ({
+        user_id: user.id,
+        subscription_tier: 'free',
+        voice_minutes_remaining: 0,
+        trial_count: 0,
+        case_creation_count: 0,
+        wins_count: 0,
+        current_level: STARTING_RANK,
+        is_admin: isUserAdmin,
+        tutorial_completed: !showWizard,
+        difficulty: 'medium',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } as UserProfile);
+      // Only a really fresh account may get the wizard from a placeholder.
+      const createdMs = user.created_at ? Date.parse(user.created_at) : NaN;
+      const isFreshAccount = Number.isFinite(createdMs) && Date.now() - createdMs < 24 * 60 * 60 * 1000;
+
+      let cancelled = false;
+      (async () => {
+        let profile: UserProfile | null = null;
+        let loaded = false;
+        for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
+          try {
+            profile = await db.users.fetchUserProfile(user.id);
+            loaded = true;
+          } catch (error) {
+            console.error('Failed to load user profile (attempt ' + (attempt + 1) + '):', error);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
           }
-        })
-        .catch((error) => {
-          console.error('Failed to load user profile:', error);
-        });
+        }
+        if (cancelled) return;
+        if (profile) {
+          setUserProfile(profile);
+        } else if (loaded) {
+          // No row yet (signup trigger hasn't caught up): wizard only for a fresh account.
+          setUserProfile(placeholder(isFreshAccount));
+        } else {
+          // Couldn't load at all: we don't know who this is, so never show the wizard.
+          setUserProfile(placeholder(false));
+        }
+      })();
+      return () => { cancelled = true; };
     } else {
       setUserProfile(null);
       setIsAdmin(false);

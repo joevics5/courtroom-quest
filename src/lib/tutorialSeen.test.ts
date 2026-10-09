@@ -12,6 +12,14 @@ describe('tutorialAlreadySeen', () => {
     expect(tutorialAlreadySeen(fresh, member)).toBe(false);
   });
 
+  it('never shows it to an account older than the wizard, even with no plays and no flag', () => {
+    expect(tutorialAlreadySeen(fresh, { ...member, created_at: '2026-03-01T10:00:00Z' })).toBe(true);
+  });
+
+  it('still shows it to a recent account that has not seen it', () => {
+    expect(tutorialAlreadySeen(fresh, { ...member, created_at: '2026-10-08T10:00:00Z' })).toBe(false);
+  });
+
   it('does not show it again once the database flag is set', () => {
     expect(tutorialAlreadySeen({ ...fresh, tutorial_completed: true }, member)).toBe(true);
   });

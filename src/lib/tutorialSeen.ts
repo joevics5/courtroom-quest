@@ -2,9 +2,12 @@ import { hasSeen, markSeen } from './firstVisit';
 
 const FEATURE = 'tutorial';
 const DEVICE = 'device';
+// The wizard shipped on this date; any account older than that has never needed it.
+const WIZARD_SHIPPED_AT = Date.parse('2026-08-08T00:00:00Z');
 
 type TutorialUser = {
   id: string;
+  created_at?: string;
   is_anonymous?: boolean;
   user_metadata?: { tutorial_done?: boolean } | null;
 };
@@ -27,6 +30,8 @@ export function tutorialAlreadySeen(profile: TutorialProfile, user: TutorialUser
   if (hasSeen(FEATURE, user.id)) return true;
   if (user.is_anonymous && hasSeen(FEATURE, DEVICE)) return true;
   if ((profile.trial_count ?? 0) > 0 || (profile.wins_count ?? 0) > 0) return true;
+  const createdMs = user.created_at ? Date.parse(user.created_at) : NaN;
+  if (Number.isFinite(createdMs) && createdMs < WIZARD_SHIPPED_AT) return true;
   return false;
 }
 
