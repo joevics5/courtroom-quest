@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Scale, Trophy, XCircle, CheckCircle, Home, Share2, Download, FileText } from 'lucide-react';
+import { CheckCircle, FileText, Home, Share2, XCircle } from 'lucide-react';
 import type { Verdict, TrialEvent, PlayerRole } from '../types';
 import { db } from '../lib/database';
 import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
 import TranscriptViewer from './TranscriptViewer';
 import { JuryVoteHistory } from './JuryDeliberation';
+import AvatarFace from './AvatarFace';
+import SceneBackdrop from './SceneBackdrop';
+import { gameButton, PANEL_SOFT } from './ui';
+import { useAuth } from '../contexts/AuthContext';
+import { getUserAvatar } from '../lib/avatars';
+import { LEVELS, getLevelForWins, getNextLevel, getRankProgress } from '../lib/levels';
 import type { JuryRound } from '../lib/ai/trialAI';
 
 interface VerdictDisplayProps {
@@ -12,10 +18,13 @@ interface VerdictDisplayProps {
   caseTitle: string;
   currentLevel: string;
   playerRole: PlayerRole;
+  /** Cases won so far (after this one): shows rank progress and a NEW RANK badge. */
+  wins?: number;
   onReturnHome: () => void;
 }
 
-export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playerRole, onReturnHome }: VerdictDisplayProps) {
+export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playerRole, wins, onReturnHome }: VerdictDisplayProps) {
+  const { user } = useAuth();
   // isWin reflects whether the PLAYER won their case, not the raw AI
   // outcome field (which is an absolute guilty/not-guilty call and means
   // the opposite thing for a defense player vs. a prosecution player).
@@ -84,184 +93,182 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
     }
   };
 
+  // ---- what the player sees ----
+  const myAvatar = getUserAvatar(user);
+  const rankTitle = wins !== undefined ? getLevelForWins(wins).title : currentLevel;
+  const rankLevel = wins !== undefined ? getLevelForWins(wins).level : Math.max(1, LEVELS.findIndex(l => l.title === currentLevel) + 1);
+  // Wins is already counted for this case, so landing exactly on a rank's threshold means just promoted.
+  const rankedUp = isWin && wins !== undefined && LEVELS.some(l => l.level > 1 && l.wins === wins);
+  const next = wins !== undefined ? getNextLevel(wins) : null;
+  const hasScore = typeof verdict.score === 'number';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 flex items-center justify-center">
-      <div className="max-w-3xl w-full">
-        {isWin && (
-          <div className="mb-8 bg-gradient-to-br from-amber-600 to-yellow-500 rounded-2xl p-8 border-4 border-amber-400 shadow-2xl animate-pulse">
-            <div className="text-center">
-              <div className="text-6xl mb-4">🏛️</div>
-              <h2 className="text-3xl font-bold text-white mb-2">CASE WON</h2>
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 mb-4">
-                <p className="text-xl font-semibold text-white mb-2">{caseTitle}</p>
-                <p className="text-lg text-white/90 mb-1">Verdict: {verdictWord}</p>
-                <p className="text-lg text-white/90 mb-1">Rank Achieved: {currentLevel}</p>
-                {verdict.score && (
-                  <p className="text-lg text-white/90">Score: {verdict.score}/100</p>
-                )}
+    <div className="relative min-h-[100dvh] bg-[#0b0d14] overflow-x-hidden">
+      <SceneBackdrop />
+      <div
+        className="relative z-10 px-4 sm:px-6"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 20px)', paddingBottom: 'max(env(safe-area-inset-bottom), 32px)' }}
+      >
+        <div className="max-w-2xl mx-auto space-y-5">
+          {/* result */}
+          <section className="text-center">
+            <div
+              className={`mx-auto w-40 h-40 sm:w-48 sm:h-48 rounded-3xl overflow-hidden border-4 ${
+                isWin
+                  ? 'border-[#FFD43B] shadow-[0_8px_0_#B8860B,0_0_44px_rgba(255,212,59,0.5)]'
+                  : 'border-white/30 shadow-[0_8px_0_rgba(0,0,0,0.5)]'
+              }`}
+            >
+              <div className={isWin ? 'w-full h-full' : 'w-full h-full saturate-50 brightness-90'}>
+                <AvatarFace config={myAvatar} rank={rankLevel} label="Your avatar" />
               </div>
-              <button
-                onClick={handleShare}
-                className="flex items-center justify-center gap-2 mx-auto px-6 py-3 bg-white text-amber-600 rounded-lg font-semibold hover:bg-amber-50 transition-colors"
-              >
-                <Share2 className="w-5 h-5" />
-                Share Victory
-              </button>
-              {shareMessage && (
-                <p className="mt-2 text-white text-sm">{shareMessage}</p>
+            </div>
+            <h1
+              className={`mt-6 font-game text-6xl sm:text-7xl leading-none ${
+                isWin ? 'logo-gold' : 'text-[#FF7A7E] drop-shadow-[0_3px_0_rgba(0,0,0,0.6)]'
+              }`}
+            >
+              {isWin ? 'VICTORY' : 'DEFEAT'}
+            </h1>
+            <p className="mt-2 text-white/60">The court has delivered its verdict</p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <span className="rounded-full bg-black/55 border border-white/20 px-4 py-1.5 font-game text-xl leading-none text-white">
+                {rankTitle}
+              </span>
+              {rankedUp && (
+                <span className="rounded-full bg-[#FFD43B] px-3 py-1.5 font-game text-xl leading-none text-black shadow-[0_0_18px_rgba(255,212,59,0.55)]">
+                  NEW RANK!
+                </span>
               )}
             </div>
-          </div>
-        )}
-
-        <div className="text-center mb-8">
-          <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-6 ${
-            isWin ? 'bg-green-600' : 'bg-red-600'
-          }`}>
-            {isWin ? (
-              <Trophy className="w-12 h-12 text-white" />
-            ) : (
-              <XCircle className="w-12 h-12 text-white" />
-            )}
-          </div>
-          <h1 className={`text-4xl font-bold mb-2 ${
-            isWin ? 'text-green-400' : 'text-red-400'
-          }`}>
-            {isWin ? 'Victory' : 'Case Dismissed'}
-          </h1>
-          <p className="text-slate-400 text-lg">The court has delivered its verdict</p>
-        </div>
-
-        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-          <div className="border-b border-slate-700 px-6 py-4 bg-slate-750">
-            <div className="flex items-center gap-3">
-              <Scale className="w-5 h-5 text-blue-400" />
-              <h2 className="text-xl font-semibold text-white">Judge's Decision</h2>
-            </div>
-          </div>
-
-          <div className="p-6 space-y-6">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Outcome
-              </h3>
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${
-                isWin
-                  ? 'bg-green-500/10 border border-green-500/30 text-green-400'
-                  : 'bg-red-500/10 border border-red-500/30 text-red-400'
-              }`}>
-                {isWin ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                <span className="font-semibold">{verdictWord} — {isWin ? 'You Won' : 'You Lost'}</span>
+            {next && (
+              <div className="mt-3 mx-auto max-w-xs">
+                <div className="h-2 rounded-full bg-white/15 overflow-hidden" aria-hidden="true">
+                  <div className="h-full rounded-full bg-[#FFD43B]" style={{ width: `${Math.round(getRankProgress(wins!) * 100)}%` }} />
+                </div>
+                <p className="mt-1.5 text-xs text-white/60">
+                  {next.winsNeeded} more {next.winsNeeded === 1 ? 'win' : 'wins'} to {next.nextTitle}
+                </p>
               </div>
+            )}
+          </section>
+
+          {/* the decision */}
+          <section className={`${PANEL_SOFT} overflow-hidden`}>
+            <div className="px-5 py-4 border-b border-white/10">
+              <p className="text-xs uppercase tracking-wider text-white/50">Case</p>
+              <h2 className="text-lg font-semibold text-white leading-snug">{caseTitle}</h2>
             </div>
 
-            {verdict.score !== undefined && (
+            <div className="p-5 space-y-6">
               <div>
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  Performance Score
-                </h3>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 bg-slate-700 rounded-full h-3 overflow-hidden">
-                    <div
-                      className={`h-full transition-all ${
-                        verdict.score >= 80
-                          ? 'bg-green-500'
-                          : verdict.score >= 60
-                          ? 'bg-yellow-500'
-                          : 'bg-red-500'
-                      }`}
-                      style={{ width: `${verdict.score}%` }}
-                    />
-                  </div>
-                  <span className="text-2xl font-bold text-white">{verdict.score}</span>
+                <h3 className="font-game text-xl text-white/90 leading-none mb-2">OUTCOME</h3>
+                <div
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${
+                    isWin ? 'bg-[#2EC4B6]/10 border-[#2EC4B6]/40 text-[#5EEAD4]' : 'bg-[#E5484D]/10 border-[#E5484D]/40 text-[#FF9A9D]'
+                  }`}
+                >
+                  {isWin ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                  <span className="font-semibold">
+                    {verdictWord} — {isWin ? 'You Won' : 'You Lost'}
+                  </span>
                 </div>
               </div>
-            )}
 
-            <div>
-              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Reasoning
-              </h3>
-              <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
-                <p className="text-slate-200 leading-relaxed">{verdict.reasoning}</p>
-              </div>
-            </div>
-
-            {juryRounds.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  How the Jury Voted
-                </h3>
-                <div className="bg-slate-750 rounded-lg p-4 border border-slate-600">
-                  <JuryVoteHistory rounds={juryRounds} />
-                </div>
-              </div>
-            )}
-
-            {verdict.evidence_cited && verdict.evidence_cited.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  Evidence Cited
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {verdict.evidence_cited.map((exhibit, idx) => (
-                    <div
-                      key={idx}
-                      className="px-3 py-1 bg-blue-500/10 border border-blue-500/30 rounded text-blue-400 text-sm font-medium"
-                    >
-                      {exhibit}
+              {hasScore && (
+                <div>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">PERFORMANCE SCORE</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 bg-white/15 rounded-full h-3 overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${
+                          verdict.score! >= 80 ? 'bg-[#2EC4B6]' : verdict.score! >= 60 ? 'bg-[#FFD43B]' : 'bg-[#E5484D]'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, verdict.score!))}%` }}
+                      />
                     </div>
-                  ))}
+                    <span className="font-game text-4xl leading-none text-white">{verdict.score}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {verdict.missed_opportunities && verdict.missed_opportunities.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  Missed Opportunities
-                </h3>
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                  <ul className="space-y-2">
-                    {verdict.missed_opportunities.map((opportunity, idx) => (
-                      <li key={idx} className="text-yellow-300 text-sm flex items-start gap-2">
-                        <span className="text-yellow-500 mt-1">•</span>
-                        <span>{opportunity}</span>
-                      </li>
-                    ))}
-                  </ul>
+                <h3 className="font-game text-xl text-white/90 leading-none mb-2">THE JUDGE'S REASONING</h3>
+                <div className="rounded-xl bg-black/35 border border-white/10 p-4">
+                  <p className="text-white/90 leading-relaxed whitespace-pre-line">{verdict.reasoning}</p>
                 </div>
               </div>
+
+              {juryRounds.length > 0 && (
+                <div>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">HOW THE JURY VOTED</h3>
+                  <div className="rounded-xl bg-black/35 border border-white/10 p-4">
+                    <JuryVoteHistory rounds={juryRounds} />
+                  </div>
+                </div>
+              )}
+
+              {verdict.evidence_cited && verdict.evidence_cited.length > 0 && (
+                <div>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">EVIDENCE CITED</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {verdict.evidence_cited.map((exhibit, idx) => (
+                      <span key={idx} className="px-3 py-1 rounded-full bg-[#8B5CF6]/15 border border-[#8B5CF6]/40 text-[#C4B5FD] text-sm font-medium">
+                        {exhibit}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {verdict.missed_opportunities && verdict.missed_opportunities.length > 0 && (
+                <div>
+                  <h3 className="font-game text-xl text-[#FFD43B] leading-none mb-2">MISSED OPPORTUNITIES</h3>
+                  <div className="rounded-xl bg-[#FFD43B]/10 border border-[#FFD43B]/30 p-4">
+                    <ul className="space-y-2">
+                      {verdict.missed_opportunities.map((opportunity, idx) => (
+                        <li key={idx} className="text-white/90 text-sm flex items-start gap-2">
+                          <span className="text-[#FFD43B] mt-0.5">•</span>
+                          <span>{opportunity}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* what next */}
+          <div className="space-y-3">
+            <button onClick={onReturnHome} className={`${gameButton('gold', 'md')} w-full`}>
+              <Home className="w-6 h-6" />
+              RETURN TO CASES
+            </button>
+            <div className={`grid gap-3 ${isWin ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {isWin && (
+                <button onClick={handleShare} className={gameButton('outline', 'sm')}>
+                  <Share2 className="w-5 h-5" />
+                  SHARE VICTORY
+                </button>
+              )}
+              <button onClick={loadTranscript} disabled={loadingTranscript} className={gameButton('ghost', 'sm')}>
+                <FileText className="w-5 h-5" />
+                {loadingTranscript ? 'LOADING...' : 'VIEW TRANSCRIPT'}
+              </button>
+            </div>
+            {shareMessage && (
+              <p role="status" className="text-center text-[#FFD43B] text-sm">
+                {shareMessage}
+              </p>
             )}
           </div>
         </div>
-
-        <div className="mt-8 flex gap-4">
-          <button
-            onClick={loadTranscript}
-            disabled={loadingTranscript}
-            className="flex items-center justify-center gap-2 px-6 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FileText className="w-5 h-5" />
-            {loadingTranscript ? 'Loading...' : 'View Transcript'}
-          </button>
-          <button
-            onClick={onReturnHome}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-          >
-            <Home className="w-5 h-5" />
-            Return to Cases
-          </button>
-        </div>
-
-        {showTranscript && (
-          <TranscriptViewer
-            events={transcriptEvents}
-            caseTitle={caseTitle}
-            onClose={() => setShowTranscript(false)}
-          />
-        )}
       </div>
+
+      {showTranscript && (
+        <TranscriptViewer events={transcriptEvents} caseTitle={caseTitle} onClose={() => setShowTranscript(false)} />
+      )}
     </div>
   );
 }

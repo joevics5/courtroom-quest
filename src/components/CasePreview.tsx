@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Shield, Gavel, FileText, ArrowLeft, ChevronDown, ChevronUp, FileStack, Users, Loader2 } from 'lucide-react';
 import { db } from '../lib/database';
+import { useAuth } from '../contexts/AuthContext';
+import AvatarFace from './AvatarFace';
+import { gameButton, PANEL } from './ui';
+import { getUserAvatar } from '../lib/avatars';
+import { getLevelForWins } from '../lib/levels';
 import type { PlayerRole, Evidence, Witness } from '../types';
 
 interface Props {
@@ -14,16 +19,27 @@ interface Props {
   onSwitchMode?: (mode: 'online' | 'local') => void;
   /** Custom cases can't be played online (an opponent can't load them) */
   onlineDisabled?: boolean;
+  /** Cases won so far: dresses your avatar in your rank outfit on the briefing. */
+  playerWins?: number;
 }
 
 type Step = 'browse' | 'confirm-prosecute' | 'confirm-defend';
 
 const ROLE_STYLE = {
-  defense: { accent: 'text-blue-400', ring: 'border-blue-500', glow: 'from-blue-500/20 to-cyan-500/20' },
-  prosecution: { accent: 'text-red-400', ring: 'border-red-500', glow: 'from-red-500/20 to-orange-500/20' }
+  defense: {
+    label: 'DEFENSE COUNSEL',
+    frame: 'border-[#3B82F6] shadow-[0_8px_0_#1e4fa8,0_0_36px_rgba(59,130,246,0.4)]'
+  },
+  prosecution: {
+    label: 'PROSECUTION COUNSEL',
+    frame: 'border-[#E5484D] shadow-[0_8px_0_#9b1c22,0_0_36px_rgba(229,72,77,0.4)]'
+  }
 };
 
-export default function CasePreview({ caseId, caseTitle, caseText, defendantName, onSelect, onCancel, onSwitchMode, onlineDisabled }: Props) {
+export default function CasePreview({ caseId, caseTitle, caseText, defendantName, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0 }: Props) {
+  const { user } = useAuth();
+  const myAvatar = getUserAvatar(user);
+  const myRank = getLevelForWins(playerWins);
   const [step, setStep] = useState<Step>('browse');
   const [filesExpanded, setFilesExpanded] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
@@ -65,31 +81,26 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
   if (step === 'confirm-prosecute' || step === 'confirm-defend') {
     const role: PlayerRole = step === 'confirm-prosecute' ? 'prosecution' : 'defense';
     const style = ROLE_STYLE[role];
-    const Icon = role === 'prosecution' ? Gavel : Shield;
     const briefing = role === 'prosecution'
       ? `You've been assigned to lead the prosecution in ${caseTitle}. The State is counting on you to prove the case against ${defendant} beyond a reasonable doubt. Will you take the case?`
       : `${defendant} has asked you to defend them in ${caseTitle}. The evidence against them is serious, but everyone deserves a defense. Will you take the case?`;
 
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-md w-full border border-white/10 shadow-2xl">
-          <div className={`w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-gradient-to-br ${style.glow} mb-4`}>
-            <Icon className={`w-7 h-7 ${style.accent}`} />
+      <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div role="dialog" aria-label={`${style.label} briefing`} className={`${PANEL} max-w-md w-full text-center`}>
+          <p className="font-game text-xl leading-none text-white/55 mb-4">NEW CASE ASSIGNMENT</p>
+          <div className={`mx-auto w-32 h-32 rounded-3xl overflow-hidden border-4 ${style.frame}`}>
+            <AvatarFace config={myAvatar} rank={myRank.level} label="Your avatar" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-3 text-center">{role === 'prosecution' ? 'Prosecution' : 'Defense'} Counsel</h2>
-          <p className="text-white/80 text-sm leading-relaxed text-center mb-6">{briefing}</p>
-          <div className="flex flex-row gap-3">
-            <button
-              onClick={() => setStep('browse')}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-lg transition-colors font-semibold"
-            >
-              Reject
+          <h2 className="logo-gold font-game text-4xl leading-none mt-6">{style.label}</h2>
+          <p className="text-white/60 text-sm mt-2">{myRank.title}</p>
+          <p className="text-white/85 leading-relaxed mt-4 mb-6">{briefing}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => setStep('browse')} className={gameButton('ghost', 'md')}>
+              REJECT
             </button>
-            <button
-              onClick={() => onSelect(role)}
-              className={`flex-1 px-4 py-3 text-white rounded-lg transition-colors font-semibold ${role === 'prosecution' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-            >
-              Accept
+            <button onClick={() => onSelect(role)} className={gameButton('gold', 'md')}>
+              ACCEPT CASE
             </button>
           </div>
         </div>
@@ -99,19 +110,19 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
 
   // step === 'browse'
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5 text-amber-400" />
-          <span className="text-amber-400 text-xs font-bold uppercase tracking-wide">Case File</span>
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className={`${PANEL} max-w-2xl w-full max-h-[90dvh] overflow-y-auto`}>
+        <div className="flex items-center gap-2 mb-3">
+          <FileText className="w-6 h-6 text-[#FFD43B]" />
+          <span className="font-game text-2xl leading-none text-[#FFD43B]">CASE FILE</span>
         </div>
 
-        <h2 className="text-2xl font-bold text-white mb-4">{caseTitle}</h2>
-        <p className="text-white/70 text-sm leading-relaxed whitespace-pre-line mb-4">{caseText}</p>
+        <h2 className="text-2xl font-bold text-white mb-3 leading-snug">{caseTitle}</h2>
+        <p className="text-white/80 leading-relaxed whitespace-pre-line mb-5">{caseText}</p>
 
         <button
           onClick={handleToggleFiles}
-          className="w-full flex items-center justify-between px-4 py-2.5 mb-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/80 text-sm font-medium transition-colors"
+          className="w-full flex items-center justify-between px-4 py-3 mb-5 bg-white/10 active:bg-white/15 border border-white/15 rounded-xl text-white/90 text-sm font-medium transition-colors"
         >
           <span className="flex items-center gap-2">
             <FileStack className="w-4 h-4" />
@@ -145,7 +156,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
                           className={`w-full flex items-center justify-between px-3 py-2.5 text-left ${hasDetail ? 'cursor-pointer hover:bg-white/5' : 'cursor-default'}`}
                         >
                           <span className="text-sm">
-                            <span className="text-amber-400 font-medium">{e.exhibit_label || 'Exhibit'}:</span>{' '}
+                            <span className="text-[#FFD43B] font-medium">{e.exhibit_label || 'Exhibit'}:</span>{' '}
                             <span className="text-white/80">{e.title}</span>
                           </span>
                           {hasDetail && (isOpen ? <ChevronUp className="w-4 h-4 text-white/40 shrink-0" /> : <ChevronDown className="w-4 h-4 text-white/40 shrink-0" />)}
@@ -218,20 +229,21 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
           </div>
         )}
 
-        <div className="flex flex-row gap-3 mb-4">
+        <p className="font-game text-2xl leading-none text-white mb-3">CHOOSE YOUR SIDE</p>
+        <div className="grid grid-cols-2 gap-3 mb-5">
           <button
             onClick={() => setStep('confirm-prosecute')}
-            className="flex-1 p-4 rounded-lg border-2 border-white/10 hover:border-red-500 bg-white/5 hover:bg-white/10 flex flex-col items-center gap-2 transition-colors"
+            className="rounded-2xl border-2 border-[#E5484D]/60 bg-[#E5484D]/10 active:bg-[#E5484D]/25 py-5 flex flex-col items-center gap-2 transition-colors"
           >
-            <Gavel className="w-6 h-6 text-red-400" />
-            <span className="text-white font-semibold text-sm">Prosecute</span>
+            <Gavel className="w-8 h-8 text-[#FF7A7E]" />
+            <span className="font-game text-3xl leading-none text-white">PROSECUTE</span>
           </button>
           <button
             onClick={() => setStep('confirm-defend')}
-            className="flex-1 p-4 rounded-lg border-2 border-white/10 hover:border-blue-500 bg-white/5 hover:bg-white/10 flex flex-col items-center gap-2 transition-colors"
+            className="rounded-2xl border-2 border-[#3B82F6]/60 bg-[#3B82F6]/10 active:bg-[#3B82F6]/25 py-5 flex flex-col items-center gap-2 transition-colors"
           >
-            <Shield className="w-6 h-6 text-blue-400" />
-            <span className="text-white font-semibold text-sm">Defend</span>
+            <Shield className="w-8 h-8 text-[#7FB2FF]" />
+            <span className="font-game text-3xl leading-none text-white">DEFEND</span>
           </button>
         </div>
 
@@ -240,11 +252,11 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
             <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">Playing vs AI</span>
             <span>Switch to:</span>
             {!onlineDisabled && (
-              <button onClick={() => onSwitchMode('online')} className="font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2">
+              <button onClick={() => onSwitchMode('online')} className="font-semibold text-[#FFD43B] underline underline-offset-2">
                 Online player
               </button>
             )}
-            <button onClick={() => onSwitchMode('local')} className="font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2">
+            <button onClick={() => onSwitchMode('local')} className="font-semibold text-[#FFD43B] underline underline-offset-2">
               Same device
             </button>
           </div>
@@ -253,7 +265,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
         <div className="flex justify-center">
           <button
             onClick={onCancel}
-            className="flex items-center gap-1 px-4 py-2 text-white/60 hover:text-white transition-colors text-sm"
+            className="flex items-center gap-1 px-4 py-2 text-white/70 active:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             Choose a different case

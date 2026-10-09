@@ -873,6 +873,7 @@ function AppContent() {
           caseText={currentCase.case_summary || currentCase.description}
           defendantName={currentCase.defendant_name || (currentCase.truth_state as any)?.defendant_name}
           onSelect={handleRoleSelect}
+          playerWins={userProfile?.wins_count ?? 0}
           onCancel={handleBackFromInvestigation}
           onSwitchMode={mode => {
             setChallengeSeed({ tab: mode === 'online' ? 'quick' : 'local', withCase: true });
@@ -935,6 +936,7 @@ function AppContent() {
           caseTitle={currentCase.title}
           currentLevel={userProfile.current_level}
           playerRole={getSessionPlayerRole(currentSession, user.id)}
+          wins={userProfile?.wins_count}
           onReturnHome={handleReturnHome}
         />
       )}
