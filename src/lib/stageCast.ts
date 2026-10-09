@@ -1,4 +1,4 @@
-import { avatarFromSeed, type AvatarConfig } from './avatars';
+import { avatarFromSeed, randomAvatar, type AvatarConfig } from './avatars';
 
 /** AI counsel get a steady mid-ladder rank (same seed, same rank): experienced but beatable. */
 export function aiRank(seed: string): number {
@@ -35,4 +35,17 @@ export function castAvatars(input: {
         ? myAvatar
         : opponentAvatar || avatarFromSeed(opponentUserId || `${input.sessionId}-Defense Counsel`, 'counsel')
   };
+}
+
+/** The witnesses who appear on the stand again and again. */
+export const WITNESS_POOL_SIZE = 10;
+
+/**
+ * A witness's face, taken from a fixed pool of ten. The same witness name always gets the same
+ * face, so a witness looks the same on direct, cross and redirect.
+ */
+export function witnessAvatar(name: string): AvatarConfig {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return randomAvatar(`witness-pool-${h % WITNESS_POOL_SIZE}`);
 }

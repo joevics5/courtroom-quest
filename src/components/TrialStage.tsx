@@ -1,7 +1,7 @@
 import { pickActiveSpeaker, type StageSpeaker, type TurnBadge } from '../lib/stageSpeaker';
 import { DEFAULT_SCENE, STAGE_SCENES } from './stage/scenes';
 import { TTS_SUPPORTED, useRecentPulse, useTtsSpeaking } from './stage/signals';
-import type { StageParticipant, StageSceneId } from './stage/types';
+import type { StageJuror, StageParticipant, StageSceneId } from './stage/types';
 import { useSpeechMuted } from './SpeechToggle';
 
 interface TrialStageProps {
@@ -22,6 +22,9 @@ interface TrialStageProps {
   compact?: boolean;
   /** Which scene draws the courtroom. */
   scene?: StageSceneId;
+  witness?: StageParticipant;
+  jurors?: StageJuror[];
+  jurorVotes?: Record<string, 'GUILTY' | 'NOT_GUILTY'>;
 }
 
 /**
@@ -40,7 +43,10 @@ export default function TrialStage({
   playerRole,
   turn,
   compact,
-  scene = DEFAULT_SCENE
+  scene = DEFAULT_SCENE,
+  witness,
+  jurors,
+  jurorVotes
 }: TrialStageProps) {
   const ttsSpeaking = useTtsSpeaking();
   const recentMessage = useRecentPulse(lastEventKey, 3500);
@@ -59,6 +65,9 @@ export default function TrialStage({
       playerRole={playerRole}
       turn={turn}
       compact={compact}
+      witness={witness}
+      jurors={jurors}
+      jurorVotes={jurorVotes}
     />
   );
 }

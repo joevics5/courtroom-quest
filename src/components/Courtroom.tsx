@@ -4,6 +4,8 @@ import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
 import TrialStage from './TrialStage';
+import { pickStageScene } from '../lib/stageScene';
+import { witnessAvatar } from '../lib/stageCast';
 import SceneBackdrop from './SceneBackdrop';
 import TranscriptMessage from './TranscriptMessage';
 import { gameButton, ICON_BUTTON, PANEL_SOFT } from './ui';
@@ -2057,6 +2059,25 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }
   }, [isProcessing, inWitnessExam, isPlayerTurn, inputOpen]);
 
+  // Virtual courtroom extras (only drawn by the 'virtual' scene).
+  const stageScene = useMemo(() => pickStageScene(), []);
+  const [seatedJurorIds, setSeatedJurorIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (stageScene !== 'virtual') return;
+    let cancelled = false;
+    db.jurySelections
+      .getSessionJurySelections(session.id)
+      .then(rows => { if (!cancelled) setSeatedJurorIds(rows.map(r => r.juror_id)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [stageScene, session.id]);
+  const stageWitnessName: string | null = inWitnessExam ? (turnState?.current_witness_name || null) : null;
+  const stageJurorVotes = useMemo(() => {
+    const last = deliberation?.rounds?.[deliberation.rounds.length - 1];
+    if (!last) return undefined;
+    return Object.fromEntries(last.votes.map(v => [v.jurorId, v.vote])) as Record<string, 'GUILTY' | 'NOT_GUILTY'>;
+  }, [deliberation]);
+
   // The trial's turn-by-turn switch, used by both the stage glow and the turn badge.
   const stageFloor = getTrialFloor({
     phaseName: phase?.name,
@@ -2159,6 +2180,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                     playerRole={playerRole}
                     turn={turnBadge}
                     compact={keyboardOpen}
+                    scene={stageScene}
+                    witness={stageWitnessName ? { name: stageWitnessName, avatar: witnessAvatar(stageWitnessName) } : undefined}
+                    jurors={deliberation?.jurors?.length ? deliberation.jurors.map(j => ({ id: j.id, name: j.name })) : seatedJurorIds.map(id => ({ id }))}
+                    jurorVotes={stageJurorVotes}
                     judge={{ name: judgeName || 'Judge', avatar: cast.judge, rank: 6 }}
                     prosecution={{ name: stageProsecutorName, avatar: cast.prosecution, rank: prosecutionRank }}
                     defense={{ name: stageDefenseName, avatar: cast.defense, rank: defenseRank }}

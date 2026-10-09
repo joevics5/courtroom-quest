@@ -40,6 +40,17 @@ export interface SceneProps {
   turn?: TurnBadge;
   /** A slim version, used while the on-screen keyboard is open. */
   compact?: boolean;
+  /** The witness on the stand. Only set during a witness phase; scenes hide the stand otherwise. */
+  witness?: StageParticipant;
+  /** The seated jury (id is any stable seed, e.g. the juror's database id). */
+  jurors?: StageJuror[];
+  /** Votes by juror id while the jury deliberates, shown over each seat. */
+  jurorVotes?: Record<string, 'GUILTY' | 'NOT_GUILTY'>;
 }
 
-export type StageSceneId = 'avatars';
+export interface StageJuror {
+  id: string;
+  name?: string;
+}
+
+export type StageSceneId = 'avatars' | 'virtual';
