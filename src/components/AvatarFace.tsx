@@ -519,6 +519,8 @@ interface AvatarFaceProps {
   crop?: 'full' | 'face';
   /** Rank 1 to 10: better outfit details at higher ranks. Defaults to 1 (plain). */
   rank?: number;
+  /** Draw only the person, with no backdrop behind them. For placing on top of a scene. */
+  transparent?: boolean;
   className?: string;
 }
 
@@ -527,7 +529,7 @@ interface AvatarFaceProps {
  * The mouth is its own layer so it can move while the character is speaking;
  * with reduced motion on it opens and holds instead.
  */
-export default function AvatarFace({ config, speaking = false, label, crop = 'full', rank = 1, className = '' }: AvatarFaceProps) {
+export default function AvatarFace({ config, speaking = false, label, crop = 'full', rank = 1, transparent = false, className = '' }: AvatarFaceProps) {
   const tier = Math.min(10, Math.max(1, Math.round(rank) || 1));
   const reducedMotion = usePrefersReducedMotion();
   const uid = `av${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -626,11 +628,15 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       </defs>
 
       {/* backdrop */}
-      <rect width="200" height="200" fill={`url(#${uid}-bg)`} />
-      <circle cx="30" cy="40" r="22" fill={accent} opacity="0.14" />
-      <circle cx="176" cy="64" r="16" fill={accent} opacity="0.12" />
-      <circle cx="160" cy="26" r="8" fill="#fff" opacity="0.1" />
-      <rect width="200" height="200" fill={`url(#${uid}-glow)`} />
+      {!transparent && (
+        <>
+          <rect width="200" height="200" fill={`url(#${uid}-bg)`} />
+          <circle cx="30" cy="40" r="22" fill={accent} opacity="0.14" />
+          <circle cx="176" cy="64" r="16" fill={accent} opacity="0.12" />
+          <circle cx="160" cy="26" r="8" fill="#fff" opacity="0.1" />
+          <rect width="200" height="200" fill={`url(#${uid}-glow)`} />
+        </>
+      )}
 
       {tier >= 10 && (
         <g data-gear="aura">
