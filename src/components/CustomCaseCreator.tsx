@@ -125,7 +125,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
       try {
         setLoading(true);
         setLoadError(null);
-        const caseData = await db.cases.getCaseWithDetails(editCaseId);
+        const caseData = await db.cases.getCaseWithDetails(editCaseId, { fresh: true });
         if (cancelled) return;
         if (!caseData) { setLoadError('This case could not be found.'); return; }
         if (caseData.is_preset || caseData.created_by !== userId) {
@@ -294,7 +294,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
       // 4. Witnesses
       if (editCaseId) {
         const keep = new Set(cleanWitnesses.map((w) => w.id).filter(Boolean));
-        for (const row of await db.witnesses.getCaseWitnesses(caseId)) {
+        for (const row of await db.witnesses.getCaseWitnesses(caseId, { fresh: true })) {
           if (keep.has(row.id)) continue;
           try {
             await db.witnesses.deleteWitness(row.id);

@@ -53,7 +53,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
   const loadCaseData = async () => {
     try {
       setLoading(true);
-      const caseData = await db.cases.getCaseWithDetails(caseId);
+      const caseData = await db.cases.getCaseWithDetails(caseId, { fresh: true });
 
       if (caseData) {
         setCaseInfo({
@@ -286,7 +286,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
 
       // Handle witnesses
       const existingWitnessIds = witnesses.filter(w => w.id).map(w => w.id);
-      const allWitnesses = await db.witnesses.getCaseWitnesses(caseId);
+      const allWitnesses = await db.witnesses.getCaseWitnesses(caseId, { fresh: true });
 
       // Delete removed witnesses
       for (const witness of allWitnesses) {

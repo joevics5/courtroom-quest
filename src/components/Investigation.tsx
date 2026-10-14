@@ -8,6 +8,7 @@ import { getEvidenceIcon, formatEvidenceType } from '../lib/evidenceDisplay';
 import { generateWitnessResponse as generateAIWitnessResponse } from '../lib/ai/trialAI';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { speakAs } from '../lib/speech';
+import { MAX_WITNESS_HISTORY } from '../lib/witnessHistory';
 import type { Evidence, Witness, WitnessInteraction, CaseSession, Case } from '../types';
 
 interface InvestigationProps {
@@ -95,10 +96,10 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
     setIsQuestioningLoading(true);
     try {
       // Get previous interactions with this witness for context
-      const previousInteractions = getWitnessInteractions(selectedWitness.id).map(i => ({
-        question: i.question,
-        response: i.response
-      }));
+      // The last few questions and answers, so the witness stays consistent with what they said.
+      const previousInteractions = getWitnessInteractions(selectedWitness.id)
+        .map(i => ({ question: i.question, response: i.response }))
+        .slice(-MAX_WITNESS_HISTORY);
 
       console.log('Previous interactions:', previousInteractions.length);
       

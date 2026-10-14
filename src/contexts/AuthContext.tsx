@@ -1,3 +1,4 @@
+import { invalidate as invalidateCache } from '../lib/dataCache';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
@@ -26,7 +27,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
+    let lastUserId: string | null | undefined;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // A different person is now signed in (or nobody): drop cached case data.
+      const id = session?.user?.id ?? null;
+      if (lastUserId !== undefined && id !== lastUserId) invalidateCache();
+      lastUserId = id;
       (async () => {
         setSession(session);
         setUser(session?.user ?? null);

@@ -33,7 +33,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const loadPresetCases = async () => {
     try {
       setLoading(true);
-      const cases = await db.cases.getPresetCases();
+      const cases = await db.cases.getPresetCases({ fresh: true });
       setPresetCases(cases);
     } catch (error) {
       console.error('Failed to load preset cases:', error);

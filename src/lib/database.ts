@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { cached, invalidate, CASE_DATA_TTL_MS } from './dataCache';
 import type {
   Case,
   Evidence,
@@ -74,15 +75,17 @@ export const db = {
   },
 
   cases: {
-    async getPresetCases(): Promise<Case[]> {
-      const { data, error } = await supabase
-        .from('cases')
-        .select('*')
-        .eq('is_preset', true)
-        .order('created_at', { ascending: false });
+    async getPresetCases(opts: { fresh?: boolean } = {}): Promise<Case[]> {
+      return cached('cases:preset', CASE_DATA_TTL_MS, async () => {
+        const { data, error } = await supabase
+          .from('cases')
+          .select('*')
+          .eq('is_preset', true)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return (data || []) as Case[];
+        if (error) throw error;
+        return (data || []) as Case[];
+      }, opts);
     },
 
     async getUserCases(userId: string): Promise<Case[]> {
@@ -130,14 +133,14 @@ export const db = {
       }));
     },
 
-    async getCaseWithDetails(caseId: string): Promise<CaseWithDetails | null> {
-      const { data: caseData, error: caseError } = await supabase
-        .from('cases')
-        .select('*')
-        .eq('id', caseId)
-        .maybeSingle();
-
-      if (caseError) throw caseError;
+    async getCaseWithDetails(caseId: string, opts: { fresh?: boolean } = {}): Promise<CaseWithDetails | null> {
+      // The case row and its witnesses rarely change, so they are cached; evidence is read live
+      // every time because discovering evidence changes it during play.
+      const caseData = await cached<Case | null>(`cases:row:${caseId}`, CASE_DATA_TTL_MS, async () => {
+        const { data, error } = await supabase.from('cases').select('*').eq('id', caseId).maybeSingle();
+        if (error) throw error;
+        return (data as any as Case | null) ?? null;
+      }, opts);
       if (!caseData) return null;
 
       const { data: evidence, error: evidenceError } = await supabase
@@ -148,18 +151,12 @@ export const db = {
 
       if (evidenceError) throw evidenceError;
 
-      const { data: witnesses, error: witnessesError } = await supabase
-        .from('witnesses')
-        .select('*')
-        .eq('case_id', caseId)
-        .order('created_at', { ascending: true });
-
-      if (witnessesError) throw witnessesError;
+      const witnesses = await db.witnesses.getCaseWitnesses(caseId, opts);
 
       return {
-        ...(caseData as any as Case),
+        ...caseData,
         evidence: (evidence || []) as Evidence[],
-        witnesses: (witnesses || []) as Witness[]
+        witnesses
       };
     },
 
@@ -171,6 +168,7 @@ export const db = {
         .single();
 
       if (error) throw error;
+      invalidate('cases:');
       return data as Case;
     },
 
@@ -183,6 +181,7 @@ export const db = {
         .single();
 
       if (error) throw error;
+      invalidate('cases:');
       return data as Case;
     },
 
@@ -193,6 +192,8 @@ export const db = {
         .eq('id', caseId);
 
       if (error) throw error;
+      invalidate('cases:');
+      invalidate('witnesses:');
     },
 
     async getNextExhibitLabel(caseId: string): Promise<string> {
@@ -270,15 +271,17 @@ export const db = {
   },
 
   witnesses: {
-    async getCaseWitnesses(caseId: string): Promise<Witness[]> {
-      const { data, error } = await supabase
-        .from('witnesses')
-        .select('*')
-        .eq('case_id', caseId)
-        .order('created_at', { ascending: true });
+    async getCaseWitnesses(caseId: string, opts: { fresh?: boolean } = {}): Promise<Witness[]> {
+      return cached(`witnesses:${caseId}`, CASE_DATA_TTL_MS, async () => {
+        const { data, error } = await supabase
+          .from('witnesses')
+          .select('*')
+          .eq('case_id', caseId)
+          .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      return (data || []) as Witness[];
+        if (error) throw error;
+        return (data || []) as Witness[];
+      }, opts);
     },
 
     async addWitness(witnessData: Omit<Witness, 'id' | 'created_at'>): Promise<Witness> {
@@ -289,6 +292,7 @@ export const db = {
         .single();
 
       if (error) throw error;
+      invalidate('witnesses:');
       return data as Witness;
     },
 
@@ -301,6 +305,7 @@ export const db = {
         .single();
 
       if (error) throw error;
+      invalidate('witnesses:');
       return data as Witness;
     },
 
@@ -311,6 +316,7 @@ export const db = {
         .eq('id', witnessId);
 
       if (error) throw error;
+      invalidate('witnesses:');
     }
   },
 

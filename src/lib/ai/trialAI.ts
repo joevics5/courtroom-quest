@@ -4,6 +4,7 @@
  * with distinct personality, temperature, and system prompt.
  */
 
+import { MAX_WITNESS_HISTORY } from '../witnessHistory';
 import { getAIProvider } from './providerFactory';
 import type { AIRequest, AIResponse } from './types';
 import type { TurnState, AllowedAction } from '../trialTurnSystem';
@@ -294,7 +295,8 @@ export async function generateWitnessResponse(
     prev = previousInteractions || [];
   }
 
-  const prompt = buildWitnessPrompt({ witness, question: q, previousInteractions: prev });
+  // Only the most recent exchanges go into the prompt (keeps it short and the witness consistent).
+  const prompt = buildWitnessPrompt({ witness, question: q, previousInteractions: prev.slice(-MAX_WITNESS_HISTORY) });
   
   // Adjust temperature based on witness personality
   const personality = witness.personality_traits as any;

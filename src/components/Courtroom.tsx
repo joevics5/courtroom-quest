@@ -31,6 +31,7 @@ import JuryDeliberation, { type DeliberationState } from './JuryDeliberation';
 import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
 import { getUserDisplayName } from '../lib/userName';
+import { buildExaminationRecap, buildWitnessHistory } from '../lib/witnessHistory';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { enterSpeechScope, speakAs } from '../lib/speech';
 import SpeechToggle from './SpeechToggle';
@@ -1104,10 +1105,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         true
       );
 
-      const transcriptSummary = buildTranscriptSummary(events);
       const currentWitness = turnState.current_witness_id 
         ? witnesses.find(w => w.id === turnState.current_witness_id)?.name || null
         : null;
+      // While a witness is on the stand the AI counsel also sees the last 5 questions and answers in full.
+      const examRecap = turnState.current_witness_id && currentWitness
+        ? buildExaminationRecap(events, turnState.current_witness_id, currentWitness)
+        : '';
+      const transcriptSummary = [buildTranscriptSummary(events), examRecap].filter(Boolean).join('\n\n');
 
       const prosecutionContext = {
         role: 'prosecution' as const,
@@ -1553,12 +1558,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     // Get witness response
     setIsProcessing(true);
     try {
-      const previousInteractions = events
-        .filter(e => e.metadata?.witness_id === witnessId)
-        .map(e => ({
-          question: e.content,
-          response: '' // Will be filled by witness response
-        }));
+      // The last few real question-and-answer pairs with this witness.
+      const previousInteractions = buildWitnessHistory(events, witnessId);
 
       const response = await generateWitnessResponse(witness, question, previousInteractions);
       speakAs('witness', response);
