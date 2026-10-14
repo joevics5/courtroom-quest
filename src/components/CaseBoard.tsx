@@ -5,6 +5,7 @@ import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
 import CaseWinners from './CaseWinners';
 import { getPhaseBadge, getSessionMode, timeAgo } from '../lib/sessionInfo';
+import { boardSessions } from '../lib/gameCounts';
 import type { Case, CaseSession } from '../types';
 
 interface CaseBoardProps {
@@ -83,7 +84,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
       // of the same case doesn't block it. Ongoing games are listed per
       // session (newest first), so several games of one case can coexist.
       const presetCaseIds = new Set(preset.map(caseItem => caseItem.id));
-      const presetOngoingSessions = ongoing.filter(session => presetCaseIds.has(session.case_id));
+      const presetOngoingSessions = boardSessions(ongoing, presetCaseIds);
 
       setCases(preset);
       setOngoingCases(presetOngoingSessions.map(session => ({

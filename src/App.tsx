@@ -8,6 +8,7 @@ import HomePage from './components/HomePage';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './components/LandingPage';
 import CaseBoard from './components/CaseBoard';
+import { countMyGames } from './lib/gameCounts';
 import CaseSelection from './components/CaseSelection';
 import CustomCaseCreator from './components/CustomCaseCreator';
 import Investigation from './components/Investigation';
@@ -99,12 +100,11 @@ function AppContent() {
           db.invitations.getInvitationsByUser(user.id).catch(() => [])
         ]);
         if (!cancelled) {
-          setOngoingCount(ongoing.length);
+          // Same rule as the Case Board, so the badges match what it lists.
+          const counts = countMyGames({ userId: user.id, ongoing: ongoing as any[], challenges: myChallenges as any[], invitations: myInvites });
+          setOngoingCount(counts.ongoing);
           setInvites(invites);
-          setWaitingSentCount(
-            myChallenges.filter((c: any) => c.status === 'open' && c.creator_user_id === user.id).length +
-            myInvites.filter(i => i.status === 'pending' && i.inviter_user_id === user.id).length
-          );
+          setWaitingSentCount(counts.waitingSent);
         }
       } catch (error) {
         console.error('Failed to load activity counts:', error);
