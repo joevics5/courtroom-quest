@@ -654,7 +654,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   };
 
   const handleSubmit = async () => {
-    if (!input.trim() || !turnState || isProcessing) return;
+    if (!input.trim() || !turnState || isProcessing || timerPaused) return;
     const witnessExamNow = !!turnState.current_witness_id &&
       (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect');
     if (!awaitingUserInput && !witnessExamNow) return;
@@ -1852,7 +1852,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       speaker_name: turnState.current_turn === 'prosecution'
         ? effectiveProsecutorName
         : effectiveDefenseName,
-      content: `The ${turnState.current_turn === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName} rests.`,
+      content: `The ${turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense'} rests.`,
       metadata: { phase: currentPhase, rested: true },
       event_order: events.length + 1
     });
@@ -2049,6 +2049,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect');
   const phaseClockLeft = phaseTimeRemaining[currentPhase];
   const clockRunning = practiceMode || phaseClockLeft === undefined || phaseClockLeft > 0;
+  // Paused: the box stays open so a player can keep drafting, but nothing can be sent or called.
+  const actionsPaused = timerPaused;
   const inputOpen = (awaitingUserInput || (inWitnessExam && isPlayerTurn && !judgeInstructionPending && clockRunning)) && !pendingHandoff;
 
   // Put the cursor back in the box after each question finishes so the
@@ -2226,7 +2228,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                         })()}
                       </span>
                     </div>
-                    <p className="text-xs text-white/45">Generating response with AI</p>
                   </div>
                 </div>
               )}
@@ -2347,7 +2348,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                      <div className="flex gap-2 flex-wrap">
                        <button
                          onClick={handleSubmit}
-                         disabled={!input.trim() || isProcessing || !inputOpen}
+                         disabled={!input.trim() || isProcessing || !inputOpen || actionsPaused}
                          className={`flex-1 sm:flex-none ${gameButton('gold', 'sm')}`}
                        >
                          <Send className="w-5 h-5" />
@@ -2355,7 +2356,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                        </button>
                         <button
                            onClick={handleRestPhase}
-                           disabled={!isPlayerTurn}
+                           disabled={!isPlayerTurn || actionsPaused}
                            className={`flex-1 sm:flex-none ${gameButton('ghost', 'sm')}`}
                          >
                            <SkipForward className="w-5 h-5" />
@@ -2364,7 +2365,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                        {turnState?.current_turn !== 'judge' && (
                          <button
                            onClick={() => setShowObjectionSelector(true)}
-                           disabled={isProcessingObjection || (isPlayerTurn && !sameDevicePlay)}
+                           disabled={isProcessingObjection || (isPlayerTurn && !sameDevicePlay) || actionsPaused}
                            title={isPlayerTurn && !sameDevicePlay ? "You can't object during your own turn" : "Object"}
                            className={`flex-1 sm:flex-none ${gameButton('danger', 'sm')}`}
                          >
@@ -2375,7 +2376,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                        {turnState && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect') && !turnState.current_witness_id && (
                          <button
                            onClick={() => setShowWitnessSelector(true)}
-                           disabled={!isPlayerTurn}
+                           disabled={!isPlayerTurn || actionsPaused}
                            title={!isPlayerTurn ? "Not your turn to call a witness" : "Call Witness"}
                            className={`flex-1 sm:flex-none ${gameButton('outline', 'sm')}`}
                          >

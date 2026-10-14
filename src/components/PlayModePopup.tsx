@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Bot, FolderOpen, Swords, Users, X } from 'lucide-react';
 import PathTile from './PathTile';
 
@@ -14,13 +16,21 @@ interface PlayModePopupProps {
 
 /** "How do you want to play?" — shown from the home screen's PLAY button. */
 export default function PlayModePopup({ onSelect, onClose, showMyGames = false, myGamesCount = 0 }: PlayModePopupProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75" onClick={onClose}>
+  // Escape closes it too.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  // Drawn straight into <body> so no page container (overflow, transforms, stacking) can sit over it or clip it.
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/75" onClick={onClose} role="dialog" aria-modal="true" aria-label="How do you want to play?">
       <div
         className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#14161f] border border-white/10 p-5 pb-7"
         onClick={e => e.stopPropagation()}
       >
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white">
+        <button type="button" onClick={onClose} aria-label="Close" className="absolute top-3 right-3 z-10 flex items-center justify-center w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/25 text-white touch-manipulation">
           <X className="w-5 h-5" />
         </button>
         <h2 className="logo-gold font-game text-4xl leading-none mb-5 pr-10">HOW DO YOU WANT TO PLAY?</h2>
@@ -68,6 +78,7 @@ export default function PlayModePopup({ onSelect, onClose, showMyGames = false, 
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

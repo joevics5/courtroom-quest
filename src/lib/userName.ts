@@ -60,15 +60,16 @@ export function maskPublicName(raw: string | null | undefined): string {
 }
 
 /**
- * Name used inside the trial itself (counsel name): nickname, then the name
- * entered at signup, then one derived from their email for older accounts,
- * and "Guest XXXX" for guests who have no email.
+ * Name used inside the trial itself (counsel name): the player's own name
+ * (entered at signup), then their nickname, then one derived from their email
+ * for older accounts, and "Guest XXXX" for guests who have no email.
+ * The nickname/username stays for leaderboards (see getPublicName).
  */
 export function getUserDisplayName(user: NameUser | null | undefined): string {
-  const nickname = user?.user_metadata?.nickname?.trim();
-  if (nickname) return nickname;
   const fullName = user?.user_metadata?.full_name?.trim();
   if (fullName) return fullName;
+  const nickname = user?.user_metadata?.nickname?.trim();
+  if (nickname) return nickname;
   if (!user?.email) return `Guest ${getGuestTag(user?.id)}`;
   return getDisplayName(user.email);
 }

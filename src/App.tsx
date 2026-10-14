@@ -67,6 +67,8 @@ function AppContent() {
   // Challenge board opened from the home PLAY popup (no case yet) or from a case file (case seeded)
   const [challengeSeed, setChallengeSeed] = useState<{ tab: 'quick' | 'local'; withCase: boolean } | null>(null);
   const [view, setView] = useState<AppView>('landing');
+  // Where the Case File popup was opened from, so closing it returns there.
+  const [roleReturnView, setRoleReturnView] = useState<AppView | null>(null);
   const [currentSession, setCurrentSession] = useState<CaseSession | null>(null);
   const [currentCase, setCurrentCase] = useState<Case | null>(null);
   const [currentVerdict, setCurrentVerdict] = useState<Verdict | null>(null);
@@ -341,6 +343,7 @@ function AppContent() {
       // the user actually accepts a role (handleRoleSelect), so opening the
       // preview and backing out leaves nothing behind.
       setCurrentSession(null);
+      setRoleReturnView(view === 'case-board' || view === 'case-selection' ? view : null);
       setView('role-selection');
     } catch (error) {
       console.error('Failed to start case:', error);
@@ -483,6 +486,13 @@ function AppContent() {
   const handleBackFromInvestigation = () => {
     setCurrentSession(null);
     setView(isCurrentCaseCustom ? 'case-selection' : 'landing');
+  };
+
+  /** Closing the Case File popup goes back to where it was opened (Case Board, case list or dashboard). */
+  const handleCloseCasePreview = () => {
+    setCurrentSession(null);
+    setView(roleReturnView ?? (isCurrentCaseCustom ? 'case-selection' : 'landing'));
+    setRoleReturnView(null);
   };
 
   const handleBackFromCourtroom = () => {
@@ -893,7 +903,7 @@ function AppContent() {
           defendantName={currentCase.defendant_name || (currentCase.truth_state as any)?.defendant_name}
           onSelect={handleRoleSelect}
           playerWins={userProfile?.wins_count ?? 0}
-          onCancel={handleBackFromInvestigation}
+          onCancel={handleCloseCasePreview}
           onSwitchMode={mode => {
             setChallengeSeed({ tab: mode === 'online' ? 'quick' : 'local', withCase: true });
             setView('challenge-board');

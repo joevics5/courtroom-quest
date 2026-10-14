@@ -62,6 +62,22 @@ describe('PreTrialScript', () => {
     expect(speakAs.mock.calls.every(c => c[0] === 'recorder')).toBe(true);
   });
 
+  it('announces the player by rank and own name, never the nickname (prosecution)', () => {
+    render(<PreTrialScript {...props} playerRole="prosecution" userName="Victor Joshua" playerWins={0} onComplete={() => {}} />);
+    enter();
+    for (let i = 0; i < 4; i++) finishLine();
+    const spoken = speakAs.mock.calls.map(c => String(c[1]));
+    expect(spoken).toContain('Appearing for the prosecution: Junior Counsel Victor Joshua.');
+  });
+
+  it('announces the player by rank and own name (defense)', () => {
+    render(<PreTrialScript {...props} playerRole="defense" userName="Victor Joshua" playerWins={6} onComplete={() => {}} />);
+    enter();
+    for (let i = 0; i < 4; i++) finishLine();
+    const spoken = speakAs.mock.calls.map(c => String(c[1]));
+    expect(spoken).toContain('Appearing for the defense: Associate Attorney Victor Joshua, representing the defendant.');
+  });
+
   it('keeps each line on screen until it has been read out, then a moment longer', () => {
     render(<PreTrialScript {...props} onComplete={() => {}} />);
     enter();

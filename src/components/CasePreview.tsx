@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Shield, Gavel, FileText, ArrowLeft, ChevronDown, ChevronUp, FileStack, Users, Loader2 } from 'lucide-react';
+import { Shield, Gavel, FileText, ArrowLeft, X, ChevronDown, ChevronUp, FileStack, Users, Loader2 } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import AvatarFace from './AvatarFace';
 import { gameButton, PANEL } from './ui';
 import { getUserAvatar } from '../lib/avatars';
 import { getLevelForWins } from '../lib/levels';
+import { withCaseSuffix } from '../lib/caseName';
 import type { PlayerRole, Evidence, Witness } from '../types';
 
 interface Props {
@@ -82,8 +83,8 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
     const role: PlayerRole = step === 'confirm-prosecute' ? 'prosecution' : 'defense';
     const style = ROLE_STYLE[role];
     const briefing = role === 'prosecution'
-      ? `You've been assigned to lead the prosecution in ${caseTitle}. The State is counting on you to prove the case against ${defendant} beyond a reasonable doubt. Will you take the case?`
-      : `${defendant} has asked you to defend them in ${caseTitle}. The evidence against them is serious, but everyone deserves a defense. Will you take the case?`;
+      ? `You've been assigned to lead the prosecution in ${withCaseSuffix(caseTitle)}. The State is counting on you to prove the case against ${defendant} beyond a reasonable doubt. Will you take the case?`
+      : `${defendant} has asked you to defend them in ${withCaseSuffix(caseTitle)}. The evidence against them is serious, but everyone deserves a defense. Will you take the case?`;
 
     return (
       <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -111,8 +112,16 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
   // step === 'browse'
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className={`${PANEL} max-w-2xl w-full max-h-[90dvh] overflow-y-auto`}>
-        <div className="flex items-center gap-2 mb-3">
+      <div className={`${PANEL} relative max-w-2xl w-full max-h-[90dvh] overflow-y-auto`}>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Close"
+          className="absolute top-3 right-3 z-10 flex items-center justify-center w-11 h-11 rounded-full bg-white/10 active:bg-white/20 text-white touch-manipulation"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2 mb-3 pr-12">
           <FileText className="w-6 h-6 text-[#FFD43B]" />
           <span className="font-game text-2xl leading-none text-[#FFD43B]">CASE FILE</span>
         </div>

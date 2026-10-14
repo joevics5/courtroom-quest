@@ -87,4 +87,20 @@ describe('CasePreview (accept the case)', () => {
     expect(screen.queryByRole('button', { name: 'Online player' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Same device' })).toBeTruthy();
   });
+
+  it('has a Close button that closes the case file', () => {
+    render(<CasePreview {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(props.onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('names the case with "case" after it in both briefings', () => {
+    const { unmount } = render(<CasePreview {...props} caseTitle="The Conspiracy" />);
+    fireEvent.click(screen.getByRole('button', { name: /PROSECUTE/ }));
+    expect(screen.getByText(/lead the prosecution in The Conspiracy case\./)).toBeTruthy();
+    unmount();
+    render(<CasePreview {...props} caseTitle="The Conspiracy" />);
+    fireEvent.click(screen.getByRole('button', { name: /DEFEND/ }));
+    expect(screen.getByText(/defend them in The Conspiracy case\./)).toBeTruthy();
+  });
 });

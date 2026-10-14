@@ -47,8 +47,10 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   // human is addressed by their own name, same as defense always was
   // before prosecution became a selectable role.
   const [npcProsecutorName] = useState(prosecutorNameProp || getRandomProsecutorName());
-  const prosecutorDisplayName = playerRole === 'prosecution' ? userName : npcProsecutorName;
-  const defenseDisplayName = playerRole === 'defense' ? userName : 'Defense Counsel';
+  // The human is announced with their rank and own name, e.g. "Junior Counsel Victor Joshua".
+  const myAnnouncedName = `${getLevelForWins(playerWins).title} ${userName}`;
+  const prosecutorDisplayName = playerRole === 'prosecution' ? myAnnouncedName : npcProsecutorName;
+  const defenseDisplayName = playerRole === 'defense' ? myAnnouncedName : 'Defense Counsel';
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
   const [pleaGuilty, setPleaGuilty] = useState<boolean | null>(null);
   const [isLoadingJudgeRequest] = useState(false);
