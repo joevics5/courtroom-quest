@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { pickStageScene } from './stageScene';
+import { pickStageScene, saveStageScene } from './stageScene';
 
 describe('pickStageScene', () => {
   beforeEach(() => window.localStorage.clear());
@@ -14,4 +14,10 @@ describe('pickStageScene', () => {
     expect(pickStageScene('')).toBe('avatars');
   });
   it('ignores unknown values', () => expect(pickStageScene('?scene=bogus')).toBe('avatars'));
+  it('saveStageScene remembers the button choice for the next visit', () => {
+    saveStageScene('virtual');
+    expect(pickStageScene('')).toBe('virtual');
+    saveStageScene('avatars');
+    expect(pickStageScene('')).toBe('avatars');
+  });
 });

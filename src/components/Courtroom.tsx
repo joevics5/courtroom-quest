@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
-import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic, Sparkles, Gavel, Shield } from 'lucide-react';
+import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic, Sparkles, Gavel, Shield, Landmark } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
 import TrialStage from './TrialStage';
-import { pickStageScene } from '../lib/stageScene';
+import { pickStageScene, saveStageScene } from '../lib/stageScene';
 import { witnessAvatar } from '../lib/stageCast';
 import SceneBackdrop from './SceneBackdrop';
 import TranscriptMessage from './TranscriptMessage';
@@ -2073,7 +2073,13 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   }, [isProcessing, inWitnessExam, isPlayerTurn, inputOpen]);
 
   // Virtual courtroom extras (only drawn by the 'virtual' scene).
-  const stageScene = useMemo(() => pickStageScene(), []);
+  const [stageScene, setStageScene] = useState(() => pickStageScene());
+  const toggleStageScene = () => {
+    const next = stageScene === 'virtual' ? 'avatars' : 'virtual';
+    setStageScene(next);
+    saveStageScene(next);
+    setShowVideoDisplay(true); // switching scenes always brings the stage back
+  };
   const [seatedJurorIds, setSeatedJurorIds] = useState<string[]>([]);
   useEffect(() => {
     if (stageScene !== 'virtual') return;
@@ -2141,6 +2147,15 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               >
                 {showVideoDisplay ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
                 <span className="hidden sm:inline">{showVideoDisplay ? 'Hide Avatars' : 'Show Avatars'}</span>
+              </button>
+              <button
+                onClick={toggleStageScene}
+                className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-black/55 border border-white/15 text-white text-sm transition-colors active:bg-white/15"
+                title={stageScene === 'virtual' ? 'Switch to avatars' : 'Switch to virtual courtroom'}
+                data-testid="scene-toggle"
+              >
+                <Landmark className="w-4 h-4" />
+                <span className="hidden sm:inline">{stageScene === 'virtual' ? 'Avatars' : 'Courtroom'}</span>
               </button>
               <button
                 onClick={() => setShowRealVoiceInfo(true)}

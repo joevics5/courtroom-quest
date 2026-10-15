@@ -21,3 +21,12 @@ export function pickStageScene(search: string = typeof window !== 'undefined' ? 
   }
   return DEFAULT_SCENE;
 }
+
+/** Remember the scene the player picked with the in-trial button. */
+export function saveStageScene(scene: StageSceneId): void {
+  try {
+    window.localStorage.setItem(KEY, scene);
+  } catch {
+    /* storage unavailable: the choice just lasts for this visit */
+  }
+}
