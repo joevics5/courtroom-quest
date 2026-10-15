@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Gavel, Scale, Users } from 'lucide-react';
 import type { JuryRound } from '../lib/ai/trialAI';
 import JurorAvatar from './avatars/JurorAvatar';
+import AvatarFace from './AvatarFace';
+import type { StageParticipant } from './stage/types';
 
 export interface DeliberationState {
   mode: 'jury' | 'judge';
@@ -56,7 +58,7 @@ const JUDGE_LINES = [
   'Preparing the ruling…',
 ];
 
-export default function JuryDeliberation({ state, onContinue }: { state: DeliberationState; onContinue: () => void }) {
+export default function JuryDeliberation({ state, onContinue, judge }: { state: DeliberationState; onContinue: () => void; /** The presiding judge, shown while they deliberate */ judge?: StageParticipant }) {
   const [lineIndex, setLineIndex] = useState(0);
 
   useEffect(() => {
@@ -69,10 +71,21 @@ export default function JuryDeliberation({ state, onContinue }: { state: Deliber
     return (
       <div className="fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-6">
         <div className="text-center max-w-sm">
-          <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center animate-pulse">
-            <Scale className="w-10 h-10 text-amber-400" />
-          </div>
-          <h2 className="text-white text-xl font-bold mb-2">The Judge is deliberating</h2>
+          {judge ? (
+            <div className="relative w-36 h-36 mx-auto mb-5">
+              <div className="absolute inset-0 rounded-3xl overflow-hidden border-4 border-[#FFD43B] shadow-[0_8px_0_#B8860B,0_0_36px_rgba(255,212,59,0.35)]" data-testid="judge-avatar">
+                <AvatarFace config={judge.avatar} rank={judge.rank} label={`Judge ${judge.name}`} />
+              </div>
+              <div className="absolute -bottom-3 -right-3 w-11 h-11 rounded-full bg-slate-950 border border-amber-500/50 flex items-center justify-center animate-pulse">
+                <Scale className="w-5 h-5 text-amber-400" />
+              </div>
+            </div>
+          ) : (
+            <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center animate-pulse">
+              <Scale className="w-10 h-10 text-amber-400" />
+            </div>
+          )}
+          <h2 className="text-white text-xl font-bold mb-2">{judge ? `${judge.name} is deliberating` : 'The Judge is deliberating'}</h2>
           <p className="text-amber-200/80 text-sm min-h-[1.25rem]">{JUDGE_LINES[lineIndex]}</p>
           <div className="mt-6 flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-400 border-t-transparent" />

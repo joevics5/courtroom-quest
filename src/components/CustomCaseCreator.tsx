@@ -1,4 +1,5 @@
 import ScreenShell from './ScreenShell';
+import { appConfirm } from '../lib/appDialog';
 import { useState, useEffect, useRef } from 'react';
 import { FileText, PenLine, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import AiCaseBuilder from './AiCaseBuilder';
@@ -168,8 +169,8 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
   const filledEvidence = evidenceItems.filter((e) => !isBlankEvidence(e)).length;
   const filledWitnesses = witnesses.filter((w) => !isBlankWitness(w)).length;
 
-  const handleCancel = () => {
-    if (isDirty && !window.confirm('Discard your changes?')) return;
+  const handleCancel = async () => {
+    if (isDirty && !(await appConfirm({ title: 'DISCARD YOUR CHANGES?', message: 'Anything you changed here will be lost.', confirmLabel: 'DISCARD', cancelLabel: 'KEEP EDITING', tone: 'danger' }))) return;
     onCancel();
   };
 

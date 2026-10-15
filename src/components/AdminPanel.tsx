@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { appAlert, appConfirm } from '../lib/appDialog';
 import { ArrowLeft, Plus, Edit, Trash2, Shield, Sparkles } from 'lucide-react';
 import { db } from '../lib/database';
 import AdminCaseEditor from './AdminCaseEditor';
@@ -61,7 +62,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     } catch (error) {
       console.error('Failed to save case:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Failed to save case: ${errorMessage}\n\nNote: Admin features may require service role access. Regular users can only manage custom cases.`);
+      void appAlert({ title: "COULDN'T SAVE THE CASE", message: `${errorMessage}\n\nNote: Admin features may require service role access. Regular users can only manage custom cases.`, tone: 'error' });
     }
   };
 
@@ -71,14 +72,14 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   };
 
   const handleDelete = async (caseId: string) => {
-    if (!confirm('Are you sure you want to delete this preset case?')) return;
+    if (!(await appConfirm({ title: 'DELETE THIS CASE?', message: 'This preset case will be permanently removed.', confirmLabel: 'DELETE', cancelLabel: 'KEEP IT', tone: 'danger' }))) return;
 
     try {
       await db.cases.deleteCase(caseId);
       await loadPresetCases();
     } catch (error) {
       console.error('Failed to delete case:', error);
-      alert('Failed to delete case. Please try again.');
+      void appAlert({ title: "COULDN'T DELETE THE CASE", message: 'Please try again.', tone: 'error' });
     }
   };
 

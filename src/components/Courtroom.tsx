@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { appAlert, appConfirm } from '../lib/appDialog';
 import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic, Sparkles, Gavel, Shield } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
@@ -1684,7 +1685,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const now = Date.now();
     if (turnState.objection_cooldown_until && now < turnState.objection_cooldown_until) {
       const remainingSeconds = Math.ceil((turnState.objection_cooldown_until - now) / 1000);
-      alert(`Objection cooldown active. Please wait ${remainingSeconds} more seconds.`);
+      void appAlert({ title: 'OBJECTION COOLDOWN', message: `Please wait ${remainingSeconds} more seconds before objecting again.`, tone: 'info' });
       setShowObjectionSelector(false);
       return;
     }
@@ -1783,7 +1784,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       }
     } catch (error) {
       console.error('Failed to process objection:', error);
-      alert('Failed to process objection. Please try again.');
+      void appAlert({ title: "OBJECTION DIDN'T GO THROUGH", message: 'Please try again.', tone: 'error' });
     } finally {
       setIsProcessingObjection(false);
     }
@@ -1795,9 +1796,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
 
   const handleEndTrial = async () => {
-    if (!confirm('Are you sure you want to end the trial? This will conclude the case.')) {
-      return;
-    }
+    const endIt = await appConfirm({
+      title: 'END THE TRIAL?',
+      message: 'This will conclude the case.',
+      confirmLabel: 'END TRIAL',
+      cancelLabel: 'KEEP GOING',
+      tone: 'danger'
+    });
+    if (!endIt) return;
 
     try {
       // Ending early is a forfeit for whichever side the human is actually
@@ -1821,7 +1827,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       onComplete(verdict);
     } catch (error) {
       console.error('[Courtroom] ❌ Failed to end trial:', error);
-      alert('Failed to end trial. Please try again.');
+      void appAlert({ title: "COULDN'T END THE TRIAL", message: 'Please try again.', tone: 'error' });
     }
   };
 
@@ -2265,6 +2271,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       {deliberation && (
         <JuryDeliberation
           state={deliberation}
+          judge={{ name: judgeName || 'Judge', avatar: cast.judge, rank: 6 }}
           onContinue={() => { verdictContinueRef.current?.(); verdictContinueRef.current = null; }}
         />
       )}

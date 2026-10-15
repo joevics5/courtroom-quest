@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { appAlert } from '../lib/appDialog';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, FileText, Info, Mic, Send, User, Users } from 'lucide-react';
 import { db } from '../lib/database';
 import EvidenceViewer from './EvidenceViewer';
@@ -128,7 +129,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
     } catch (error) {
       console.error('Failed to record interaction:', error);
       const message = error instanceof Error ? error.message : String(error);
-      alert(`Failed to get witness response: ${message}`);
+      void appAlert({ title: "THE WITNESS DIDN'T ANSWER", message: `Failed to get witness response: ${message}`, tone: 'error' });
     } finally {
       setIsQuestioningLoading(false);
     }

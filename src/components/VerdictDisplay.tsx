@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { appAlert } from '../lib/appDialog';
 import { CheckCircle, FileText, Home, Share2, XCircle } from 'lucide-react';
 import type { Verdict, TrialEvent, PlayerRole } from '../types';
 import { db } from '../lib/database';
@@ -61,7 +62,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
       setShowTranscript(true);
     } catch (error) {
       console.error('Failed to load transcript:', error);
-      alert('Failed to load transcript. Please try again.');
+      void appAlert({ title: "COULDN'T LOAD TRANSCRIPT", message: 'Please try again.', tone: 'error' });
     } finally {
       setLoadingTranscript(false);
     }

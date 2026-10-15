@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { appAlert } from './lib/appDialog';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
@@ -331,7 +332,7 @@ function AppContent() {
 
       const caseDetails = await db.cases.getCaseWithDetails(caseId);
       if (!caseDetails) {
-        alert('Case not found');
+        void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be found.', tone: 'error' });
         return;
       }
       setCurrentCase(caseDetails);
@@ -347,7 +348,7 @@ function AppContent() {
       setView('role-selection');
     } catch (error) {
       console.error('Failed to start case:', error);
-      alert('Failed to start case. Please try again.');
+      void appAlert({ title: "COULDN'T START THE CASE", message: 'Please try again.', tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -398,7 +399,7 @@ function AppContent() {
       setIsLoading(true);
       const caseDetails = await db.cases.getCaseWithDetails(session.case_id);
       if (!caseDetails) {
-        alert('Case not found');
+        void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be found.', tone: 'error' });
         return;
       }
       setCurrentCase(caseDetails);
@@ -434,7 +435,7 @@ function AppContent() {
       }
     } catch (error) {
       console.error('Failed to resume session:', error);
-      alert('Failed to resume case. Please try again.');
+      void appAlert({ title: "COULDN'T RESUME THE CASE", message: 'Please try again.', tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -449,11 +450,11 @@ function AppContent() {
       if (session) {
         await resumeSession(session);
       } else {
-        alert('That game could not be found.');
+        void appAlert({ title: 'GAME NOT FOUND', message: 'That game could not be found.', tone: 'error' });
       }
     } catch (error) {
       console.error('Failed to continue game:', error);
-      alert('Failed to continue the game. Please try again.');
+      void appAlert({ title: "COULDN'T CONTINUE THE GAME", message: 'Please try again.', tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -548,7 +549,7 @@ function AppContent() {
       await handleMatched(session);
     } catch (error: any) {
       console.error('Failed to accept invitation:', error);
-      alert(error?.message || 'Could not accept this invitation.');
+      void appAlert({ title: "COULDN'T ACCEPT THE INVITATION", message: error?.message || 'Could not accept this invitation.', tone: 'error' });
       if (user.email) {
         db.invitations.getInvitationsByEmail(user.email).then(setInvites).catch(() => {});
       }
@@ -878,7 +879,7 @@ function AppContent() {
                 setShowCaseReview(false);
               } catch (error) {
                 console.error('Failed to create/resume session:', error);
-                alert('Failed to start case. Please try again.');
+                void appAlert({ title: "COULDN'T START THE CASE", message: 'Please try again.', tone: 'error' });
               } finally {
                 setIsLoading(false);
               }
@@ -978,7 +979,7 @@ function AppContent() {
           onClose={() => setShowSubscriptionGate(false)}
           onUpgrade={() => {
             setShowSubscriptionGate(false);
-            alert('Upgrade functionality would be integrated with payment processor here');
+            void appAlert({ title: 'UPGRADES ARE COMING SOON', message: "Paid plans aren't available just yet. Hang tight!", tone: 'info' });
           }}
         />
       )}

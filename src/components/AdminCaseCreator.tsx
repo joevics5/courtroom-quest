@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { appConfirm } from '../lib/appDialog';
 import { ArrowLeft, Sparkles, Save, Loader2, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Fields, ListEditor } from './caseCreator/JsonFields';
 import { BLANKS, BLANK_EVIDENCE, BLANK_WITNESS } from '../lib/caseCreator/blank';
@@ -138,7 +139,7 @@ export default function AdminCaseCreator({ existingCaseId, onBack, onSaved }: Pr
   const save = async () => {
     if (!draft) return;
     if (check.errors.length) { setError('Fix the errors listed above before saving.'); return; }
-    if (isExisting && !confirm('Update this live case with your changes? Witnesses or evidence you deleted here are removed (unless players have already used them).')) return;
+    if (isExisting && !(await appConfirm({ title: 'UPDATE THE LIVE CASE?', message: 'Witnesses or evidence you deleted here are removed (unless players have already used them).', confirmLabel: 'UPDATE', cancelLabel: 'CANCEL', tone: 'danger' }))) return;
     setBusy('save');
     setError(null);
     try {
@@ -352,7 +353,7 @@ export default function AdminCaseCreator({ existingCaseId, onBack, onSaved }: Pr
                   />
                   {!analysisMissing && (
                     <button
-                      onClick={() => { if (confirm('Regenerate evidence, loopholes and everything on the analysis tab from the current facts and witnesses? Your edits to those will be replaced.')) runAnalysis(draft); }}
+                      onClick={async () => { if (await appConfirm({ title: 'REGENERATE THE ANALYSIS?', message: 'Evidence, loopholes and everything on the analysis tab will be rebuilt from the current facts and witnesses. Your edits to those will be replaced.', confirmLabel: 'REGENERATE', cancelLabel: 'CANCEL', tone: 'danger' })) runAnalysis(draft); }}
                       disabled={busy !== null}
                       className="flex items-center gap-1 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded"
                     >
@@ -383,7 +384,7 @@ export default function AdminCaseCreator({ existingCaseId, onBack, onSaved }: Pr
                 {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {isExisting ? 'Save changes' : 'Save case to database'}
               </button>
               <button
-                onClick={() => { if (confirm(isExisting ? 'Discard your unsaved changes?' : 'Discard this draft?')) { if (isExisting) onBack(); else reset(); } }} disabled={busy !== null}
+                onClick={async () => { if (await appConfirm({ title: isExisting ? 'DISCARD YOUR CHANGES?' : 'DISCARD THIS DRAFT?', message: isExisting ? 'Your unsaved changes will be lost.' : 'The draft will be thrown away.', confirmLabel: 'DISCARD', cancelLabel: 'KEEP EDITING', tone: 'danger' })) { if (isExisting) onBack(); else reset(); } }} disabled={busy !== null}
                 className="px-4 py-2.5 text-slate-300 hover:text-white"
               >
                 Discard draft

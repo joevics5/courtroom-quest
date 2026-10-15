@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { appAlert } from '../lib/appDialog';
 import { ArrowLeft, Plus, Trash2, Upload, Edit as EditIcon, FileText, Image, Video, File } from 'lucide-react';
 import { db } from '../lib/database';
 import type { Case, CaseType, EvidenceType } from '../types';
@@ -102,7 +103,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
       }
     } catch (error) {
       console.error('Failed to load case data:', error);
-      alert('Failed to load case data.');
+      void appAlert({ title: "COULDN'T LOAD THE CASE", message: 'Failed to load case data.', tone: 'error' });
     } finally {
       setLoading(false);
     }
@@ -322,10 +323,10 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
         }
       }
 
-      alert('Case updated successfully!');
+      void appAlert({ title: 'CASE UPDATED', message: 'Your changes are live.', tone: 'success' });
     } catch (error) {
       console.error('Failed to save case:', error);
-      alert('Failed to save case. Please try again.');
+      void appAlert({ title: "COULDN'T SAVE THE CASE", message: 'Please try again.', tone: 'error' });
     } finally {
       setSaving(false);
     }

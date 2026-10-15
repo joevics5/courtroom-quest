@@ -4,16 +4,21 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.tsx';
 import SharedTranscript from './components/SharedTranscript.tsx';
 import WatchBoard from './components/WatchBoard.tsx';
+import AppDialogHost from './components/AppDialogHost.tsx';
+import AppErrorBoundary from './components/AppErrorBoundary.tsx';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/share/:sessionId" element={<SharedTranscript />} />
-        <Route path="/watch" element={<WatchBoard />} />
-        <Route path="/*" element={<App />} />
-      </Routes>
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/share/:sessionId" element={<SharedTranscript />} />
+          <Route path="/watch" element={<WatchBoard />} />
+          <Route path="/*" element={<App />} />
+        </Routes>
+      </BrowserRouter>
+      <AppDialogHost />
+    </AppErrorBoundary>
   </StrictMode>
 );

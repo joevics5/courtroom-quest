@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { appConfirm } from '../lib/appDialog';
 import { AlertTriangle, FileText, Loader2, RefreshCw, Save, Sparkles, Upload, X } from 'lucide-react';
 import ScreenShell from './ScreenShell';
 import OpposingPlaybook from './caseCreator/OpposingPlaybook';
@@ -150,7 +151,7 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
   };
 
   const discard = async () => {
-    if (draft && !window.confirm('Discard this parsed case?')) return;
+    if (draft && !(await appConfirm({ title: 'DISCARD THIS CASE?', message: 'The parsed case will be thrown away.', confirmLabel: 'DISCARD', cancelLabel: 'KEEP IT', tone: 'danger' }))) return;
     await removeUpload(docStoragePath);
     setDraft(null);
     setDocStoragePath(null);
@@ -160,7 +161,7 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
   };
 
   const back = async () => {
-    if (draft && !window.confirm('Discard this parsed case and leave?')) return;
+    if (draft && !(await appConfirm({ title: 'DISCARD AND LEAVE?', message: 'The parsed case will be thrown away.', confirmLabel: 'DISCARD', cancelLabel: 'STAY', tone: 'danger' }))) return;
     await removeUpload(docStoragePath);
     onCancel();
   };

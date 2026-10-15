@@ -1,3 +1,4 @@
+import { appConfirm } from '../../lib/appDialog';
 import { Plus, Trash2, Lock } from 'lucide-react';
 
 /**
@@ -198,7 +199,7 @@ export function ListEditor({ label, items, onChange, blank, title = autoTitle, p
             <span className="truncate">{title(item, i)}</span>
             <button
               type="button" title="Delete"
-              onClick={(e) => { e.preventDefault(); if (confirm('Delete this item?')) onChange(items.filter((_, j) => j !== i)); }}
+              onClick={async (e) => { e.preventDefault(); if (await appConfirm({ title: 'DELETE THIS ITEM?', message: 'It will be removed from the list.', confirmLabel: 'DELETE', cancelLabel: 'KEEP IT', tone: 'danger' })) onChange(items.filter((_, j) => j !== i)); }}
               className="text-red-400 hover:text-red-300 p-1 shrink-0"
             >
               <Trash2 className="w-4 h-4" />
