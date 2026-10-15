@@ -1,16 +1,37 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Scale, Radio, Trophy, XCircle, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Radio, Trophy, XCircle, ChevronRight, Tv } from 'lucide-react';
 import { supabase } from '../integrations/supabase/client';
 import type { CaseSession, Case, Outcome } from '../types';
 import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
+import ScreenShell from './ScreenShell';
+import { PANEL_SOFT, gameButton } from './ui';
 
 interface ListedSession extends CaseSession {
   cases?: Case;
   outcome?: Outcome;
 }
 
+function SectionTitle({ children, icon }: { children: string; icon?: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-2 font-game text-2xl leading-none text-white mb-3 uppercase">
+      {icon}
+      {children}
+    </h2>
+  );
+}
+
+function EmptyCard({ icon, children }: { icon: React.ReactNode; children: string }) {
+  return (
+    <div className={`${PANEL_SOFT} p-6 text-center mb-8`}>
+      <div className="mx-auto mb-2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/50">{icon}</div>
+      <p className="text-white/55 text-sm">{children}</p>
+    </div>
+  );
+}
+
 export default function WatchBoard() {
+  const navigate = useNavigate();
   const [live, setLive] = useState<ListedSession[]>([]);
   const [recent, setRecent] = useState<ListedSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,89 +76,76 @@ export default function WatchBoard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <div className="max-w-3xl mx-auto p-4 sm:p-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Scale className="w-5 h-5 text-amber-400" />
-          <h1 className="text-white text-xl font-bold">Watch Courtroom Quest</h1>
+    <ScreenShell
+      title="WATCH"
+      subtitle="Follow a trial as it happens, or catch up on ones that already wrapped."
+      onBack={() => navigate('/')}
+    >
+      {loading ? (
+        <div className="space-y-3" role="status" aria-label="Loading trials">
+          {[0, 1, 2].map(i => (
+            <div key={i} className={`${PANEL_SOFT} h-16 animate-pulse`} />
+          ))}
         </div>
-        <p className="text-white/50 text-sm mb-8">
-          Follow a trial as it happens, or catch up on ones that already wrapped.
-        </p>
+      ) : (
+        <>
+          <SectionTitle icon={<Radio className="w-5 h-5 text-red-400" />}>Live Now</SectionTitle>
+          {live.length === 0 ? (
+            <EmptyCard icon={<Tv className="w-5 h-5" />}>No live trials open to spectators right now.</EmptyCard>
+          ) : (
+            <div className="space-y-3 mb-8">
+              {live.map((s) => (
+                <Link
+                  key={s.id}
+                  to={`/share/${s.id}`}
+                  className={`${PANEL_SOFT} flex items-center gap-3 p-4 border-red-400/40 active:bg-white/10 transition-colors`}
+                >
+                  <p className="flex-1 min-w-0 text-white font-semibold truncate">{s.cases?.title || 'Trial'}</p>
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/20 border border-red-400/50 rounded-full text-red-300 text-xs font-black shrink-0">
+                    <Radio className="w-3 h-3 animate-pulse" />
+                    LIVE
+                  </span>
+                  <ChevronRight className="w-5 h-5 text-white/40 shrink-0" />
+                </Link>
+              ))}
+            </div>
+          )}
 
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-8 h-8 text-white/40 animate-spin" />
-          </div>
-        ) : (
-          <>
-            <h2 className="text-white/80 font-semibold text-sm mb-3 flex items-center gap-2">
-              <Radio className="w-4 h-4 text-red-400" />
-              Live Now
-            </h2>
-            {live.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-lg p-6 text-center mb-8">
-                <p className="text-white/50 text-sm">No live trials open to spectators right now.</p>
-              </div>
-            ) : (
-              <div className="space-y-3 mb-8">
-                {live.map((s) => (
-                  <Link
-                    key={s.id}
-                    to={`/share/${s.id}`}
-                    className="block bg-white/5 hover:bg-white/10 border border-red-500/20 rounded-lg p-4 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-white font-semibold text-sm truncate">{s.cases?.title || 'Trial'}</p>
-                      <span className="flex items-center gap-1.5 px-2 py-0.5 bg-red-500/15 border border-red-500/30 rounded-full text-red-400 text-xs font-semibold shrink-0">
-                        <Radio className="w-3 h-3 animate-pulse" />
-                        LIVE
+          <SectionTitle>Recently Finished</SectionTitle>
+          {recent.length === 0 ? (
+            <EmptyCard icon={<Trophy className="w-5 h-5" />}>No shared trials yet — finish a trial and choose to share it to see it here.</EmptyCard>
+          ) : (
+            <div className="space-y-3 mb-8">
+              {recent.map((s) => (
+                <Link
+                  key={s.id}
+                  to={`/share/${s.id}`}
+                  className={`${PANEL_SOFT} flex items-center gap-3 p-4 active:bg-white/10 transition-colors`}
+                >
+                  <p className="flex-1 min-w-0 text-white font-semibold truncate">{s.cases?.title || 'Trial'}</p>
+                  {s.outcome && (() => {
+                    const sessionPlayerRole = (s.session_state as any)?.playerRole || 'defense';
+                    const playerWon = didPlayerWin(s.outcome, sessionPlayerRole);
+                    return (
+                      <span className={`flex items-center gap-1.5 text-xs font-black shrink-0 ${playerWon ? 'text-[#FFD43B]' : 'text-white/50'}`}>
+                        {playerWon ? <Trophy className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                        {verdictLabel(s.outcome)}
                       </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+                    );
+                  })()}
+                  <ChevronRight className="w-5 h-5 text-white/40 shrink-0" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
-            <h2 className="text-white/80 font-semibold text-sm mb-3">Recently Finished</h2>
-            {recent.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-lg p-6 text-center">
-                <p className="text-white/50 text-sm">No shared trials yet — finish a trial and choose to share it to see it here.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recent.map((s) => (
-                  <Link
-                    key={s.id}
-                    to={`/share/${s.id}`}
-                    className="block bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg p-4 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-white font-semibold text-sm truncate">{s.cases?.title || 'Trial'}</p>
-                      {s.outcome && (() => {
-                        const sessionPlayerRole = (s.session_state as any)?.playerRole || 'defense';
-                        const playerWon = didPlayerWin(s.outcome, sessionPlayerRole);
-                        return (
-                          <span className={`flex items-center gap-1.5 text-xs font-semibold shrink-0 ${playerWon ? 'text-amber-400' : 'text-slate-400'}`}>
-                            {playerWon ? <Trophy className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                            {verdictLabel(s.outcome)}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="text-center pt-8 pb-8">
-          <Link to="/" className="inline-block px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-sm transition-colors">
-            Play Courtroom Quest
-          </Link>
-        </div>
+      <div className="text-center pt-2 pb-6">
+        <Link to="/" className={`${gameButton('gold', 'md')} w-full sm:w-auto`}>
+          PLAY COURTROOM QUEST
+        </Link>
       </div>
-    </div>
+    </ScreenShell>
   );
 }

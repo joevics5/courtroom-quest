@@ -1,4 +1,6 @@
-import { Crown, Zap, Users, Shield, X } from 'lucide-react';
+import { Crown, Zap, Users, Shield } from 'lucide-react';
+import ModalSheet from './ModalSheet';
+import { gameButton } from './ui';
 import type { SubscriptionTier } from '../types';
 
 interface SubscriptionPlan {
@@ -100,89 +102,66 @@ export default function SubscriptionGate({ requiredTier, currentTier, feature, o
   const recommendedPlan = plans.find(p => p.tier === requiredTier) || plans[0];
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl relative">
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        )}
-        <div className="text-center mb-6">
-          <div className="inline-block p-3 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full mb-3">
-            <recommendedPlan.icon className="w-8 h-8 text-blue-400" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Upgrade to Access {feature}</h2>
-          <p className="text-white/60 text-sm">Choose a plan that fits your needs</p>
-        </div>
+    <ModalSheet
+      title={`Upgrade to access ${feature}`}
+      subtitle="Choose a plan that fits your needs"
+      icon={<recommendedPlan.icon className="w-6 h-6 text-[#FFD43B]" />}
+      onClose={onClose}
+      maxWidth="max-w-3xl"
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {plans.map((plan) => {
+          const Icon = plan.icon;
+          const isRecommended = plan.tier === requiredTier;
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          {plans.map((plan) => {
-            const Icon = plan.icon;
-            const isRecommended = plan.tier === requiredTier;
-
-            return (
-              <div
-                key={plan.tier}
-                className={`bg-white/5 rounded-lg p-4 border-2 transition-all ${
-                  isRecommended
-                    ? 'border-blue-500 shadow-lg shadow-blue-500/20'
-                    : 'border-white/10 hover:border-white/20'
-                }`}
-              >
-                {isRecommended && (
-                  <div className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full mb-2 inline-block">
-                    RECOMMENDED
-                  </div>
-                )}
-                <div className={`inline-block p-2 bg-gradient-to-br ${plan.color} rounded-lg mb-3`}>
-                  <Icon className="w-4 h-4 text-white" />
+          return (
+            <div
+              key={plan.tier}
+              className={`rounded-2xl p-4 border-2 transition-all bg-white/5 ${
+                isRecommended
+                  ? 'border-[#FFD43B] shadow-[0_0_22px_rgba(255,212,59,0.25)]'
+                  : 'border-white/10'
+              }`}
+            >
+              {isRecommended && (
+                <div className="bg-[#FFD43B] text-black text-[10px] font-black px-2 py-1 rounded-full mb-2 inline-block">
+                  RECOMMENDED
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
-                <div className="text-xl font-bold text-white mb-3">{plan.price}</div>
-                <ul className="space-y-1">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="text-white/70 text-xs flex items-start gap-1">
-                      <span className="text-green-400 mt-0.5">✓</span>
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+              )}
+              <div className={`inline-block p-2 bg-gradient-to-br ${plan.color} rounded-xl mb-3`}>
+                <Icon className="w-4 h-4 text-white" />
               </div>
-            );
-          })}
-        </div>
+              <h3 className="font-game text-2xl leading-none text-white mb-1 uppercase">{plan.name}</h3>
+              <div className="text-lg font-bold text-white mb-3">{plan.price}</div>
+              <ul className="space-y-1">
+                {plan.features.map((item, idx) => (
+                  <li key={idx} className="text-white/70 text-xs flex items-start gap-1">
+                    <span className="text-green-400 mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
 
-        <div className="bg-white/5 rounded-lg p-4 mb-4">
-          <h3 className="text-white font-bold mb-2 text-sm">Pay-Per-Trial Options</h3>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-white/5 rounded-lg p-3 text-center">
-              <div className="text-lg font-bold text-white mb-1">$3.49</div>
-              <div className="text-white/60 text-xs">15-min</div>
+      <div className="rounded-2xl bg-white/5 border border-white/10 p-4 mb-5">
+        <h3 className="text-xs font-black tracking-widest text-[#FFD43B] mb-3">PAY-PER-TRIAL OPTIONS</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {[['$3.49', '15-min'], ['$5.99', '30-min'], ['$10.99', '60-min']].map(([price, len]) => (
+            <div key={len} className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-lg font-bold text-white mb-1">{price}</div>
+              <div className="text-white/60 text-xs">{len}</div>
             </div>
-            <div className="bg-white/5 rounded-lg p-3 text-center">
-              <div className="text-lg font-bold text-white mb-1">$5.99</div>
-              <div className="text-white/60 text-xs">30-min</div>
-            </div>
-            <div className="bg-white/5 rounded-lg p-3 text-center">
-              <div className="text-lg font-bold text-white mb-1">$10.99</div>
-              <div className="text-white/60 text-xs">60-min</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="text-center">
-          <button
-            onClick={onUpgrade}
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all"
-          >
-            Choose a Plan
-          </button>
+          ))}
         </div>
       </div>
-    </div>
+
+      <button onClick={onUpgrade} className={`w-full ${gameButton('gold', 'md')}`}>
+        Choose a Plan
+      </button>
+    </ModalSheet>
   );
 }
 

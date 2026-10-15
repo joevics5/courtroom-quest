@@ -1,4 +1,5 @@
-import { X, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import ModalSheet, { CHOICE_ROW } from './ModalSheet';
 
 interface ObjectionSelectorProps {
   onSelect: (reason: string) => void;
@@ -18,43 +19,20 @@ const OBJECTION_REASONS = [
 
 export default function ObjectionSelector({ onSelect, onClose }: ObjectionSelectorProps) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <h2 className="text-xl font-bold text-white">Objection</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
+    <ModalSheet
+      title="OBJECTION!"
+      icon={<AlertCircle className="w-6 h-6 text-[#E5484D]" />}
+      subtitle="Select the reason for your objection:"
+      onClose={onClose}
+    >
+      <div className="space-y-2">
+        {OBJECTION_REASONS.map((reason) => (
+          <button key={reason.value} onClick={() => onSelect(reason.value)} className={CHOICE_ROW}>
+            <div className="font-semibold text-white">{reason.label}</div>
+            <div className="text-sm text-white/55 mt-0.5">{reason.description}</div>
           </button>
-        </div>
-
-        <p className="text-slate-400 text-sm mb-4">
-          Select the reason for your objection:
-        </p>
-
-        <div className="space-y-2">
-          {OBJECTION_REASONS.map((reason) => (
-            <button
-              key={reason.value}
-              onClick={() => onSelect(reason.value)}
-              className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-            >
-              <div className="font-semibold text-white">{reason.label}</div>
-              <div className="text-sm text-slate-400 mt-1">{reason.description}</div>
-            </button>
-          ))}
-        </div>
+        ))}
       </div>
-    </div>
+    </ModalSheet>
   );
 }
-
-
-
-
-

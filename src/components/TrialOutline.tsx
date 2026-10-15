@@ -47,9 +47,9 @@ export default function TrialOutline({
       return <Check className="w-4 h-4 text-green-400" />;
     }
     if (status === 'current') {
-      return <Circle className="w-4 h-4 text-blue-400 fill-blue-400" />;
+      return <Circle className="w-4 h-4 text-[#FFD43B] fill-[#FFD43B]" />;
     }
-    return <Circle className="w-4 h-4 text-slate-600" />;
+    return <Circle className="w-4 h-4 text-white/25" />;
   };
 
   const getCategoryPhases = (category: 'pre-trial' | 'trial' | 'post-trial') => {
@@ -110,14 +110,14 @@ export default function TrialOutline({
               ) : instructionStatus === 'current' ? (
                 <Circle className="w-3 h-3 text-purple-400 fill-purple-400" />
               ) : (
-                <Circle className="w-3 h-3 text-slate-600" />
+                <Circle className="w-3 h-3 text-white/25" />
               )}
             </div>
             <div className="flex-1 min-w-0">
               <span className={`font-medium italic ${
-                instructionStatus === 'completed' ? 'text-slate-500 line-through' :
+                instructionStatus === 'completed' ? 'text-white/45 line-through' :
                 instructionStatus === 'current' ? 'text-purple-300' :
-                'text-slate-600'
+                'text-white/25'
               }`}>
                 x. Judge Instructions
               </span>
@@ -142,14 +142,14 @@ export default function TrialOutline({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <span className={`text-xs font-medium ${
-                status === 'completed' ? 'text-slate-400 line-through' :
+                status === 'completed' ? 'text-white/55 line-through' :
                 status === 'current' ? 'text-white' :
-                'text-slate-500'
+                'text-white/45'
               }`}>
                 {phase.number}. {phase.name}
               </span>
               {duration !== undefined && duration > 0 && (
-                <span className="text-xs text-slate-400 flex-shrink-0">
+                <span className="text-xs text-white/55 flex-shrink-0">
                   {practiceMode
                     ? '—'
                     : status === 'current' && timeRemaining !== undefined
@@ -168,19 +168,19 @@ export default function TrialOutline({
     <div className="bg-black/55 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden h-full flex flex-col">
       <div className="border-b border-white/10 px-4 py-3 bg-black/30">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-white">Trial Outline</h3>
+          <h3 className="font-game text-2xl leading-none text-white">TRIAL OUTLINE</h3>
           {practiceMode ? (
             <div className="flex items-center gap-1 text-amber-400">
               <span className="text-xs font-semibold">Practice</span>
             </div>
           ) : timerActive && (
-            <div className="flex items-center gap-1 text-blue-400">
+            <div className="flex items-center gap-1 text-[#FFD43B]">
               <Clock className="w-3 h-3" />
               <span className="text-xs font-mono">{formatTime(totalTimeRemaining)}</span>
             </div>
           )}
         </div>
-        <div className="text-xs text-slate-400">
+        <div className="text-xs text-white/55">
           {trialConfig.duration} minute trial
         </div>
       </div>
@@ -189,7 +189,7 @@ export default function TrialOutline({
         <div>
           <button
             onClick={() => setShowPreTrial(!showPreTrial)}
-            className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide hover:text-slate-300 transition-colors"
+            className="w-full flex items-center justify-between text-xs font-semibold text-white/55 mb-2 uppercase tracking-wide hover:text-white/70 transition-colors"
           >
             <span className="flex items-center gap-2">
               <Check className="w-3 h-3 text-green-400" />
@@ -205,7 +205,7 @@ export default function TrialOutline({
         </div>
 
         <div>
-          <div className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">
+          <div className="text-xs font-semibold text-white/55 mb-2 uppercase tracking-wide">
             Trial (Timed)
           </div>
           <div className="space-y-1">
@@ -214,7 +214,7 @@ export default function TrialOutline({
         </div>
 
         <div>
-          <div className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">
+          <div className="text-xs font-semibold text-white/55 mb-2 uppercase tracking-wide">
             Post-Trial
           </div>
           <div className="space-y-1">

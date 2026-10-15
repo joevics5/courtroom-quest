@@ -148,7 +148,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
       case 'easy': return 'text-green-400 bg-green-500/20 border-green-500/30';
       case 'medium': return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/30';
       case 'hard': return 'text-red-400 bg-red-500/20 border-red-500/30';
-      default: return 'text-slate-400 bg-slate-500/20 border-slate-500/30';
+      default: return 'text-white/55 bg-slate-500/20 border-slate-500/30';
     }
   };
 
@@ -195,10 +195,10 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
         </div>
 
         {loading ? (
-          <div className="text-center py-20 text-slate-400">Loading cases...</div>
+          <div className="text-center py-20 text-white/55">Loading cases...</div>
         ) : (cases.length === 0 && ongoingCases.length === 0) ? (
           <div className="text-center py-20">
-            <p className="text-slate-400 mb-4">No cases available</p>
+            <p className="text-white/55 mb-4">No cases available</p>
             <button
               onClick={() => loadCases()}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
@@ -222,7 +222,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
                     VS PLAYER
                   </span>
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-1">{game.title}</h3>
+                <h3 className="font-game text-3xl leading-none text-white mb-1">{game.title}</h3>
                 <p className="text-sm text-white/65">
                   You're playing the {game.role}. {game.kind === 'challenge' ? 'It starts as soon as someone joins.' : 'It starts when your friend accepts.'}
                 </p>
@@ -253,21 +253,21 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
                   </div>
 
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <h3 className="text-xl font-semibold text-white">{ongoingCase.title}</h3>
+                    <h3 className="font-game text-3xl leading-none text-white">{ongoingCase.title}</h3>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedCaseForWinners(ongoingCase);
                         setShowWinnersModal(true);
                       }}
-                      className="flex-none p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
+                      className="flex-none p-2 text-white/55 hover:text-[#FFD43B] hover:bg-[#FFD43B]/10 rounded-lg transition-colors"
                       title="View winners"
                     >
                       <Trophy className="w-5 h-5" />
                     </button>
                   </div>
 
-                  <p className="text-slate-300 text-sm line-clamp-2 mb-3">"{ongoingCase.description}"</p>
+                  <p className="text-white/70 text-sm line-clamp-2 mb-3">"{ongoingCase.description}"</p>
 
                   <div className="text-xs text-white/50 mb-4">
                     {ongoingCase.last_played ? `Last played ${timeAgo(ongoingCase.last_played)}` : ''}
@@ -295,7 +295,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
                   </span>
                 )}
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white group-hover:text-[#FFD43B] transition-colors">
+                  <h3 className="font-game text-3xl leading-none text-white group-hover:text-[#FFD43B] transition-colors">
                     {caseItem.title}
                   </h3>
                   <button
@@ -304,24 +304,24 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
                       setSelectedCaseForWinners(caseItem);
                       setShowWinnersModal(true);
                     }}
-                    className="p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
+                    className="p-2 text-white/55 hover:text-[#FFD43B] hover:bg-[#FFD43B]/10 rounded-lg transition-colors"
                     title="View winners"
                   >
                     <Trophy className="w-5 h-5" />
                   </button>
                 </div>
 
-                <p className={`text-slate-300 text-sm mb-4 ${onPick ? 'line-clamp-5' : 'line-clamp-2'}`}>
+                <p className={`text-white/70 text-sm mb-4 ${onPick ? 'line-clamp-5' : 'line-clamp-2'}`}>
                   "{caseItem.description}"
                 </p>
 
                 <div className="space-y-3 mb-4">
                   <div className="text-sm">
-                    <span className="text-slate-500">Defendant: </span>
-                    <span className="text-slate-300">{caseItem.defendant_name || 'Unknown'}</span>
+                    <span className="text-white/45">Defendant: </span>
+                    <span className="text-white/70">{caseItem.defendant_name || 'Unknown'}</span>
                   </div>
                   {!onPick && (
-                    <div className="text-xs text-slate-500 italic">
+                    <div className="text-xs text-white/45 italic">
                       New Case - Awaiting Counsel
                     </div>
                   )}

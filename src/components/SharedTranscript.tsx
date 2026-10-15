@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Scale, Trophy, XCircle, Loader2, Radio } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Scale, Trophy, XCircle, Radio } from 'lucide-react';
 import { supabase } from '../integrations/supabase/client';
 import type { TrialEvent, Verdict, CaseSession, Case } from '../types';
 import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
+import ScreenShell from './ScreenShell';
+import { PANEL, PANEL_SOFT, gameButton } from './ui';
 
 function getSpeakerDisplayName(event: TrialEvent, isLive: boolean) {
   // Live trials hide real account names from spectators — only the
@@ -25,17 +27,26 @@ function getSpeakerDisplayName(event: TrialEvent, isLive: boolean) {
 
 function getRoleColor(role: string) {
   switch (role) {
-    case 'judge': return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
-    case 'prosecution': return 'bg-red-500/20 text-red-300 border-red-500/30';
-    case 'defense': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-    case 'witness': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-    case 'jury': return 'bg-green-500/20 text-green-300 border-green-500/30';
-    default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+    case 'judge': return 'bg-purple-500/20 text-purple-200 border-purple-400/40';
+    case 'prosecution': return 'bg-red-500/20 text-red-200 border-red-400/40';
+    case 'defense': return 'bg-blue-500/20 text-blue-200 border-blue-400/40';
+    case 'witness': return 'bg-yellow-500/20 text-yellow-200 border-yellow-400/40';
+    case 'jury': return 'bg-green-500/20 text-green-200 border-green-400/40';
+    default: return 'bg-white/10 text-white/70 border-white/20';
   }
 }
 
+const ROLE_BAR: Record<string, string> = {
+  judge: 'border-l-purple-400/60',
+  prosecution: 'border-l-red-400/60',
+  defense: 'border-l-blue-400/60',
+  witness: 'border-l-yellow-400/60',
+  jury: 'border-l-green-400/60'
+};
+
 export default function SharedTranscript() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const navigate = useNavigate();
   const [session, setSession] = useState<CaseSession | null>(null);
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
@@ -102,24 +113,26 @@ export default function SharedTranscript() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-white/40 animate-spin" />
-      </div>
+      <ScreenShell title="TRANSCRIPT" onBack={() => navigate('/')}>
+        <div className="space-y-3" role="status" aria-label="Loading transcript">
+          {[0, 1, 2].map(i => <div key={i} className={`${PANEL_SOFT} h-20 animate-pulse`} />)}
+        </div>
+      </ScreenShell>
     );
   }
 
   if (notFound || !session) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="text-center max-w-sm">
-          <Scale className="w-12 h-12 text-white/30 mx-auto mb-4" />
-          <h1 className="text-white text-xl font-bold mb-2">Transcript Not Found</h1>
-          <p className="text-white/50 text-sm mb-6">This trial either doesn't exist or isn't shared publicly.</p>
-          <Link to="/" className="inline-block px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-sm transition-colors">
-            Play Courtroom Quest
-          </Link>
+      <ScreenShell title="NOT FOUND" onBack={() => navigate('/')} maxWidth="max-w-md">
+        <div className={`${PANEL} text-center`}>
+          <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-white/10 flex items-center justify-center">
+            <Scale className="w-7 h-7 text-white/50" />
+          </div>
+          <h2 className="font-game text-3xl leading-none text-white mb-2">TRANSCRIPT NOT FOUND</h2>
+          <p className="text-white/60 text-sm mb-6">This trial either doesn't exist or isn't shared publicly.</p>
+          <Link to="/" className={`${gameButton('gold', 'md')} w-full`}>PLAY COURTROOM QUEST</Link>
         </div>
-      </div>
+      </ScreenShell>
     );
   }
 
@@ -128,70 +141,62 @@ export default function SharedTranscript() {
   const isLive = !session.completed_at;
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <div className="max-w-3xl mx-auto p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Scale className="w-5 h-5 text-amber-400" />
-            <span className="text-white/50 text-sm">Courtroom Quest — {isLive ? 'Live Trial' : 'Shared Trial'}</span>
+    <ScreenShell
+      title={isLive ? 'LIVE TRIAL' : 'SHARED TRIAL'}
+      onBack={() => navigate('/watch')}
+      right={isLive ? (
+        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 border border-red-400/50 rounded-full text-red-300 text-xs font-black">
+          <Radio className="w-3 h-3 animate-pulse" />
+          LIVE
+        </span>
+      ) : undefined}
+    >
+      {verdict && (
+        <div className={`rounded-3xl p-5 mb-6 border-2 backdrop-blur-sm ${isWin ? 'bg-[#FFD43B]/10 border-[#FFD43B]/60 shadow-[0_0_28px_rgba(255,212,59,0.18)]' : 'bg-black/60 border-white/20'}`}>
+          <div className="flex items-center gap-3 mb-3">
+            {isWin ? <Trophy className="w-9 h-9 text-[#FFD43B] flex-none" /> : <XCircle className="w-9 h-9 text-white/50 flex-none" />}
+            <div className="min-w-0">
+              <h2 className="font-game text-3xl leading-none text-white">{caseData?.title || 'Trial'}</h2>
+              <p className={`text-sm font-semibold mt-1 ${isWin ? 'text-[#FFD43B]' : 'text-white/60'}`}>
+                Verdict: {verdictLabel(verdict.outcome)}{verdict.score !== undefined ? ` — Score: ${verdict.score}/100` : ''}
+              </p>
+            </div>
           </div>
-          {isLive && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/15 border border-red-500/30 rounded-full text-red-400 text-xs font-semibold">
-              <Radio className="w-3 h-3 animate-pulse" />
-              LIVE
-            </span>
+          {verdict.reasoning && (
+            <p className="text-white/75 text-sm leading-relaxed">{verdict.reasoning}</p>
           )}
         </div>
+      )}
 
-        {verdict && (
-          <div className={`rounded-2xl p-6 mb-6 border-2 ${isWin ? 'bg-gradient-to-br from-amber-600/20 to-yellow-500/10 border-amber-500/40' : 'bg-gradient-to-br from-slate-700/40 to-slate-800/40 border-slate-600/40'}`}>
-            <div className="flex items-center gap-3 mb-3">
-              {isWin ? <Trophy className="w-8 h-8 text-amber-400" /> : <XCircle className="w-8 h-8 text-slate-400" />}
-              <div>
-                <h1 className="text-white text-xl font-bold">{caseData?.title || 'Trial'}</h1>
-                <p className={`text-sm font-semibold ${isWin ? 'text-amber-400' : 'text-slate-400'}`}>
-                  Verdict: {verdictLabel(verdict.outcome)}{verdict.score !== undefined ? ` — Score: ${verdict.score}/100` : ''}
-                </p>
-              </div>
-            </div>
-            {verdict.reasoning && (
-              <p className="text-white/70 text-sm leading-relaxed">{verdict.reasoning}</p>
-            )}
-          </div>
-        )}
-
-        {isLive && !verdict && (
-          <div className="mb-6">
-            <h1 className="text-white text-xl font-bold">{caseData?.title || 'Trial'}</h1>
-            <p className="text-white/50 text-sm mt-1">This trial is in progress — new statements will appear below as they happen.</p>
-          </div>
-        )}
-
-        <h2 className="text-white/80 font-semibold text-sm mb-3">Full Transcript</h2>
-        <div className="space-y-3 mb-8">
-          {events.map((event) => (
-            <div key={event.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${getRoleColor(event.speaker_role)}`}>
-                  {getSpeakerDisplayName(event, isLive)}
-                </span>
-              </div>
-              <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">{event.content}</p>
-            </div>
-          ))}
-          {events.length === 0 && (
-            <p className="text-white/40 text-sm text-center py-8">
-              {isLive ? 'The trial is just getting started — check back in a moment.' : 'No transcript events recorded for this trial.'}
-            </p>
-          )}
+      {isLive && !verdict && (
+        <div className={`${PANEL} mb-6`}>
+          <h2 className="font-game text-3xl leading-none text-white">{caseData?.title || 'Trial'}</h2>
+          <p className="text-white/60 text-sm mt-2">This trial is in progress — new statements will appear below as they happen.</p>
         </div>
+      )}
 
-        <div className="text-center pb-8">
-          <Link to="/" className="inline-block px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-sm transition-colors">
-            Play Courtroom Quest
-          </Link>
-        </div>
+      <h2 className="font-game text-2xl leading-none text-white mb-3">FULL TRANSCRIPT</h2>
+      <div className="space-y-3 mb-8">
+        {events.map((event) => (
+          <div key={event.id} className={`${PANEL_SOFT} border-l-4 ${ROLE_BAR[event.speaker_role] || 'border-l-white/30'} p-4`}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${getRoleColor(event.speaker_role)}`}>
+                {getSpeakerDisplayName(event, isLive)}
+              </span>
+            </div>
+            <p className="text-white/85 leading-relaxed whitespace-pre-wrap">{event.content}</p>
+          </div>
+        ))}
+        {events.length === 0 && (
+          <p className="text-white/50 text-sm text-center py-8">
+            {isLive ? 'The trial is just getting started — check back in a moment.' : 'No transcript events recorded for this trial.'}
+          </p>
+        )}
       </div>
-    </div>
+
+      <div className="text-center pb-4">
+        <Link to="/" className={`${gameButton('gold', 'md')} w-full sm:w-auto`}>PLAY COURTROOM QUEST</Link>
+      </div>
+    </ScreenShell>
   );
 }

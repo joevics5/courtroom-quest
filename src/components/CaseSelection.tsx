@@ -65,7 +65,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
       case 'easy': return 'text-green-400 bg-green-500/10';
       case 'medium': return 'text-yellow-400 bg-yellow-500/10';
       case 'hard': return 'text-red-400 bg-red-500/10';
-      default: return 'text-slate-400 bg-slate-500/10';
+      default: return 'text-white/55 bg-slate-500/10';
     }
   };
 
@@ -88,7 +88,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
               <h3 className="text-lg font-semibold text-white">
                 {caseItem.title}
               </h3>
-              <p className="text-sm text-slate-400 mt-1 capitalize">{caseItem.case_type}</p>
+              <p className="text-sm text-white/55 mt-1 capitalize">{caseItem.case_type}</p>
             </div>
             <div className="absolute top-0 right-0 flex items-center gap-2">
               <Trophy className="w-4 h-4 text-yellow-400" />
@@ -97,7 +97,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
                   e.stopPropagation();
                   onEditCustomCase(caseItem.id);
                 }}
-                className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                className="p-2 text-white/55 hover:text-[#FFD43B] hover:bg-blue-500/10 rounded-lg transition-colors"
                 title="Edit case"
               >
                 <Edit className="w-4 h-4" />
@@ -106,7 +106,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
           </div>
         </div>
 
-        <p className="text-slate-300 text-sm line-clamp-2 mb-3">
+        <p className="text-white/70 text-sm line-clamp-2 mb-3">
           {caseItem.description}
         </p>
 
@@ -153,9 +153,9 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
         <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm overflow-hidden">
           <div className="p-6">
             {loading ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-white/55">
                 {loading && (
-                  <div className="flex items-center gap-2 px-4 py-2 text-slate-400 text-sm">
+                  <div className="flex items-center gap-2 px-4 py-2 text-white/55 text-sm">
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     Loading Cases...
                   </div>
@@ -174,7 +174,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
 
                 <button
                   onClick={() => setShowIntro(true)}
-                  className="mx-auto flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#FFD43B] underline-offset-2 hover:underline transition-colors"
+                  className="mx-auto flex items-center gap-1.5 text-xs text-white/55 hover:text-[#FFD43B] underline-offset-2 hover:underline transition-colors"
                 >
                   <HelpCircle className="w-3.5 h-3.5" />
                   How do custom cases work?
@@ -182,7 +182,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
 
                 {/* All Custom Cases */}
                 {userCases.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400">
+                  <div className="text-center py-12 text-white/55">
                     No custom cases yet. Create your first case above.
                   </div>
                 ) : (
