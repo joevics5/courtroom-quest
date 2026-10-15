@@ -33,6 +33,8 @@ import type { VerdictResult } from '../lib/ai/trialAI';
 import { getJudgeInstructionForPhase, requiresJudgeInstruction, extractWitnessNumber } from '../lib/judgeInstructions';
 import { getUserDisplayName } from '../lib/userName';
 import { buildExaminationRecap, buildWitnessHistory } from '../lib/witnessHistory';
+import { useElementHeight } from '../lib/useElementHeight';
+import AutoRestChip from './AutoRestChip';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { enterSpeechScope, speakAs } from '../lib/speech';
 import SpeechToggle from './SpeechToggle';
@@ -638,8 +640,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const deltaY = drag.startY - e.clientY; // moving finger/cursor up = positive offset
     if (Math.abs(deltaY) > 6) {
       floatingButtonWasDraggedRef.current = true;
-      const maxOffset = typeof window !== 'undefined' ? window.innerHeight - 140 : 600;
-      setFloatingButtonOffset(Math.max(8, Math.min(drag.startOffset + deltaY, maxOffset)));
+      // Stay inside the chat panel.
+      const panelHeight = chatPanelRef.current?.clientHeight ?? 400;
+      const maxOffset = Math.max(0, panelHeight - 72);
+      setFloatingButtonOffset(Math.max(0, Math.min(drag.startOffset + deltaY, maxOffset)));
     }
   };
 
@@ -2095,6 +2099,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   });
   const turnBadge = describeTurn({ floor: stageFloor, playerRole, sameDevicePlay });
   const keyboardOpen = useKeyboardOpen();
+  // The input bar's real height, so the chat panel can stretch down to it with no dead space.
+  const [inputBarRef, inputBarHeight] = useElementHeight<HTMLDivElement>();
+  const chatPanelRef = useRef<HTMLDivElement>(null);
   // Voice is only allowed here and in the pre-trial; leaving the trial stops it at once.
   useEffect(() => enterSpeechScope(), []);
 
@@ -2158,7 +2165,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       </div>
 
       {/* Scrollable Content Area - Padding to account for fixed header (header is ~90px tall) */}
-      <div className="relative z-10 flex-1 pb-56 sm:pb-48 px-3 sm:px-6 overflow-y-auto" style={{ paddingTop: 'calc(84px + env(safe-area-inset-top))' }}>
+      <div className="relative z-10 flex-1 px-3 sm:px-6 overflow-y-auto" style={{ paddingTop: 'calc(84px + env(safe-area-inset-top))', paddingBottom: `${(inputBarHeight || 200) + 8}px` }}>
         <div className="max-w-[1800px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="hidden lg:block lg:col-span-1">
@@ -2176,7 +2183,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           </div>
 
           <div className="lg:col-span-3">
-            <div className={`relative ${PANEL_SOFT} flex flex-col overflow-hidden h-[calc(100dvh-330px)] min-h-[24rem]`}>
+            <div
+              ref={chatPanelRef}
+              className={`relative ${PANEL_SOFT} flex flex-col overflow-hidden min-h-[16rem]`}
+              style={{ height: `calc(100dvh - (84px + env(safe-area-inset-top)) - ${(inputBarHeight || 200) + 16}px)` }}
+            >
               {/* Avatar stage - Conditionally Rendered */}
               {showVideoDisplay && (
                 <div className="relative flex-shrink-0">
@@ -2201,7 +2212,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               )}
 
               {/* Transcript/Conversation Area - Expanded when video is hidden */}
-              <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 min-h-0 border-t border-white/10">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-5 pb-20 space-y-3 min-h-0 border-t border-white/10">
                 {events.map((event) => (
                   <TranscriptMessage
                     key={event.id}
@@ -2213,52 +2224,57 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 ))}
               </div>
 
-              {/* Status/Thinking Messages — the label and action wording
-                  reflect whichever side the AI is actually playing
-                  (aiRole) and what kind of phase it's currently in, rather
-                  than always saying "prosecution" / "opening statement"
-                  regardless of who's turn it is or what phase is active. */}
-              <div className="absolute bottom-0 inset-x-0 z-10 pointer-events-none px-3 pb-3 space-y-2">
-              {isProsecutionThinking && (
-                <div className="rounded-2xl border border-white/15 bg-black/75 backdrop-blur-md shadow-lg p-3">
-                  <div className="flex flex-col items-center justify-center gap-1">
-                    <div className="flex items-center gap-3 text-white/85">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#FFD43B] border-t-transparent"></div>
-                      <span className="font-medium text-lg">
-                        {aiRole === 'prosecution' ? 'Prosecution' : 'Defense'} is {(() => {
-                          const phaseNameLower = trialDuration
-                            ? (getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase)?.name.toLowerCase() || '')
-                            : '';
-                          if (phaseNameLower.includes('opening')) return 'preparing its opening statement...';
-                          if (phaseNameLower.includes('closing')) return 'preparing its closing argument...';
-                          return 'deciding its next move...';
-                        })()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              {/* Witnesses & evidence button: lives over the chat text, bottom-right of the panel.
+                  Still draggable up and down within the panel. */}
+              {turnState && turnState.current_turn !== 'judge' && (
+                <button
+                  onClick={handleFloatingButtonClick}
+                  onPointerDown={handleFloatingButtonPointerDown}
+                  onPointerMove={handleFloatingButtonPointerMove}
+                  onPointerUp={handleFloatingButtonPointerUp}
+                  onPointerCancel={handleFloatingButtonPointerUp}
+                  style={{ bottom: `${12 + floatingButtonOffset}px`, touchAction: 'none' }}
+                  className="absolute right-3 w-12 h-12 bg-[#FFD43B] active:bg-[#e6bd2c] text-black rounded-full shadow-[0_3px_0_#B8860B,0_6px_14px_rgba(0,0,0,0.5)] flex items-center justify-center transition-colors z-20 cursor-grab active:cursor-grabbing select-none"
+                  title="Witnesses & Evidence (drag to move)"
+                  aria-label="Witnesses and evidence"
+                >
+                  <Scale className="w-5 h-5" />
+                </button>
               )}
-              
-              {!isProsecutionThinking && autoRestSecondsLeft !== null && (
-                <div className="pointer-events-auto rounded-2xl border border-white/15 bg-black/75 backdrop-blur-md shadow-lg p-2">
-                  <button
-                    onClick={toggleAutoRestPause}
-                    className="w-full text-center text-white/85 py-1 hover:text-white transition-colors flex items-center justify-center gap-2"
-                    title={autoRestPaused ? 'Tap to resume' : 'Tap to pause'}
-                  >
-                    {autoRestPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                    {autoRestPaused
-                      ? <span>Paused — {aiRole === 'prosecution' ? 'prosecution' : 'defense'} was about to rest ({formatTime(autoRestSecondsLeft)} left). Tap to resume.</span>
-                      : <span>{aiRole === 'prosecution' ? 'Prosecution' : 'Defense'} will rest automatically in {formatTime(autoRestSecondsLeft)} — tap to pause.</span>}
-                  </button>
+
+              {/* Status chips: small, tucked into the bottom-left corner so they never cover the
+                  text. Kept clear of the button on the right. The label and wording reflect the
+                  side the AI is actually playing (aiRole) and the kind of phase it is in. */}
+              <div className="absolute bottom-3 left-3 right-[4.5rem] z-10 pointer-events-none flex flex-col items-start gap-2">
+              {isProsecutionThinking && (
+                <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg pl-2.5 pr-3 py-1.5 text-white/85">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#FFD43B] border-t-transparent flex-none"></div>
+                  <span className="text-xs sm:text-sm leading-tight">
+                    {aiRole === 'prosecution' ? 'Prosecution' : 'Defense'} is {(() => {
+                      const phaseNameLower = trialDuration
+                        ? (getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase)?.name.toLowerCase() || '')
+                        : '';
+                      if (phaseNameLower.includes('opening')) return 'preparing its opening…';
+                      if (phaseNameLower.includes('closing')) return 'preparing its closing…';
+                      return 'deciding its next move…';
+                    })()}
+                  </span>
                 </div>
               )}
 
+              {!isProsecutionThinking && autoRestSecondsLeft !== null && (
+                <AutoRestChip
+                  side={aiRole === 'prosecution' ? 'prosecution' : 'defense'}
+                  timeLabel={formatTime(autoRestSecondsLeft)}
+                  paused={autoRestPaused}
+                  onTogglePause={toggleAutoRestPause}
+                  onRestNow={() => { cancelAutoRestCountdown(); void handleRestPhaseRef.current(); }}
+                />
+              )}
+
               {!isProsecutionThinking && autoRestSecondsLeft === null && !sameDevicePlay && turnState?.current_turn === aiRole && (
-                <div className="rounded-2xl border border-white/15 bg-black/75 backdrop-blur-md shadow-lg p-2">
-                  <div className="text-center text-white/85 py-1 text-sm">
-                    Waiting for {aiRole === 'prosecution' ? 'prosecution' : 'the defense'} to act...
-                  </div>
+                <div className="rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/85">
+                  Waiting for {aiRole === 'prosecution' ? 'prosecution' : 'the defense'}…
                 </div>
               )}
               </div>
@@ -2299,24 +2315,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       )}
 
                {/* Fixed Bottom Input Bar - Static, doesn't scroll - MUST be at bottom */}
-               <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md border-t border-white/10 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-                 {/* Courtroom actions button (witnesses/evidence) — sits just ABOVE
-                     the button row, anchored to the top of this fixed bar so it
-                     never covers Submit/Rest/Object. Still draggable vertically. */}
-                 {turnState && turnState.current_turn !== 'judge' && (
-                   <button
-                     onClick={handleFloatingButtonClick}
-                     onPointerDown={handleFloatingButtonPointerDown}
-                     onPointerMove={handleFloatingButtonPointerMove}
-                     onPointerUp={handleFloatingButtonPointerUp}
-                     onPointerCancel={handleFloatingButtonPointerUp}
-                     style={{ bottom: `calc(100% + 12px + ${floatingButtonOffset}px)`, touchAction: 'none' }}
-                     className="absolute right-4 w-14 h-14 bg-[#FFD43B] active:bg-[#e6bd2c] text-black rounded-full shadow-[0_4px_0_#B8860B,0_8px_18px_rgba(0,0,0,0.5)] flex items-center justify-center transition-colors z-40 cursor-grab active:cursor-grabbing select-none"
-                     title="Witnesses & Evidence (drag to move)"
-                   >
-                     <Scale className="w-6 h-6" />
-                   </button>
-                 )}
+               <div ref={inputBarRef} className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md border-t border-white/10 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
                  <div className="w-full max-w-[1800px] mx-auto">
                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                      <div className="relative w-full sm:flex-1">
