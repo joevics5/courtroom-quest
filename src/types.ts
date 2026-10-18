@@ -144,7 +144,7 @@ export interface CaseSession {
   current_trial_phase?: number;
   phase_timings?: Record<string, any>;
   timer_started_at?: string;
-  timer_paused_at?: string;
+  timer_paused_at?: string | null;
   total_pause_duration?: number;
   phase_start_times?: Record<string, any>;
   opposing_counsel_user_id?: string;

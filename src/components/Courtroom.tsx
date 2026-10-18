@@ -35,8 +35,10 @@ import { getUserDisplayName } from '../lib/userName';
 import { buildExaminationRecap, buildWitnessHistory } from '../lib/witnessHistory';
 import { useElementHeight } from '../lib/useElementHeight';
 import AutoRestChip from './AutoRestChip';
+import { buildLeaveSave, restoreTotalTime, startsPaused } from '../lib/trialResume';
+import { useTrialLifecycle } from '../lib/useTrialLifecycle';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
-import { enterSpeechScope, speakAs } from '../lib/speech';
+import { enterSpeechScope, speakAs, stopSpeaking } from '../lib/speech';
 import SpeechToggle from './SpeechToggle';
 import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case, EventType } from '../types';
 
@@ -204,7 +206,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
    const [timerActive, setTimerActive] = useState(false);
-   const [timerPaused, setTimerPaused] = useState(false);
+   // A trial that was left mid-way comes back paused; the player resumes on purpose.
+   const [timerPaused, setTimerPaused] = useState(() => startsPaused(session as any, practiceMode));
    const [pausedForDefense, setPausedForDefense] = useState(false);
    const [phaseTimeRemaining, setPhaseTimeRemaining] = useState<Record<number, number>>(() => {
      // Load from session if available
@@ -212,9 +215,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
      return saved || {};
    });
    const [totalTimeRemaining, setTotalTimeRemaining] = useState(() => {
-     // Load from session if available
-     const saved = (session.session_state as any)?.totalTimeRemaining;
-     return saved || 0;
+     // Load from session if available. If the total was never saved, rebuild it from the phase clocks:
+     // reading it as 0 used to end the trial the moment the player came back.
+     const state = session.session_state as any;
+     return restoreTotalTime(state?.totalTimeRemaining, state?.phaseTimeRemaining, session.current_trial_phase ?? 7);
    });
   const [currentSpeaker, setCurrentSpeaker] = useState<'judge' | 'prosecution' | 'defense' | 'witness' | 'jury'>('judge');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -237,6 +241,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
    // the value from the render when the interval was created.
    const autoRestPausedRef = useRef(false);
    autoRestPausedRef.current = autoRestPaused;
+   const timerPausedRef = useRef(false);
+   timerPausedRef.current = timerPaused;
    // Always points at the latest handleRestPhase — the countdown interval
    // is set up once and lives for up to its full duration, so if it called
    // handleRestPhase directly it would be closing over turnState/events/etc.
@@ -483,7 +489,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
        await db.sessions.updateSession(session.id, {
          current_phase: 'trial',
          current_trial_phase: currentPhase,
-         timer_paused_at: newPausedState ? new Date().toISOString() : undefined,
+         timer_paused_at: newPausedState ? new Date().toISOString() : null,
          session_state: {
            ...session.session_state,
            phaseTimeRemaining
@@ -600,7 +606,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     cancelAutoRestCountdown();
     setAutoRestSecondsLeft(seconds);
     autoRestTimerRef.current = setInterval(() => {
-      if (autoRestPausedRef.current) return; // frozen while the player has it paused
+      if (!aliveRef.current) return; // the player left: never rest the AI in the background
+      if (autoRestPausedRef.current || timerPausedRef.current) return; // frozen while the player has it paused
       setAutoRestSecondsLeft(prev => {
         if (prev === null) return null;
         if (prev <= 1) {
@@ -696,7 +703,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   };
 
   const handleNextPhase = async () => {
-    if (!trialDuration) return;
+    if (!trialDuration || !aliveRef.current) return;
 
     // Opening AND closing statements are mandatory: don't let the timer
     // (or any other trigger) advance past a statement phase until that
@@ -872,6 +879,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     // and closing statements are each handled by their own effect.
     if (!isWitnessPhase(phase)) return;
     if (turnState.current_turn !== aiRole) return;
+    // A paused trial (including one just reopened) waits for the player to resume.
+    if (timerPaused) return;
 
     console.log('[Courtroom] Scheduling AI turn for witness phase', currentPhase, turnState);
 
@@ -880,7 +889,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole]);
+  }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole, timerPaused]);
 
   // Judge Instruction Sub-Phase Handler
   // Before entering any counsel action phase, show judge instruction first
@@ -1081,7 +1090,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   // Handle prosecution AI turn
   const handleProsecutionTurn = async () => {
-    if (!trialDuration || !turnState || !caseData) return;
+    if (!trialDuration || !turnState || !caseData || !aliveRef.current) return;
     
     setIsProsecutionThinking(true);
     try {
@@ -1139,6 +1148,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       } as const;
 
       const action = await generateProsecutionAction(prosecutionContext);
+      // The player left while the AI was thinking: don't write its turn or move the trial on.
+      if (!aliveRef.current) return;
       await executeProsecutionAction(action);
     } catch (error) {
       console.error('Failed to handle prosecution turn:', error);
@@ -1283,6 +1294,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   // Generate opening statement automatically
   const handleGenerateOpeningStatement = async () => {
+    if (!aliveRef.current) return; // the player left: no background AI work
     console.log('[Courtroom] 🎯 handleGenerateOpeningStatement CALLED');
     console.log('[Courtroom] 📊 Current state:', {
       hasCaseData: !!caseData,
@@ -1414,6 +1426,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // closing argument needs to reference the trial that unfolded rather
   // than the pre-trial theory of the case.
   const handleGenerateClosingStatement = async () => {
+    if (!aliveRef.current) return; // the player left: no background AI work
     if (!caseData || !trialDuration) {
       console.warn('[Courtroom] ⚠️ Cannot generate closing argument - missing caseData or trialDuration');
       setIsProsecutionThinking(false);
@@ -1836,7 +1849,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   };
 
   const handleRestPhase = async () => {
-    if (!turnState) return;
+    if (!turnState || !aliveRef.current) return;
 
     // Cancel any pending auto-rest countdown immediately — whichever path
     // triggered this (manual click, phase timeout, or the countdown
@@ -1900,7 +1913,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   const handleVerdict = async () => {
     // Only ever run once, however many triggers fire (phase end, timers).
-    if (verdictStartedRef.current) return;
+    if (verdictStartedRef.current || !aliveRef.current) return;
     verdictStartedRef.current = true;
 
     // Stop the clocks so nothing auto-advances during deliberation.
@@ -2108,6 +2121,19 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // The input bar's real height, so the chat panel can stretch down to it with no dead space.
   const [inputBarRef, inputBarHeight] = useElementHeight<HTMLDivElement>();
   const chatPanelRef = useRef<HTMLDivElement>(null);
+  // Leaving the trial screen (back, another screen, closing the tab) stops the trial right there:
+  // timers, the auto-rest countdown and the voice all stop, a paused snapshot is saved, and
+  // anything still in flight (an AI turn, a countdown) sees the player is gone and does nothing.
+  const aliveRef = useTrialLifecycle({
+    active: !showPreTrial && !practiceMode && !!trialDuration && timerActive && !verdictStartedRef.current,
+    buildSave: () => buildLeaveSave({ currentPhase, phaseTimeRemaining, totalTimeRemaining, sessionState: session.session_state as any }),
+    persist: payload => { db.sessions.updateSession(session.id, payload as any).catch(err => console.error('Failed to save paused trial:', err)); },
+    teardown: () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (autoRestTimerRef.current) clearInterval(autoRestTimerRef.current);
+      stopSpeaking('discard');
+    }
+  });
   // Voice is only allowed here and in the pre-trial; leaving the trial stops it at once.
   useEffect(() => enterSpeechScope(), []);
 
