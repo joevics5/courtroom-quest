@@ -11,8 +11,8 @@ export function validateDraft(d: Draft, opts: { practice?: boolean } = {}): { er
   if (!d.case.title.trim()) errors.push('Case title is empty.');
   if (!d.case.description.trim()) errors.push('Public description is empty.');
   // Hard floor: below this the case cannot be played. The tier range is only advice.
-  if (d.witnesses.length < 3) errors.push(`Need at least 3 witnesses (have ${d.witnesses.length}).`);
-  if (d.evidence.length < 3) errors.push(`Need at least 3 evidence items (have ${d.evidence.length}).`);
+  if (d.witnesses.length < 2) errors.push(`Need at least 2 witnesses (have ${d.witnesses.length}).`);
+  if (d.evidence.length < 2) errors.push(`Need at least 2 evidence items (have ${d.evidence.length}).`);
   const tier = tierOf(d.case.difficulty);
   const t = TIERS[tier];
   const outside = (n: number, r: [number, number]) => n < r[0] || n > r[1];

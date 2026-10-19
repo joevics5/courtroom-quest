@@ -67,6 +67,7 @@ const WITNESS_SHAPE = `{
   "relationship": "PUBLIC: relationship to defendant/victim/parties",
   "background": "PUBLIC: 2-4 sentences",
   "base_testimony": "PUBLIC: what they say on ordinary examination, 3-6 sentences, only things they would openly say",
+  "photo_description": "PRIVATE, AI only: what the witness portrait shows (age, build, clothing, expression, setting). Never shown to players.",
   "personality_traits": ["short traits"],
   "secret": {
     "communication_style": "", "reliability": "", "bias": "", "motivation": "", "emotional_state": "",
@@ -127,6 +128,7 @@ Requirements:
 const EVIDENCE_SHAPE = `{
   "code": "E1", "title": "", "evidence_type": "documents|photographs|images|physical_evidence|digital_evidence|expert_reports|confessions_statements|timeline_logs|witness_testimony|audio_recordings|story",
   "description": "PUBLIC: neutral description, what the item is",
+  "ai_description": "PRIVATE, AI only, never shown to players. For any image, photo, video, audio or scan: a precise account of everything it shows or contains (people, objects, text, timestamps, damage, small inconsistencies) so the AI attorneys know what the media depicts. Must match image_prompt. For pure text documents write one line saying what the document is.",
   "content": "PUBLIC: the full visible text of a document, email, chat, receipt, log, statement, etc. Write real, specific content with names, dates, amounts, signatures and small errors where the case needs them. Empty for pure photos/physical items.",
   "date_created": "", "is_hidden": false,
   "secret": {

@@ -14,6 +14,8 @@ export interface DraftWitness {
   relationship: string;
   background: string;
   base_testimony: string;
+  /** PRIVATE: what the witness's photo shows, for the AI only. Never shown to players. */
+  photo_description: string;
   personality_traits: string[];
   secret: {
     communication_style: string;
@@ -46,6 +48,8 @@ export interface DraftEvidence {
   title: string;
   evidence_type: string;
   description: string;
+  /** PRIVATE: what the image/media actually shows (every visible detail), for the AI attorneys only. Never shown to players. */
+  ai_description: string;
   content: string;
   date_created: string;
   is_hidden: boolean;

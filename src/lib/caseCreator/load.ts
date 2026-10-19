@@ -84,6 +84,7 @@ export async function loadExistingCase(caseId: string): Promise<{ draft: Draft; 
       occupation: row.occupation ?? '',
       role: row.role ?? '',
       relationship: row.relationship ?? '',
+      photo_description: row.photo_description ?? '',
       background: row.background ?? '',
       base_testimony: row.base_testimony ?? '',
       personality_traits: traitsOf(row),
@@ -102,6 +103,7 @@ export async function loadExistingCase(caseId: string): Promise<{ draft: Draft; 
       title: row.title ?? '',
       evidence_type: row.evidence_type ?? 'documents',
       description: row.description ?? '',
+      ai_description: row.ai_description ?? '',
       content: row.content ?? '',
       is_hidden: !!row.is_hidden,
       secret: stored

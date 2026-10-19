@@ -105,6 +105,7 @@ async function insertDraft(d: Draft, asCustom = false): Promise<string> {
           age: int(w.age),
           occupation: w.occupation?.trim() || null,
           relationship: w.relationship?.trim() || null,
+          photo_description: w.photo_description?.trim() || null,
           personality_traits: derivePersonality(w),
           knowledge_scope: deriveKnowledgeScope(w, d.evidence),
           use_ai: true,
@@ -123,6 +124,7 @@ async function insertDraft(d: Draft, asCustom = false): Promise<string> {
           exhibit_label: exhibitLabel(i),
           title: e.title.trim(),
           description: e.description.trim(),
+          ai_description: e.ai_description?.trim() || null,
           evidence_type: e.evidence_type,
           content: e.content?.trim() || null,
           is_hidden: !!e.is_hidden,
@@ -221,6 +223,7 @@ async function updateDraft(d: Draft): Promise<{ caseId: string; warnings: string
       code: w.code, name: w.name.trim(), role: w.role.trim() || 'Witness',
       background: w.background.trim(), base_testimony: w.base_testimony.trim(),
       age: int(w.age), occupation: w.occupation?.trim() || null, relationship: w.relationship?.trim() || null,
+      photo_description: w.photo_description?.trim() || null,
     };
     // Never blank out the legacy knowledge/personality of a witness we have nothing new for.
     if (hasKnowledge || !w._id) {
@@ -256,7 +259,7 @@ async function updateDraft(d: Draft): Promise<{ caseId: string; warnings: string
   const eIds = new Map<string, string>();
   for (const e of d.evidence) {
     const payload = {
-      code: e.code, title: e.title.trim(), description: e.description.trim(), evidence_type: e.evidence_type,
+      code: e.code, title: e.title.trim(), description: e.description.trim(), ai_description: e.ai_description?.trim() || null, evidence_type: e.evidence_type,
       content: e.content?.trim() || null, is_hidden: !!e.is_hidden,
     };
     if (e._id) {

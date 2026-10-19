@@ -66,6 +66,7 @@ const Witness = obj({
   relationship: S,        // PUBLIC: how they relate to the defendant/victim/parties
   background: S,          // PUBLIC
   base_testimony: S,      // PUBLIC: what they'd say on ordinary examination
+  photo_description: S,   // PRIVATE: what their photo shows, for the AI only
   personality_traits: SA, // PUBLIC-ish short traits
   secret: obj({
     communication_style: S, reliability: S, bias: S, motivation: S, emotional_state: S,
@@ -108,6 +109,7 @@ const Evidence = obj({
   code: S, title: S,
   evidence_type: E(EVIDENCE_TYPES, "documents", EVIDENCE_ALIAS),
   description: S,  // PUBLIC
+  ai_description: S, // PRIVATE: exactly what the image/media shows, for the AI attorneys only
   content: S,      // PUBLIC: the visible text of a document/chat/log/etc.
   date_created: S,
   is_hidden: B,    // true = must be discovered during investigation
@@ -166,9 +168,9 @@ export const TIERS: Record<Tier, {
   witnesses: Range; evidence: Range; facts: Range; timeline: Range; loopholes: Range;
   redHerrings: Range; contradictions: Range; objections: Range; hidden: Range;
 }> = {
-  easy:   { witnesses: [3, 5],  evidence: [3, 5],  facts: [8, 12],  timeline: [6, 8],   loopholes: [3, 4],  redHerrings: [1, 2], contradictions: [3, 4], objections: [4, 6], hidden: [1, 1] },
-  medium: { witnesses: [6, 8],  evidence: [6, 8],  facts: [12, 18], timeline: [8, 12],  loopholes: [5, 7],  redHerrings: [2, 3], contradictions: [4, 6], objections: [5, 7], hidden: [2, 3] },
-  hard:   { witnesses: [9, 12], evidence: [9, 12], facts: [18, 26], timeline: [10, 16], loopholes: [8, 12], redHerrings: [3, 5], contradictions: [6, 9], objections: [6, 8], hidden: [3, 4] },
+  easy:   { witnesses: [2, 3],  evidence: [2, 3],  facts: [8, 12],  timeline: [6, 8],   loopholes: [3, 4],  redHerrings: [1, 2], contradictions: [3, 4], objections: [4, 6], hidden: [1, 1] },
+  medium: { witnesses: [4, 6],  evidence: [4, 6],  facts: [12, 18], timeline: [8, 12],  loopholes: [5, 7],  redHerrings: [2, 3], contradictions: [4, 6], objections: [5, 7], hidden: [2, 3] },
+  hard:   { witnesses: [7, 10], evidence: [7, 10], facts: [18, 26], timeline: [10, 16], loopholes: [8, 12], redHerrings: [3, 5], contradictions: [6, 9], objections: [6, 8], hidden: [3, 4] },
 };
 // Practice mode (a lawyer's real case file): floors only, sized to what the file supports.
 export const PRACTICE_MIN = { witnesses: 3, evidence: 3, facts: 6, timeline: 4, loopholes: 2, objections: 3, verdict: 2, knowledge: 2 };

@@ -176,7 +176,7 @@ export interface ProsecutionOpeningContext {
   defendantName?: string;
   caseDescription: string;
   timeLimitMinutes: number;
-  availableEvidence: Array<{ id: string; title: string; description: string; exhibit_label?: string }>;
+  availableEvidence: Array<{ id: string; title: string; description: string; ai_description?: string; exhibit_label?: string }>;
   availableWitnesses: Array<{ id: string; name: string; role: string }>;
   investigationEvidenceSummary: string;
   investigationWitnessTranscripts: string;
@@ -345,7 +345,7 @@ export async function generateVerdict(
   );
 
   const evidenceList = submittedEvidence
-    .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}`)
+    .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}${e.ai_description ? `\n  (What it actually shows: ${e.ai_description})` : ''}`)
     .join('\n');
 
   const isJuryTrial = trialType === 'jury';
@@ -537,7 +537,7 @@ export async function generateJuryDeliberation(params: {
   const evidenceCitations = extractEvidenceCitations(events);
   const evidenceList = evidence
     .filter(e => evidenceCitations.includes(e.exhibit_label || e.id))
-    .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}`)
+    .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}${e.ai_description ? `\n  (What it actually shows: ${e.ai_description})` : ''}`)
     .join('\n');
 
   const rounds: JuryRound[] = [];
@@ -784,7 +784,7 @@ function buildProsecutionOpeningPrompt(context: ProsecutionOpeningContext): stri
   const timeLimit = context.timeLimitMinutes;
   const isDefense = context.side === 'defense';
   const evidenceList = context.availableEvidence
-    .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}`)
+    .map(e => `- ${e.exhibit_label || 'Evidence'}: ${e.title}${e.description ? ` - ${e.description}` : ''}${e.ai_description ? `\n  (What it actually shows, for your knowledge only: ${e.ai_description})` : ''}`)
     .join('\n');
   const witnessList = context.availableWitnesses
     .map(w => `- ${w.name} (${w.role})`)

@@ -62,6 +62,8 @@ export interface Evidence {
   exhibit_label?: string;
   title: string;
   description?: string;
+  /** Private: what the media shows, for the AI only. Never render in the UI. */
+  ai_description?: string;
   evidence_type: EvidenceType;
   content?: string;
   file_urls?: string[];
@@ -126,6 +128,8 @@ export interface Witness {
   knowledge_scope?: WitnessKnowledgeScope;
   personality_traits?: Record<string, any>;
   photo_url?: string;
+  /** Private: what the photo shows, for the AI only. Never render in the UI. */
+  photo_description?: string;
   use_ai?: boolean;
   created_at: string;
 }

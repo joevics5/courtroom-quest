@@ -3,7 +3,7 @@ import type { DraftEvidence, DraftWitness } from './types';
 
 export const BLANK_WITNESS = (n: number): DraftWitness => ({
   code: `W${n}`, name: '', age: null, occupation: '', role: '', relationship: '', background: '',
-  base_testimony: '', personality_traits: [],
+  base_testimony: '', photo_description: '', personality_traits: [],
   secret: {
     communication_style: '', reliability: '', bias: '', motivation: '', emotional_state: '',
     wants: '', fears: '', protecting: '', truthfulness: 'truthful',
@@ -13,7 +13,7 @@ export const BLANK_WITNESS = (n: number): DraftWitness => ({
 });
 
 export const BLANK_EVIDENCE = (n: number): DraftEvidence => ({
-  code: `E${n}`, title: '', evidence_type: 'documents', description: '', content: '', date_created: '', is_hidden: false,
+  code: `E${n}`, title: '', evidence_type: 'documents', description: '', ai_description: '', content: '', date_created: '', is_hidden: false,
   secret: {
     classification: 'ambiguous', origin: '', possessed_by: '', how_available: '', proves: '', does_not_prove: '',
     prosecution_interpretation: '', defence_interpretation: '', alternative_interpretation: '',

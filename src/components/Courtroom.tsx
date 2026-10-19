@@ -1360,6 +1360,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
             id: e.id,
             title: e.title,
             description: e.description || '',
+            ai_description: e.ai_description || '',
             exhibit_label: e.exhibit_label
           })),
           availableWitnesses: witnesses.map(w => ({
