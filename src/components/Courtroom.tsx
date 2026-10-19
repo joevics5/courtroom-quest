@@ -2211,7 +2211,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         <div className="max-w-[1800px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="hidden lg:block lg:col-span-1">
-            <TrialOutline
+            {trialConfig && <TrialOutline
               currentPhase={currentPhase}
               trialConfig={trialConfig}
               phaseTimeRemaining={phaseTimeRemaining}
@@ -2221,7 +2221,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               events={events}
               prosecutorName={prosecutorName || 'Prosecution'}
               defenseName="Defense"
-            />
+            />}
           </div>
 
           <div className="lg:col-span-3">

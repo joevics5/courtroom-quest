@@ -93,7 +93,7 @@ export default function WatchBoard() {
           {live.length === 0 ? (
             <EmptyCard icon={<Tv className="w-5 h-5" />}>No live trials open to spectators right now.</EmptyCard>
           ) : (
-            <div className="space-y-3 mb-8">
+            <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 mb-8">
               {live.map((s) => (
                 <Link
                   key={s.id}
@@ -115,7 +115,7 @@ export default function WatchBoard() {
           {recent.length === 0 ? (
             <EmptyCard icon={<Trophy className="w-5 h-5" />}>No shared trials yet — finish a trial and choose to share it to see it here.</EmptyCard>
           ) : (
-            <div className="space-y-3 mb-8">
+            <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 mb-8">
               {recent.map((s) => (
                 <Link
                   key={s.id}

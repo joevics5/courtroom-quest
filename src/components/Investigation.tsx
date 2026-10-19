@@ -211,7 +211,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
     return (
       <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14]">
         <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
-        <div className="relative z-10 h-full flex flex-col max-w-2xl mx-auto">
+        <div className="relative z-10 h-full flex flex-col max-w-2xl lg:max-w-3xl mx-auto">
           <div className="flex-none px-4 pb-3 border-b border-white/10 bg-black/40 backdrop-blur-sm" style={safeTop}>
             <div className="flex items-center gap-3">
               <button
@@ -357,7 +357,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
     <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14]">
       <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
 
-      <div className="relative z-10 h-full flex flex-col max-w-2xl mx-auto">
+      <div className="relative z-10 h-full flex flex-col max-w-2xl lg:max-w-5xl mx-auto">
         <div className="flex-none px-4" style={safeTop}>
           <header className="flex items-center gap-3">
             <button
@@ -397,11 +397,11 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
           </nav>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:content-start">
           {selectedTab === 'overview' && (
             caseDetails ? (
               <>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 lg:col-span-2">
                   {caseTypeLabel && (
                     <span className="rounded-full bg-sky-500/20 border border-sky-400/50 px-3 py-1 text-xs font-black tracking-wide text-sky-200 uppercase">{caseTypeLabel}</span>
                   )}
@@ -449,13 +449,13 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
                 </div>
               </>
             ) : (
-              <p className="text-center text-white/50 py-10">Loading the case file…</p>
+              <p className="text-center text-white/50 py-10 lg:col-span-2">Loading the case file…</p>
             )
           )}
 
           {selectedTab === 'evidence' && (
             evidence.length === 0 ? (
-              <p className="text-center text-white/50 py-10">No evidence available</p>
+              <p className="text-center text-white/50 py-10 lg:col-span-2">No evidence available</p>
             ) : (
               evidence.map(item => {
                 const Icon = getEvidenceIcon(item.evidence_type);
@@ -484,10 +484,10 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
 
           {selectedTab === 'witnesses' && (
             witnesses.length === 0 ? (
-              <p className="text-center text-white/50 py-10">No witnesses available</p>
+              <p className="text-center text-white/50 py-10 lg:col-span-2">No witnesses available</p>
             ) : (
               <>
-                <p className="text-sm text-white/60 px-1">Tap a witness to interview them. Their answers are saved for your trial.</p>
+                <p className="text-sm text-white/60 px-1 lg:col-span-2">Tap a witness to interview them. Their answers are saved for your trial.</p>
                 {witnesses.map(witness => {
                   const count = getWitnessInteractions(witness.id).length;
                   return (

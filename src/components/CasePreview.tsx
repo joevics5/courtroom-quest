@@ -87,7 +87,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
       : `${defendant} has asked you to defend them in ${withCaseSuffix(caseTitle)}. The evidence against them is serious, but everyone deserves a defense. Will you take the case?`;
 
     return (
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/75 lg:bg-[#0b0d14] backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div role="dialog" aria-label={`${style.label} briefing`} className={`${PANEL} max-w-md w-full text-center`}>
           <p className="font-game text-xl leading-none text-white/55 mb-4">NEW CASE ASSIGNMENT</p>
           <div className={`mx-auto w-32 h-32 rounded-3xl overflow-hidden border-4 ${style.frame}`}>
@@ -111,8 +111,8 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
 
   // step === 'browse'
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className={`${PANEL} relative max-w-2xl w-full max-h-[90dvh] overflow-y-auto`}>
+    <div className="fixed inset-0 bg-black/75 lg:bg-[#0b0d14] backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className={`${PANEL} relative max-w-2xl lg:max-w-3xl w-full max-h-[90dvh] overflow-y-auto`}>
         <button
           type="button"
           onClick={onCancel}

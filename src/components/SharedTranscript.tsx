@@ -113,7 +113,7 @@ export default function SharedTranscript() {
 
   if (loading) {
     return (
-      <ScreenShell title="TRANSCRIPT" onBack={() => navigate('/')}>
+      <ScreenShell title="TRANSCRIPT" onBack={() => navigate('/')} maxWidth="max-w-3xl lg:max-w-4xl">
         <div className="space-y-3" role="status" aria-label="Loading transcript">
           {[0, 1, 2].map(i => <div key={i} className={`${PANEL_SOFT} h-20 animate-pulse`} />)}
         </div>
@@ -144,6 +144,7 @@ export default function SharedTranscript() {
     <ScreenShell
       title={isLive ? 'LIVE TRIAL' : 'SHARED TRIAL'}
       onBack={() => navigate('/watch')}
+      maxWidth="max-w-3xl lg:max-w-4xl"
       right={isLive ? (
         <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 border border-red-400/50 rounded-full text-red-300 text-xs font-black">
           <Radio className="w-3 h-3 animate-pulse" />

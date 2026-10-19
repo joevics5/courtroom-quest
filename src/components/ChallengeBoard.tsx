@@ -364,7 +364,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 <p className="text-white/50 text-sm">No open challenges right now. Be the first to open one.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
                 {openChallenges.map((challenge) => {
                   const opponentRole: PlayerRole = challenge.creator_role === 'defense' ? 'prosecution' : 'defense';
                   return (
@@ -408,7 +408,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                   <Mail className="w-4 h-4" />
                   Invitations For You
                 </h2>
-                <div className="space-y-3">
+                <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
                   {receivedInvites.map((invite) => {
                     const myRole: PlayerRole = invite.inviter_role === 'defense' ? 'prosecution' : 'defense';
                     return (
@@ -502,7 +502,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 <p className="text-white/50 text-sm">No pending invites. Send one above.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
                 {pendingSentInvites.map((invite) => (
                   <div key={invite.id} className={`${CARD} flex items-center justify-between gap-3`}>
                     <div className="min-w-0">

@@ -5,6 +5,8 @@ import { HOME_ART } from '../lib/heroAssets';
 import { computeArtLayout } from '../lib/homeArt';
 import type { ArtLayout } from '../lib/homeArt';
 import PlayModePopup, { type PlayMode } from './PlayModePopup';
+import HeroBackground from './HeroBackground';
+import { useIsDesktop } from '../lib/useIsDesktop';
 
 interface HomePageProps {
   /** Starts play in the chosen mode: signs in as a guest if needed, then opens the right screen */
@@ -34,6 +36,7 @@ const ART_MAX_WIDTH = 560;
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
 export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount, signedIn, waitingCount, myGamesCount = 0, onOpenDashboard }: HomePageProps) {
+  const desktop = useIsDesktop();
   const [soundOn, setSoundOn] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [showModes, setShowModes] = useState(false);
@@ -96,6 +99,44 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
       setBusy(null);
     }
   };
+
+  const popups = (
+    <>
+      {showModes && (
+        <PlayModePopup
+          showMyGames={signedIn}
+          myGamesCount={myGamesCount}
+          onClose={() => setShowModes(false)}
+          onSelect={mode => {
+            setShowModes(false);
+            run('play', () => onPlay(mode));
+          }}
+        />
+      )}
+      {showLearnMore && <LearnMore onClose={() => setShowLearnMore(false)} />}
+    </>
+  );
+
+  // A wide window gets its own layout (the phone layout below is untouched).
+  if (desktop) {
+    return (
+      <HomeDesktop
+        soundOn={soundOn}
+        toggleSound={toggleSound}
+        busy={busy}
+        signedIn={signedIn}
+        hasAccount={hasAccount}
+        waitingCount={waitingCount}
+        onPlay={() => { playGavelTap(); setShowModes(true); }}
+        onOpenDashboard={onOpenDashboard}
+        onOpenSettings={() => run('settings', onOpenSettings)}
+        onLearnMore={() => setShowLearnMore(true)}
+        onSignIn={onSignIn}
+      >
+        {popups}
+      </HomeDesktop>
+    );
+  }
 
   return (
     <div ref={pageRef} className="relative min-h-[100dvh] overflow-hidden bg-[#05060a]">
@@ -233,18 +274,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
         </div>
       </div>
 
-      {showModes && (
-        <PlayModePopup
-          showMyGames={signedIn}
-          myGamesCount={myGamesCount}
-          onClose={() => setShowModes(false)}
-          onSelect={mode => {
-            setShowModes(false);
-            run('play', () => onPlay(mode));
-          }}
-        />
-      )}
-      {showLearnMore && <LearnMore onClose={() => setShowLearnMore(false)} />}
+      {popups}
     </div>
   );
 }
@@ -298,6 +328,115 @@ function Item({ n, title, children }: { n: string; title: string; children: Reac
         <h4 className="font-bold">{title}</h4>
         <p className="text-sm text-white/70 leading-relaxed">{children}</p>
       </div>
+    </div>
+  );
+}
+
+interface HomeDesktopProps {
+  soundOn: boolean;
+  toggleSound: () => void;
+  busy: 'play' | 'settings' | null;
+  signedIn: boolean;
+  hasAccount: boolean;
+  waitingCount: number;
+  onPlay: () => void;
+  onOpenDashboard: () => void;
+  onOpenSettings: () => void;
+  onLearnMore: () => void;
+  onSignIn: () => void;
+  children?: React.ReactNode;
+}
+
+/** The home page on a wide window: the artwork as a poster on one side, logo and buttons on the other. */
+function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waitingCount, onPlay, onOpenDashboard, onOpenSettings, onLearnMore, onSignIn, children }: HomeDesktopProps) {
+  const tile = 'relative rounded-2xl bg-[#1d1b18]/90 border border-white/15 py-3 px-4 text-left transition-colors hover:border-[#FFD43B]/60 active:translate-y-0.5';
+  return (
+    <div className="relative min-h-[100dvh] overflow-hidden bg-[#05060a]">
+      <HeroBackground overlay="from-black/80 via-black/75 to-black/90" />
+
+      <button
+        onClick={toggleSound}
+        aria-label={soundOn ? 'Mute sound' : 'Enable sound'}
+        className="absolute top-6 right-8 z-20 flex items-center justify-center w-12 h-12 rounded-full bg-black/55 border border-white/15 text-white hover:border-white/40"
+      >
+        {soundOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+      </button>
+
+      <div className="relative z-10 min-h-[100dvh] flex items-center justify-center px-10 py-6 [@media(min-height:800px)]:py-10">
+        <div className="w-full max-w-6xl grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-14 items-center">
+          {/* Poster */}
+          <div className="relative justify-self-end w-full max-w-[34rem] aspect-[4/5] max-h-[82vh] rounded-[2rem] overflow-hidden border border-white/15 shadow-[0_30px_80px_rgba(0,0,0,0.7)]" aria-hidden="true">
+            <picture>
+              <source srcSet={HOME_ART.webp} type="image/webp" />
+              <img src={HOME_ART.jpg} alt="" draggable={false} decoding="async" className="absolute inset-0 w-full h-full object-cover object-[50%_28%] select-none" />
+            </picture>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
+          </div>
+
+          {/* Title and actions */}
+          <div className="w-full max-w-md">
+            <h1 className="font-game leading-[0.9] select-none">
+              <span className="logo-gold block text-6xl [@media(min-height:800px)]:text-7xl">COURTROOM</span>
+              <span className="logo-gold block text-8xl [@media(min-height:800px)]:text-9xl">QUEST</span>
+            </h1>
+            <p className="mt-4 inline-block rounded-full bg-black/60 border border-[#F2B705]/60 px-5 py-1.5 text-sm font-bold tracking-[0.2em] text-white backdrop-blur-sm">
+              EVERY CASE HAS A LOOPHOLE
+            </p>
+
+            <div className="mt-6 [@media(min-height:800px)]:mt-10 space-y-3">
+              <button
+                onClick={onPlay}
+                disabled={busy !== null}
+                className="w-full rounded-2xl bg-[#FFD43B] text-black font-game text-5xl py-4 border-b-[7px] border-[#B8860B] hover:brightness-105 active:translate-y-1 active:border-b-2 transition-all disabled:opacity-70"
+              >
+                {busy === 'play' ? 'ONE SEC…' : 'PLAY'}
+              </button>
+
+              <div className="grid grid-cols-2 gap-3">
+                {signedIn ? (
+                  <button onClick={onOpenDashboard} className={tile}>
+                    {waitingCount > 0 && (
+                      <span className="absolute -top-2 -right-1 min-w-[24px] h-6 px-1.5 flex items-center justify-center rounded-full bg-red-600 text-white text-xs font-black">{waitingCount}</span>
+                    )}
+                    <span className="block font-game text-3xl text-white leading-none">DASHBOARD</span>
+                    <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">GAMES & INVITES</span>
+                  </button>
+                ) : (
+                  <button onClick={onLearnMore} className={tile}>
+                    <span className="block font-game text-3xl text-white leading-none">LEARN MORE</span>
+                    <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">HOW IT WORKS</span>
+                  </button>
+                )}
+                <button onClick={onOpenSettings} disabled={busy !== null} className={`${tile} disabled:opacity-70`}>
+                  <span className="block font-game text-3xl text-white leading-none">{busy === 'settings' ? '…' : 'SETTINGS'}</span>
+                  <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">DIFFICULTY</span>
+                </button>
+              </div>
+            </div>
+
+            <ol className="mt-5 [@media(min-height:800px)]:mt-8 space-y-1.5 [@media(min-height:800px)]:space-y-2">
+              {STEPS.map((text, i) => (
+                <li key={text} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-2 pr-6 py-1 backdrop-blur-sm w-fit">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-[#FFD43B] text-black font-black">{i + 1}</span>
+                  <span className="text-white font-semibold">{text}</span>
+                </li>
+              ))}
+            </ol>
+
+            {(signedIn || !hasAccount) && (
+              <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-1">
+                {signedIn && (
+                  <button onClick={onLearnMore} className="text-xs font-bold tracking-[0.15em] text-white/70 underline underline-offset-4 hover:text-white">HOW IT WORKS</button>
+                )}
+                {!hasAccount && (
+                  <button onClick={onSignIn} className="text-xs font-bold tracking-[0.15em] text-white/70 underline underline-offset-4 hover:text-white">HAVE AN ACCOUNT? SIGN IN</button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      {children}
     </div>
   );
 }

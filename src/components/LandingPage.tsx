@@ -45,9 +45,10 @@ export default function LandingPage({
       <HeroBackground overlay="from-black/80 via-black/70 to-black/90" />
 
       <div
-        className="relative z-10 min-h-[100dvh] flex flex-col px-4"
+        className="relative z-10 min-h-[100dvh] flex flex-col px-4 lg:px-10"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
       >
+        <div className="w-full lg:max-w-6xl lg:mx-auto flex flex-col">
         {/* Top bar */}
         <header className="flex items-center gap-2">
           <button
@@ -57,7 +58,7 @@ export default function LandingPage({
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="logo-gold font-game text-3xl leading-none flex-1 min-w-0 truncate">COURTROOM QUEST</h1>
+          <h1 className="logo-gold font-game text-3xl lg:text-5xl leading-none flex-1 min-w-0 truncate">COURTROOM QUEST</h1>
           {onOpenAdmin && (
             <button
               onClick={onOpenAdmin}
@@ -97,7 +98,10 @@ export default function LandingPage({
           </div>
         )}
 
-        <main className="flex-1 mt-4 space-y-5 max-w-lg w-full mx-auto">
+        </div>
+
+        <main className="flex-1 mt-4 lg:mt-8 space-y-5 max-w-lg lg:max-w-6xl w-full mx-auto lg:grid lg:grid-cols-12 lg:gap-x-10 lg:space-y-0 lg:items-start lg:content-center">
+          <div className="space-y-5 lg:col-span-5">
           {invites.length > 0 && (
             <section className="rounded-3xl bg-black/70 border-2 border-red-500/70 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-3">
@@ -138,7 +142,9 @@ export default function LandingPage({
           )}
 
           <CaseOfTheWeek onPlayCase={onPlayFeaturedCase} />
+          </div>
 
+          <div className="space-y-5 mt-5 lg:mt-0 lg:col-span-7">
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-white/20" />
             <h2 className="font-game text-2xl text-white/90 tracking-wider">CHOOSE YOUR PATH</h2>
@@ -175,6 +181,7 @@ export default function LandingPage({
             <a href="/watch" className="text-[11px] font-bold tracking-[0.2em] text-white/60 underline underline-offset-4">
               WATCH A LIVE TRIAL
             </a>
+          </div>
           </div>
         </main>
       </div>

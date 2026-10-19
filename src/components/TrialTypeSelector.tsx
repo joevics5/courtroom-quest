@@ -57,7 +57,7 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
       <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
 
       <div
-        className="relative z-10 h-full flex flex-col px-4 max-w-lg mx-auto"
+        className="relative z-10 h-full flex flex-col px-4 max-w-lg lg:max-w-4xl mx-auto"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
       >
         <header className="flex-none flex items-center gap-3">
@@ -75,7 +75,7 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
         </header>
 
         {/* Court + length share the space; on very short phones this region scrolls rather than clipping */}
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-center gap-3 py-3">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-center gap-3 py-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:content-center">
           {COURTS.map(court => {
             const Icon = court.icon;
             const selected = selectedType === court.type;
@@ -111,7 +111,7 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
             );
           })}
 
-          <div className="rounded-3xl bg-black/60 backdrop-blur-sm border border-white/15 p-3">
+          <div className="rounded-3xl bg-black/60 backdrop-blur-sm border border-white/15 p-3 lg:col-span-2">
             <h2 className="font-game text-2xl text-white/90 leading-none mb-2.5 px-1">HOW LONG?</h2>
             <div className="grid grid-cols-3 gap-2">
               {LENGTHS.map(len => {

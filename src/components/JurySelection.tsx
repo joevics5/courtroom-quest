@@ -192,7 +192,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
     <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14]">
       <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
 
-      <div className="relative z-10 h-full flex flex-col max-w-2xl mx-auto">
+      <div className="relative z-10 h-full flex flex-col max-w-2xl lg:max-w-4xl mx-auto">
         {/* Header + the jury box stay pinned while the pool scrolls */}
         <div className="flex-none px-4" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
           <header className="flex items-center gap-3">
@@ -237,8 +237,8 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
         </div>
 
         {/* Pool */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-3 space-y-3">
-          <h2 className="font-game text-2xl text-white/90 leading-none">JUROR POOL</h2>
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-3 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:content-start">
+          <h2 className="font-game text-2xl text-white/90 leading-none lg:col-span-2">JUROR POOL</h2>
           {available.map(juror => (
             <article key={juror.id} className="rounded-2xl bg-black/60 border border-white/15 backdrop-blur-sm p-3">
               <div className="flex items-center gap-3">

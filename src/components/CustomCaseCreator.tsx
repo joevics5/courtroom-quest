@@ -361,7 +361,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
   if (mode === 'choose') {
     return (
-      <ScreenShell title="NEW CASE" onBack={onCancel}>
+      <ScreenShell title="NEW CASE" onBack={onCancel} maxWidth="max-w-3xl lg:max-w-4xl">
         <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm p-6 space-y-4">
           <p className="text-slate-300 text-sm">How do you want to build your case?</p>
           <button
@@ -388,7 +388,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
   if (loading || loadError) {
     return (
-      <ScreenShell title="EDIT CASE" onBack={onCancel}>
+      <ScreenShell title="EDIT CASE" onBack={onCancel} maxWidth="max-w-3xl lg:max-w-4xl">
         <div className="rounded-2xl bg-black/55 border border-white/15 p-8 text-center text-slate-300">
           {loadError ? (
             <div className="space-y-4">
@@ -404,7 +404,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
   const issueList = showIssues ? live.errors : [];
 
   return (
-    <ScreenShell title={isEditMode ? 'EDIT CASE' : 'NEW CASE'} onBack={handleCancel}>
+    <ScreenShell title={isEditMode ? 'EDIT CASE' : 'NEW CASE'} onBack={handleCancel} maxWidth="max-w-3xl lg:max-w-4xl">
       <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm overflow-hidden">
         <div className="border-b border-white/15 px-6 py-4">
           <div className="flex gap-3">

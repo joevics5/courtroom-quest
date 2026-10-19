@@ -18,12 +18,12 @@ interface ScreenShellProps {
  * forms, challenge board): same dimmed video/poster background, round back
  * button and gold comic-font title — body content keeps the normal font.
  */
-export default function ScreenShell({ title, subtitle, onBack, right, maxWidth = 'max-w-3xl', children }: ScreenShellProps) {
+export default function ScreenShell({ title, subtitle, onBack, right, maxWidth = 'max-w-3xl lg:max-w-5xl', children }: ScreenShellProps) {
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-[#0b0d14]">
       <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
       <div
-        className="relative z-10 min-h-[100dvh] px-4 sm:px-6"
+        className="relative z-10 min-h-[100dvh] px-4 sm:px-6 lg:px-10"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}
       >
         <div className={`${maxWidth} mx-auto`}>
@@ -37,7 +37,7 @@ export default function ScreenShell({ title, subtitle, onBack, right, maxWidth =
                 <ArrowLeft className="w-5 h-5" />
               </button>
             )}
-            <h1 className="logo-gold font-game text-4xl leading-none flex-1 min-w-0 truncate">{title}</h1>
+            <h1 className="logo-gold font-game text-4xl lg:text-5xl leading-none flex-1 min-w-0 truncate">{title}</h1>
             {right}
           </header>
           {subtitle && <p className="text-white/60 text-sm mb-5 ml-1">{subtitle}</p>}

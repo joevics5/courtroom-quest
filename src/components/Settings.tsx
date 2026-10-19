@@ -94,7 +94,7 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
   };
 
   const content = (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-lg lg:max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button
@@ -107,9 +107,9 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
         <h1 className="logo-gold font-game text-5xl leading-none">SETTINGS</h1>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start">
         {/* Difficulty */}
-        <div className={PANEL}>
+        <div className={`${PANEL} lg:row-span-3`}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-game text-3xl text-white leading-none">DIFFICULTY</h2>
             {saved && (

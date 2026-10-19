@@ -249,17 +249,17 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
         className="relative z-10 min-h-[100dvh] flex flex-col px-4"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}
       >
-        <header className="relative text-center max-w-md w-full mx-auto px-12">
+        <header className="relative text-center max-w-md lg:max-w-2xl w-full mx-auto px-12">
           <SpeechToggle className="absolute right-0 top-0" />
-          <h1 className="logo-gold font-game text-4xl leading-none">COURT IS IN SESSION</h1>
+          <h1 className="logo-gold font-game text-4xl lg:text-5xl leading-none">COURT IS IN SESSION</h1>
           <p className="text-white/60 text-sm mt-2 truncate">{caseTitle}</p>
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center gap-4 max-w-md w-full mx-auto py-4">
+        <main className="flex-1 flex flex-col items-center justify-center gap-4 max-w-md lg:max-w-5xl w-full mx-auto py-4 lg:grid lg:grid-cols-2 lg:gap-x-12 lg:gap-y-5 lg:items-start lg:content-center">
           {/* the speaker, large */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center lg:col-start-1 lg:row-start-1">
             <div
-              className={`w-52 h-52 sm:w-60 sm:h-60 rounded-3xl overflow-hidden border-4 border-[#FFD43B] transition-shadow ${
+              className={`w-52 h-52 sm:w-60 sm:h-60 lg:w-72 lg:h-72 rounded-3xl overflow-hidden border-4 border-[#FFD43B] transition-shadow ${
                 talking ? 'shadow-[0_8px_0_#B8860B,0_0_40px_rgba(255,212,59,0.45)]' : 'shadow-[0_8px_0_#B8860B]'
               }`}
             >
@@ -278,7 +278,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
           </div>
 
           {/* the cast */}
-          <div className="grid grid-cols-4 gap-2 w-full" aria-label="Who is in court">
+          <div className="grid grid-cols-4 gap-2 w-full lg:col-start-1 lg:row-start-2 lg:max-w-md lg:mx-auto" aria-label="Who is in court">
             {(['bailiff', 'judge', 'prosecution', 'defense'] as const).map(key => {
               const member = cast[key];
               const on = key === activeRole && latest !== undefined;
@@ -298,7 +298,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
           </div>
 
           {/* subtitle: the line being spoken */}
-          <div className={`${PANEL_SOFT} w-full p-4 min-h-[6.5rem]`} aria-live="polite">
+          <div className={`${PANEL_SOFT} w-full p-4 min-h-[6.5rem] lg:col-start-2 lg:row-start-1 lg:self-end`} aria-live="polite">
             {latest ? (
               <div key={transcript.length} className="animate-fade-in">
                 <p className={`text-sm font-semibold mb-1 ${speakerTone[roleOf(latest.speaker)]}`}>{latest.speaker}</p>
@@ -347,7 +347,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
           </div>
 
           {/* what the player does now */}
-          <div className="w-full">
+          <div className="w-full lg:col-start-2 lg:row-start-2">
             {phase === 'idle' && (
               <button onClick={handleStart} className={`${gameButton('gold', 'md')} w-full`}>
                 <Gavel className="w-6 h-6" />
