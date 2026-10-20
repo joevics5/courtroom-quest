@@ -33,6 +33,9 @@ const ACTIONS_SHADE =
 // The picture column never gets wider than this (matches max-w-[560px] below)
 const ART_MAX_WIDTH = 560;
 
+const TAGLINE_LINES = ['HOW GOOD A LAWYER ARE YOU? PROVE IT IN COURT.', 'PICK YOUR SIDE. BUILD YOUR CASE. WIN THE VERDICT.'];
+const TAGLINE = 'How Good a Lawyer Are You? Prove It in Court. Pick Your Side. Build Your Case. Win the Verdict.';
+
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
 export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount, signedIn, waitingCount, myGamesCount = 0, onOpenDashboard }: HomePageProps) {
@@ -191,8 +194,10 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             <span className="logo-gold block text-4xl sm:text-5xl">COURTROOM</span>
             <span className="logo-gold block text-6xl sm:text-7xl">QUEST</span>
           </h1>
-          <p ref={taglineRef} className="mt-2.5 rounded-full bg-black/60 border border-[#F2B705]/60 px-4 py-1 text-[11px] sm:text-xs font-bold tracking-[0.2em] text-white backdrop-blur-sm">
-            EVERY CASE HAS A LOOPHOLE
+          <p ref={taglineRef} aria-label={TAGLINE} className="mt-2.5 max-w-[22rem] rounded-2xl bg-black/60 border border-[#F2B705]/60 px-4 py-1.5 text-center text-[10px] sm:text-xs font-bold leading-snug tracking-[0.1em] text-white backdrop-blur-sm">
+            {TAGLINE_LINES.map(line => (
+              <span key={line} className="block">{line}</span>
+            ))}
           </p>
         </div>
 
@@ -379,8 +384,10 @@ function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waiting
               <span className="logo-gold block text-6xl [@media(min-height:800px)]:text-7xl">COURTROOM</span>
               <span className="logo-gold block text-8xl [@media(min-height:800px)]:text-9xl">QUEST</span>
             </h1>
-            <p className="mt-4 inline-block rounded-full bg-black/60 border border-[#F2B705]/60 px-5 py-1.5 text-sm font-bold tracking-[0.2em] text-white backdrop-blur-sm">
-              EVERY CASE HAS A LOOPHOLE
+            <p aria-label={TAGLINE} className="mt-4 inline-block max-w-md rounded-2xl bg-black/60 border border-[#F2B705]/60 px-5 py-2 text-center text-sm font-bold leading-snug tracking-[0.1em] text-white backdrop-blur-sm">
+              {TAGLINE_LINES.map(line => (
+                <span key={line} className="block">{line}</span>
+              ))}
             </p>
 
             <div className="mt-6 [@media(min-height:800px)]:mt-10 space-y-3">

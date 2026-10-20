@@ -38,14 +38,14 @@ describe('HomePage', () => {
     expect(block.contains(screen.getByText('SETTINGS'))).toBe(true);
     expect(block.contains(screen.getByText('HAVE AN ACCOUNT? SIGN IN'))).toBe(true);
     expect(block.contains(screen.getByRole('heading', { level: 1 }))).toBe(false);
-    expect(block.contains(screen.getByText('EVERY CASE HAS A LOOPHOLE'))).toBe(false);
+    expect(block.contains(screen.getByText('PICK YOUR SIDE. BUILD YOUR CASE. WIN THE VERDICT.'))).toBe(false);
   });
 
   it('sizes and places the picture with the layout computed for this screen (smaller characters, desk above PLAY)', () => {
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const rect = (o: Partial<DOMRect>) => ({ x: 0, y: 0, left: 0, right: 0, width: 0, height: 0, top: 0, bottom: 0, toJSON() {}, ...o }) as DOMRect;
       if (this.textContent?.trim() === 'PLAY') return rect({ top: 483, bottom: 557 });
-      if (this.tagName === 'P' && this.textContent?.includes('LOOPHOLE')) return rect({ top: 126, bottom: 153 });
+      if (this.tagName === 'P' && this.textContent?.includes('PROVE IT IN COURT')) return rect({ top: 126, bottom: 153 });
       if (this.dataset?.testPage === '1') return rect({ width: 411, height: 778 });
       return rect({});
     });
@@ -99,7 +99,8 @@ describe('HomePage', () => {
 
   it('keeps the tagline, how-it-works steps and the existing actions', () => {
     render(<HomePage {...props} />);
-    expect(screen.getByText('EVERY CASE HAS A LOOPHOLE')).toBeInTheDocument();
+    expect(screen.getByText('HOW GOOD A LAWYER ARE YOU? PROVE IT IN COURT.')).toBeInTheDocument();
+    expect(screen.getByText('PICK YOUR SIDE. BUILD YOUR CASE. WIN THE VERDICT.')).toBeInTheDocument();
     expect(screen.getByText('Grill witnesses. Catch the lie.')).toBeInTheDocument();
     fireEvent.click(screen.getByText('HAVE AN ACCOUNT? SIGN IN'));
     expect(props.onSignIn).toHaveBeenCalled();

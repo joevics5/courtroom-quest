@@ -16,18 +16,26 @@ const current = () => Array.from(document.querySelectorAll('[aria-current="true"
 const seat = (name: string) => document.querySelector(`[data-seat="${name}"]`) as HTMLElement;
 
 describe('CourtroomScene', () => {
+  it('draws every person as the same faceless full-body figure, and the judge wears a cap', () => {
+    render(<CourtroomScene cast={cast} active="judge" talking={false} witness={witness} jurors={jurors} />);
+    expect(document.querySelectorAll('[data-seat] svg').length).toBeGreaterThanOrEqual(4 + 12);
+    expect(document.querySelector('[data-seat="Judge"] svg path[fill="#16161c"]')).toBeTruthy();
+  });
+
   it('highlights only the side holding the floor, and that side stands up', () => {
     render(<CourtroomScene cast={cast} active="defense" talking={false} />);
     expect(current()).toHaveLength(1);
     expect(current()[0].getAttribute('data-seat')).toBe('Defense');
-    expect(seat('Defense').style.transform).toContain('scale');
-    expect(seat('Prosecution').style.transform).not.toContain('scale');
+    const pose = (name: string) => seat(name).querySelector('svg')?.getAttribute('data-pose');
+    expect(pose('Defense')).toBe('standing');
+    expect(pose('Prosecution')).toBe('seated');
+    expect(pose('Judge')).toBe('seated');
   });
 
   it('the judge glows but does not stand', () => {
     render(<CourtroomScene cast={cast} active="judge" talking />);
     expect(current()[0].getAttribute('data-seat')).toBe('Judge');
-    expect(seat('Judge').style.transform).not.toContain('scale');
+    expect(seat('Judge').querySelector('svg')?.getAttribute('data-pose')).toBe('seated');
   });
 
   it('the witness is hidden until called, then appears on the stand', () => {

@@ -1,5 +1,4 @@
-import AvatarFace from '../AvatarFace';
-import JurorAvatar from '../avatars/JurorAvatar';
+import CourtFigure, { ROLE_STYLE, jurorStyle } from './CourtFigure';
 import { TurnPill } from '../ui';
 import { useRecentPulse } from './signals';
 import { useEffect, useState } from 'react';
@@ -64,22 +63,23 @@ function Person({
   seat,
   participant,
   role,
+  styleKey,
   active,
-  talking,
   visible = true,
   stands = false
 }: {
   seat: Seat;
   participant?: StageParticipant;
   role: string;
+  styleKey: keyof typeof ROLE_STYLE;
   active: boolean;
-  talking: boolean;
   visible?: boolean;
   /** Counsel stand up to speak; the judge and witness just glow. */
   stands?: boolean;
 }) {
   if (!participant) return null;
-  const rise = active && stands ? ' translateY(-9%) scale(1.12)' : '';
+  const standing = active && stands;
+  const rise = standing ? ' translateY(-6%)' : '';
   return (
     <div
       className="absolute transition-all duration-300 ease-out"
@@ -97,18 +97,19 @@ function Person({
       aria-hidden={visible ? undefined : true}
       data-seat={role}
     >
-      {/* Just the person, drawn into the room: no card, a soft fade at the waist so they sit behind the furniture. */}
+      {/* One shared character, seated at its chair; counsel rise to a full-length standing pose when they speak.
+          A soft fade at the waist (seated) or knees (standing) tucks them behind the furniture. */}
       <div
-        className="aspect-square transition-[filter] duration-200"
+        className="transition-[filter] duration-200"
         style={{
-          WebkitMaskImage: 'linear-gradient(to bottom, #000 76%, transparent 98%)',
-          maskImage: 'linear-gradient(to bottom, #000 76%, transparent 98%)',
+          WebkitMaskImage: `linear-gradient(to bottom, #000 ${standing ? 50 : 76}%, transparent ${standing ? 62 : 98}%)`,
+          maskImage: `linear-gradient(to bottom, #000 ${standing ? 50 : 76}%, transparent ${standing ? 62 : 98}%)`,
           filter: active
             ? 'drop-shadow(0 0 7px rgba(255,212,59,0.95)) drop-shadow(0 0 2px rgba(255,212,59,1))'
             : 'drop-shadow(0 3px 4px rgba(0,0,0,0.55)) brightness(0.88)'
         }}
       >
-        <AvatarFace config={participant.avatar} speaking={active && talking} rank={participant.rank} transparent label={`${role}: ${participant.name}`} />
+        <CourtFigure pose={standing ? 'standing' : 'seated'} style={ROLE_STYLE[styleKey]} label={`${role}: ${participant.name}`} />
       </div>
       <p className="-mt-1 text-center text-white text-[9px] sm:text-xs font-medium truncate [text-shadow:0_1px_3px_#000,0_0_2px_#000]">{participant.name}</p>
     </div>
@@ -121,7 +122,7 @@ function Person({
  * stand only in witness phases, and the jury sits in their box. Seat positions live in
  * courtroomLayout.ts.
  */
-export default function CourtroomScene({ cast, active, talking, phaseName, turn, compact, witness, jurors = [], jurorVotes }: SceneProps) {
+export default function CourtroomScene({ cast, active, phaseName, turn, compact, witness, jurors = [], jurorVotes }: SceneProps) {
   const L = COURTROOM_LAYOUT;
   const phaseFlash = useRecentPulse(phaseName, 2800);
   const juryActive = active === 'jury';
@@ -136,10 +137,10 @@ export default function CourtroomScene({ cast, active, talking, phaseName, turn,
         {L.background ? <img src={L.background} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} /> : <PlaceholderRoom />}
 
 
-        <Person seat={L.judge} participant={cast.judge} role="Judge" active={active === 'judge'} talking={talking} />
-        <Person seat={L.witness} participant={witness} role="Witness" active={active === 'witness'} talking={talking} visible={!!witness} />
-        <Person seat={L.prosecution} participant={cast.prosecution} role="Prosecution" active={active === 'prosecution'} talking={talking} stands />
-        <Person seat={L.defense} participant={cast.defense} role="Defense" active={active === 'defense'} talking={talking} stands />
+        <Person seat={L.judge} participant={cast.judge} role="Judge" styleKey="judge" active={active === 'judge'} />
+        <Person seat={L.witness} participant={witness} role="Witness" styleKey="witness" active={active === 'witness'} visible={!!witness} />
+        <Person seat={L.prosecution} participant={cast.prosecution} role="Prosecution" styleKey="prosecution" active={active === 'prosecution'} stands />
+        <Person seat={L.defense} participant={cast.defense} role="Defense" styleKey="defense" active={active === 'defense'} stands />
 
         <div data-seat="jury" aria-current={juryActive ? 'true' : undefined} className="absolute inset-0 pointer-events-none">
           {seated.map((j, i) => {
@@ -149,12 +150,12 @@ export default function CourtroomScene({ cast, active, talking, phaseName, turn,
             return (
               <div
                 key={j.id}
-                className={`absolute aspect-square rounded-full transition-all duration-200 ${
+                className={`absolute aspect-square overflow-hidden rounded-full transition-all duration-200 bg-black/20 ${
                   juryActive ? 'ring-2 ring-[#FFD43B] shadow-[0_0_10px_rgba(255,212,59,0.6)]' : 'ring-1 ring-black/40'
                 }`}
                 style={{ left: `${seat.x}%`, top: `${seat.y}%`, width: `${seat.w}%`, transform: 'translate(-50%, -50%)', zIndex: 10 }}
               >
-                <JurorAvatar seed={j.id} name={j.name} size="xs" className="!w-full !h-full rounded-full" />
+                <CourtFigure style={jurorStyle(i)} label={j.name || `Juror ${i + 1}`} />
                 {vote && (
                   <span
                     data-vote={vote}
