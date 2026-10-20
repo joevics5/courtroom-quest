@@ -38,7 +38,7 @@ describe('HomePage', () => {
     expect(block.contains(screen.getByText('SETTINGS'))).toBe(true);
     expect(block.contains(screen.getByText('HAVE AN ACCOUNT? SIGN IN'))).toBe(true);
     expect(block.contains(screen.getByRole('heading', { level: 1 }))).toBe(false);
-    expect(block.contains(screen.getByText('PICK YOUR SIDE. BUILD YOUR CASE. WIN THE VERDICT.'))).toBe(false);
+    expect(block.contains(screen.getByText('PROVE IT IN COURT'))).toBe(false);
   });
 
   it('sizes and places the picture with the layout computed for this screen (smaller characters, desk above PLAY)', () => {
@@ -99,8 +99,8 @@ describe('HomePage', () => {
 
   it('keeps the tagline, how-it-works steps and the existing actions', () => {
     render(<HomePage {...props} />);
-    expect(screen.getByText('HOW GOOD A LAWYER ARE YOU? PROVE IT IN COURT.')).toBeInTheDocument();
-    expect(screen.getByText('PICK YOUR SIDE. BUILD YOUR CASE. WIN THE VERDICT.')).toBeInTheDocument();
+    expect(screen.getByText('HOW GOOD A LAWYER ARE YOU?')).toBeInTheDocument();
+    expect(screen.getByText('PROVE IT IN COURT')).toBeInTheDocument();
     expect(screen.getByText('Grill witnesses. Catch the lie.')).toBeInTheDocument();
     fireEvent.click(screen.getByText('HAVE AN ACCOUNT? SIGN IN'));
     expect(props.onSignIn).toHaveBeenCalled();

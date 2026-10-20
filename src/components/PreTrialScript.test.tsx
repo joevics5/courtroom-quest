@@ -99,7 +99,10 @@ describe('PreTrialScript', () => {
     enter();
     expect(screen.queryByRole('button', { name: 'NOT GUILTY' })).toBeNull();
     for (let i = 0; i < 5; i++) finishLine();
-    expect(screen.getByText(/enter a plea/i)).toBeTruthy();
+    // the bailiff's text area is gone once the plea is asked, so the buttons rise with no scrolling
+    expect(screen.queryByText(/enter a plea/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Show transcript/ })).toBeNull();
+    expect(screen.getByText('How does your client plead?')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'NOT GUILTY' }));
     expect(stopSpeaking).toHaveBeenCalledWith('discard'); // the voice stops the moment they answer

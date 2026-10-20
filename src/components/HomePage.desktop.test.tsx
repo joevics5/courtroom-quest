@@ -45,7 +45,7 @@ describe('desktop layout switch', () => {
     expect(screen.getAllByRole('button', { name: 'PLAY' })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('COURTROOM');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('QUEST');
-    expect(screen.getByText('PICK YOUR SIDE. BUILD YOUR CASE. WIN THE VERDICT.')).toBeTruthy();
+    expect(screen.getByText('PROVE IT IN COURT')).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLeaveSave, restoreTotalTime, startsPaused } from './trialResume';
+import { buildLeaveSave, restoreTotalTime, shouldAutoPauseOnHide, startsPaused } from './trialResume';
 
 describe('restoreTotalTime', () => {
   it('uses the saved total when there is one', () => {
@@ -48,5 +48,18 @@ describe('buildLeaveSave', () => {
   });
   it('copes with no session state yet', () => {
     expect(buildLeaveSave({ currentPhase: 7, phaseTimeRemaining: {}, totalTimeRemaining: 0, sessionState: null }).session_state).toEqual({ phaseTimeRemaining: {}, totalTimeRemaining: 0 });
+  });
+});
+
+describe('shouldAutoPauseOnHide', () => {
+  const running = { hidden: true, timerActive: true, timerPaused: false, verdictStarted: false };
+  it('stops a running clock when the player leaves, whoever\'s turn it is', () => {
+    expect(shouldAutoPauseOnHide(running)).toBe(true);
+  });
+  it('does nothing while the page is visible, the clock is idle or already paused, or the verdict has started', () => {
+    expect(shouldAutoPauseOnHide({ ...running, hidden: false })).toBe(false);
+    expect(shouldAutoPauseOnHide({ ...running, timerActive: false })).toBe(false);
+    expect(shouldAutoPauseOnHide({ ...running, timerPaused: true })).toBe(false);
+    expect(shouldAutoPauseOnHide({ ...running, verdictStarted: true })).toBe(false);
   });
 });

@@ -42,3 +42,11 @@ export function buildLeaveSave(s: LeaveSnapshot) {
     }
   };
 }
+
+/**
+ * Should the clock stop because the player left the page (switched tab or app, locked the phone)?
+ * Yes whenever a trial clock is running, whoever's turn it is and whether or not they pressed Pause.
+ */
+export function shouldAutoPauseOnHide(s: { hidden: boolean; timerActive: boolean; timerPaused: boolean; verdictStarted: boolean }): boolean {
+  return s.hidden && s.timerActive && !s.timerPaused && !s.verdictStarted;
+}

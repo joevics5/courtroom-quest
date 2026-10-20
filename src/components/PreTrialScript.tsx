@@ -215,6 +215,8 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const muted = useSpeechMuted();
   const talking = TTS_SUPPORTED && !muted ? ttsSpeaking : recentLine;
   const [showTranscript, setShowTranscript] = useState(false);
+  // Once the bailiff has announced the case and the plea is asked, the text area goes away so the plea buttons rise (no scrolling).
+  const pleaPrompt = phase === 'defendant_plea' && playerRole === 'defense' && !canSkip && transcript.length > 0;
   const star = cast[activeRole];
   const speakerTone: Record<string, string> = {
     bailiff: 'text-white',
@@ -297,7 +299,8 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
             })}
           </div>
 
-          {/* subtitle: the line being spoken */}
+          {/* subtitle: the line being spoken (hidden while the plea is asked) */}
+          {!pleaPrompt && (
           <div className={`${PANEL_SOFT} w-full p-4 min-h-[6.5rem] lg:col-start-2 lg:row-start-1 lg:self-end`} aria-live="polite">
             {latest ? (
               <div key={transcript.length} className="animate-fade-in">
@@ -345,6 +348,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
               </div>
             )}
           </div>
+          )}
 
           {/* what the player does now */}
           <div className="w-full lg:col-start-2 lg:row-start-2">
@@ -355,7 +359,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
               </button>
             )}
 
-            {phase === 'defendant_plea' && playerRole === 'defense' && !canSkip && transcript.length > 0 && (
+            {pleaPrompt && (
               <div>
                 <p className="text-center text-white/70 text-sm mb-3">How does your client plead?</p>
                 <div className="grid grid-cols-2 gap-3">

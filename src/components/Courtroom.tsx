@@ -35,7 +35,7 @@ import { getUserDisplayName } from '../lib/userName';
 import { buildExaminationRecap, buildWitnessHistory } from '../lib/witnessHistory';
 import { useElementHeight } from '../lib/useElementHeight';
 import AutoRestChip from './AutoRestChip';
-import { buildLeaveSave, restoreTotalTime, startsPaused } from '../lib/trialResume';
+import { buildLeaveSave, restoreTotalTime, shouldAutoPauseOnHide, startsPaused } from '../lib/trialResume';
 import { useTrialLifecycle } from '../lib/useTrialLifecycle';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { enterSpeechScope, speakAs, stopSpeaking } from '../lib/speech';
@@ -348,35 +348,31 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }
   }, [phaseTimeRemaining, currentPhase, timerActive, timerPaused, trialDuration, showPreTrial, practiceMode]);
 
-  // Auto-pause if the player navigates away (switches tabs/apps, locks
-  // their screen) while it's actually on them to act — so their clock
-  // doesn't run out while they're not looking. Only pauses; resuming is
-  // always a deliberate action via the Pause/Resume button, so the trial
-  // doesn't quietly restart while they're still getting back to it.
+  // Leaving the page (switching tabs or apps, locking the screen) stops the clock right away, on its
+  // own: the player does not have to press Pause, and it does not matter whose turn it is. The exact
+  // time left is saved with the pause, and coming back opens the trial paused (they resume on purpose).
   useEffect(() => {
     if (showPreTrial || practiceMode || !trialDuration) return;
 
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState !== 'hidden') return;
-      if (!awaitingUserInput || timerPaused) return;
+    const handleVisibilityChange = () => {
+      if (!shouldAutoPauseOnHide({
+        hidden: document.visibilityState === 'hidden',
+        timerActive,
+        timerPaused,
+        verdictStarted: verdictStartedRef.current
+      })) return;
 
-      console.log('[Courtroom] Player navigated away mid-turn — auto-pausing');
+      console.log('[Courtroom] Player left the page - stopping the clock');
+      if (timerRef.current) clearInterval(timerRef.current);
       setTimerPaused(true);
-      try {
-        await db.sessions.updateSession(session.id, {
-          current_phase: 'trial',
-          current_trial_phase: currentPhase,
-          timer_paused_at: new Date().toISOString(),
-          session_state: { ...session.session_state, phaseTimeRemaining }
-        });
-      } catch (error) {
-        console.error('[Courtroom] Failed to save auto-pause state:', error);
-      }
+      db.sessions
+        .updateSession(session.id, buildLeaveSave({ currentPhase, phaseTimeRemaining, totalTimeRemaining, sessionState: session.session_state as any }) as any)
+        .catch(error => console.error('[Courtroom] Failed to save auto-pause state:', error));
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [awaitingUserInput, timerPaused, trialDuration, showPreTrial, practiceMode, currentPhase, session, phaseTimeRemaining]);
+  }, [timerActive, timerPaused, trialDuration, showPreTrial, practiceMode, currentPhase, session, phaseTimeRemaining, totalTimeRemaining]);
 
   // Force verdict when total time runs out
   useEffect(() => {
