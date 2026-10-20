@@ -16,6 +16,13 @@ const current = () => Array.from(document.querySelectorAll('[aria-current="true"
 const seat = (name: string) => document.querySelector(`[data-seat="${name}"]`) as HTMLElement;
 
 describe('CourtroomScene', () => {
+  it('shows every name in full: never clipped with an ellipsis', () => {
+    render(<CourtroomScene cast={cast} active="judge" talking={false} witness={witness} />);
+    const labels = Array.from(document.querySelectorAll('[data-testid="seat-name"]'));
+    expect(labels.map(l => l.textContent)).toEqual(expect.arrayContaining(['Justice Williams', 'DA Harrison', 'Ada', 'Dr. Okoro']));
+    labels.forEach(l => expect(l.className).not.toMatch(/truncate|overflow-hidden/));
+  });
+
   it('draws every person as the same faceless full-body figure, and the judge wears a cap', () => {
     render(<CourtroomScene cast={cast} active="judge" talking={false} witness={witness} jurors={jurors} />);
     expect(document.querySelectorAll('[data-seat] svg').length).toBeGreaterThanOrEqual(4 + 12);

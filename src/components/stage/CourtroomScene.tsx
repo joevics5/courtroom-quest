@@ -111,7 +111,13 @@ function Person({
       >
         <CourtFigure pose={standing ? 'standing' : 'seated'} style={ROLE_STYLE[styleKey]} label={`${role}: ${participant.name}`} />
       </div>
-      <p className="-mt-1 text-center text-white text-[9px] sm:text-xs font-medium truncate [text-shadow:0_1px_3px_#000,0_0_2px_#000]">{participant.name}</p>
+      {/* The name is centred on the seat and never cut off: it takes the width it needs, and a long name wraps onto a second line. */}
+      <p
+        data-testid="seat-name"
+        className="relative left-1/2 -translate-x-1/2 -mt-1 w-max max-w-[8.5rem] text-center text-white text-[9px] sm:text-xs font-medium leading-tight [text-shadow:0_1px_3px_#000,0_0_2px_#000]"
+      >
+        {participant.name}
+      </p>
     </div>
   );
 }
