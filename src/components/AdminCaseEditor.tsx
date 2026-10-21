@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { appAlert } from '../lib/appDialog';
-import { ArrowLeft, Plus, Trash2, Upload, Edit as EditIcon, FileText, Image, Video, File } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, Edit as EditIcon, FileText, Image, Video, File, Copy } from 'lucide-react';
 import { db } from '../lib/database';
+import { supabase } from '../lib/supabase';
 import type { Case, CaseType, EvidenceType } from '../types';
 import { exhibitLabel } from '../lib/exhibitLabel';
 
@@ -27,6 +28,10 @@ interface EvidenceForm {
   content: string;
   type: EvidenceType;
   exhibitLabel?: string;
+  /** AI-only: what the image/media shows. Players never see this. */
+  aiDescription?: string;
+  /** Admin-only: prompt to create the image or document. Stored in evidence_secrets. */
+  prompt?: string;
   files?: File[];
   fileUrls?: string[];
 }
@@ -35,6 +40,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
   const [step, setStep] = useState<'info' | 'evidence' | 'witnesses'>('info');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const secretsRef = useRef<Record<string, any>>({});
 
   const [caseInfo, setCaseInfo] = useState({
     title: '',
@@ -65,6 +71,14 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
           difficulty: caseData.difficulty || 'medium' as any
         });
 
+        // Admin-only prompts live in evidence_secrets (generation.image_prompt)
+        const secretRows: Record<string, any> = {};
+        try {
+          const { data: secs } = await (supabase as any).from('evidence_secrets').select('evidence_id,data').eq('case_id', caseId);
+          for (const r of secs || []) secretRows[r.evidence_id] = r.data || {};
+        } catch { /* not an admin or table missing: prompts stay empty */ }
+        secretsRef.current = secretRows;
+
         setEvidenceItems(caseData.evidence.map(e => {
           let fileUrls: string[] = [];
 
@@ -88,6 +102,8 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
             content: e.content || '',
             type: e.evidence_type,
             exhibitLabel: e.exhibit_label,
+            aiDescription: (e as any).ai_description || '',
+            prompt: secretRows[e.id]?.generation?.image_prompt || '',
             fileUrls
           };
         }));
@@ -130,6 +146,17 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
     const updated = [...evidenceItems];
     updated[index] = { ...updated[index], [field]: value };
     setEvidenceItems(updated);
+  };
+
+  // Merge the prompt into evidence_secrets.data.generation.image_prompt (admin-only table)
+  const savePrompt = async (evidenceId: string, prompt?: string) => {
+    const text = (prompt || '').trim();
+    const existing = secretsRef.current[evidenceId] || {};
+    if (!text && !existing?.generation?.image_prompt) return;
+    const data = { ...existing, generation: { ...(existing.generation || { kind: 'image' }), image_prompt: text } };
+    const { error } = await (supabase as any).from('evidence_secrets').upsert({ evidence_id: evidenceId, case_id: caseId, data }, { onConflict: 'evidence_id' });
+    if (error) throw error;
+    secretsRef.current[evidenceId] = data;
   };
 
   const handleEvidenceFileUpload = (index: number, files: FileList | null) => {
@@ -267,10 +294,12 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
               content: item.content,
               evidence_type: item.type,
               exhibit_label: item.exhibitLabel,
+              ai_description: item.aiDescription?.trim() || null,
               file_url: fileUrlData
-            });
+            } as any);
+            await savePrompt(item.id, item.prompt);
           } else {
-            await db.evidence.addEvidence({
+            const created = await db.evidence.addEvidence({
               case_id: caseId,
               title: item.title,
               description: item.description,
@@ -279,8 +308,10 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
               is_hidden: false,
               exhibit_label: item.exhibitLabel,
               file_url: fileUrlData,
+              ai_description: item.aiDescription?.trim() || null,
               auto_tagged: true
-            });
+            } as any);
+            await savePrompt(created.id, item.prompt);
           }
         }
       }
@@ -594,6 +625,41 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
                           rows={3}
                           className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
+
+                        <div>
+                          <label className="block text-sm font-medium text-amber-300 mb-1">
+                            AI-only description (what the image or media shows; players never see this)
+                          </label>
+                          <textarea
+                            value={item.aiDescription || ''}
+                            onChange={(e) => updateEvidence(index, 'aiDescription', e.target.value)}
+                            placeholder="Describe everything visible so the AI attorneys know what the evidence shows"
+                            rows={6}
+                            className="w-full px-3 py-2 bg-slate-700 border border-amber-700/60 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-sm font-medium text-emerald-300">
+                              Prompt to create this image or document (admin only)
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => { void navigator.clipboard?.writeText(item.prompt || ''); }}
+                              className="flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200"
+                            >
+                              <Copy className="w-3 h-3" /> Copy
+                            </button>
+                          </div>
+                          <textarea
+                            value={item.prompt || ''}
+                            onChange={(e) => updateEvidence(index, 'prompt', e.target.value)}
+                            placeholder="Paste into your image generator to make this exhibit"
+                            rows={8}
+                            className="w-full px-3 py-2 bg-slate-700 border border-emerald-700/60 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))
