@@ -208,7 +208,7 @@ export default function AdminCaseCreator({ existingCaseId, onBack, onSaved }: Pr
               </select>
             </div>
             <p className="text-xs text-slate-500">
-              Easy: 3-5 witnesses &amp; evidence · Medium: 6-8 · Hard: 9-12. Leave difficulty on “let AI decide” and it picks one from the story.
+              Easy: 2-3 witnesses &amp; evidence · Medium: 4-6 · Hard: 7-10. Leave difficulty on “let AI decide” and it picks one from the story.
             </p>
             <textarea
               value={opts.special} onChange={(e) => setOpts({ ...opts, special: e.target.value })} rows={2}

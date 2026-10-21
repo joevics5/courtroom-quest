@@ -47,7 +47,7 @@ describe('validateCustomCase', () => {
   it('warns (does not block) when counts miss the difficulty range or names repeat', () => {
     const r = validateCustomCase({ ...info, difficulty: 'hard' }, three((n) => ev(`E${n}`)), [wi('A'), wi('a'), wi('C')]);
     expect(r.errors).toEqual([]);
-    expect(r.warnings.join('|')).toMatch(/hard cases usually have 9-12 witnesses/);
+    expect(r.warnings.join('|')).toMatch(/hard cases usually have 7-10 witnesses/);
     expect(r.warnings.join('|')).toMatch(/share the same name/);
   });
 

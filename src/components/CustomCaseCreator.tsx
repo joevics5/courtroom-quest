@@ -476,9 +476,9 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                     onChange={(e) => setCaseInfo({ ...caseInfo, difficulty: e.target.value as Difficulty })}
                     className={inputCls}
                   >
-                    <option value="easy">Easy (3-5 witnesses &amp; evidence)</option>
-                    <option value="medium">Medium (6-8)</option>
-                    <option value="hard">Hard (9-12)</option>
+                    <option value="easy">Easy (2-3 witnesses &amp; evidence)</option>
+                    <option value="medium">Medium (4-6)</option>
+                    <option value="hard">Hard (7-10)</option>
                   </select>
                 </div>
               </div>
