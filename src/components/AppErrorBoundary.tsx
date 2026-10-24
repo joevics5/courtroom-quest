@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { PANEL, gameButton } from './ui';
+import { reportError } from '@/lib/errorReporting';
 
 interface State { failed: boolean }
 
@@ -14,6 +15,7 @@ export default class AppErrorBoundary extends Component<{ children: ReactNode },
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Screen crashed:', error, info.componentStack);
+    void reportError(error, 'screen-crash');
   }
 
   render() {

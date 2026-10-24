@@ -1,73 +1,44 @@
-# Welcome to your Lovable project
+# Courtroom Quest
 
-## Project info
+A courtroom game: pick a side, build your case, question witnesses, argue to a jury and win the verdict.
+Play against AI, online opponents, or a friend on the same device.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+**Stack:** React + Vite + TypeScript + Tailwind, Supabase (auth, Postgres, storage, edge functions), Google Gemini (via edge functions only).
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Run locally
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm ci
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The Supabase URL and public anon key are set in `src/integrations/supabase/client.ts` (the anon key is meant to be public; security comes from RLS and the signed-in checks in the edge functions).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Scripts: `npm run dev`, `npm run build`, `npm test`, `npm run typecheck`, `npm run lint`.
 
-**Use GitHub Codespaces**
+## Backend (Supabase)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Apply everything in `supabase/migrations/` in order.
+- Deploy the edge functions: `ai-generate` (all in-game AI) and `generate-case` (custom case builder).
+- Secrets (Supabase project settings → Edge Functions): `GEMINI_API_KEY` (required);
+  `ALLOWED_ORIGINS` (optional, comma-separated site URLs to lock browser access).
+- AI is never called from the browser. `ai-generate` requires a signed-in user (guests are anonymous sign-ins),
+  allows 30 calls/minute and 1,200/day per user (admins exempt), and caps request and output size.
+- Recommended in Supabase Auth settings: enable CAPTCHA (e.g. Turnstile) for anonymous sign-ins, and keep the
+  per-IP anonymous sign-in limit on, so guest accounts can't be mass-created to dodge per-user limits.
 
-## What technologies are used for this project?
+## Deploying (Vercel)
 
-This project is built with:
+- Build command `npm run build`, output `dist`. `vercel.json` already rewrites all routes to the app.
+- Share previews need the site's absolute URL: Vercel supplies it automatically; elsewhere set `VITE_SITE_URL`.
+- Legal pages live in `public/privacy.html` and `public/terms.html`. Replace `CONTACT_EMAIL_HERE` in both
+  before launch.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Monitoring
 
-## How can I deploy this project?
+The app logs crashes and unhandled errors to the `client_errors` table (admins can read it in Supabase,
+e.g. `select created_at, message, context, url from client_errors order by created_at desc limit 50;`).
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Working in this repo
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Changes may also arrive from other tools/sessions: pull and rebase before pushing.

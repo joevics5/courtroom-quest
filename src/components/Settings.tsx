@@ -238,6 +238,12 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
             </div>
           )}
         </div>
+
+        <p className="text-center text-xs text-white/60">
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Terms of Use</a>
+          {' · '}
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy Policy</a>
+        </p>
       </div>
     </div>
   );

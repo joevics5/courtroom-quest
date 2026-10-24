@@ -2,11 +2,28 @@
 // Holds the Gemini API key server-side. The frontend NEVER talks to
 // Google directly — it calls this function via supabase.functions.invoke().
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+// Optional: set ALLOWED_ORIGINS (comma separated, e.g. "https://courtroom-quest.vercel.app")
+// as a Supabase secret to lock browsers to your site. Unset = any origin.
+// Real protection is the sign-in + per-user quota below, not CORS.
+const ALLOWED = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+
+function corsFor(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allow = ALLOWED.length === 0 ? "*" : ALLOWED.includes(origin) ? origin : ALLOWED[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+    "Vary": "Origin",
+  };
+}
+
+const MAX_SYSTEM_CHARS = 30_000;
+const MAX_USER_CHARS = 60_000;
+// The game asks for up to 50,000 as a "no artificial ceiling" value; real replies are far shorter. 16k caps worst-case cost per call.
+const MAX_OUTPUT_TOKENS = 16_000;
 
 interface AIRequest {
   system: string;
@@ -20,18 +37,43 @@ interface AIRequest {
 const FALLBACK_MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview"];
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = corsFor(req);
+  const reply = (body: unknown, status: number) =>
+    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
+  if (req.method !== "POST") return reply({ error: "Method not allowed", text: "" }, 405);
 
   try {
-    const {
-      system,
-      user,
-      maxTokens = 2048,
-      temperature = 0.7,
-      responseFormat,
-    }: AIRequest = await req.json();
+    // 1. Must be a real signed-in user (guests are anonymous sign-ins; the public anon key alone is not enough).
+    const auth = req.headers.get("Authorization");
+    if (!auth) return reply({ error: "Not signed in", text: "" }, 401);
+    const client = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: auth } },
+    });
+    const { data: u, error: uErr } = await client.auth.getUser();
+    if (uErr || !u?.user) return reply({ error: "Not signed in", text: "" }, 401);
+
+    // 2. Per-user rate limit.
+    const { data: quota, error: qErr } = await client.rpc("consume_ai_quota");
+    if (qErr) return reply({ error: "Could not check your usage limit. Please try again.", text: "" }, 500);
+    if (quota === "minute") return reply({ error: "Slow down a little and try again in a moment.", text: "" }, 429);
+    if (quota === "day") return reply({ error: "Daily AI limit reached. Please try again tomorrow.", text: "" }, 429);
+    if (quota !== "ok") return reply({ error: "Not signed in", text: "" }, 401);
+
+    // 3. Validate and clamp the input.
+    const body = (await req.json()) as Partial<AIRequest>;
+    const system = typeof body.system === "string" ? body.system : "";
+    const user = typeof body.user === "string" ? body.user : "";
+    const responseFormat = body.responseFormat === "json" ? "json" : "text";
+    if (!system && !user) return reply({ error: "Empty request", text: "" }, 400);
+    if (system.length > MAX_SYSTEM_CHARS || user.length > MAX_USER_CHARS) {
+      return reply({ error: "Request too large", text: "" }, 413);
+    }
+    const maxTokens = Math.min(Math.max(Number(body.maxTokens) || 2048, 1), MAX_OUTPUT_TOKENS);
+    const temperature = Math.min(Math.max(Number(body.temperature ?? 0.7), 0), 1.5);
 
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
 
@@ -43,8 +85,6 @@ Deno.serve(async (req: Request) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    console.log(`[ai-generate] geminiKey present: ${!!geminiKey}, length: ${geminiKey?.length ?? 0}`);
 
     const prompt = system ? `${system}\n\n${user || "Continue"}` : user || "";
 

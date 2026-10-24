@@ -21,6 +21,9 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // ~200 existing `any`s (mostly database rows and JSON fields). Tracked as warnings so lint is a usable
+      // check again; tighten these file by file rather than in one risky sweep.
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   },
 );

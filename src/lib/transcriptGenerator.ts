@@ -40,9 +40,10 @@ function formatTranscriptEntry(event: TrialEvent): string {
     case 'ruling':
       return `[${timestamp}] JUDGE - RULING: ${event.content}`;
     
-    case 'evidence_submission':
+    case 'evidence_submission': {
       const evidenceInfo = event.metadata?.evidence_title || event.metadata?.exhibit_label || 'Evidence';
       return `[${timestamp}] ${speaker.toUpperCase()} submits ${evidenceInfo} to the court.\n${event.content || ''}`;
+    }
     
     case 'witness_call':
       return `[${timestamp}] ${speaker.toUpperCase()} calls ${event.content} to the stand.`;

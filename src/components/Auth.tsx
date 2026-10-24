@@ -126,6 +126,13 @@ export default function Auth({ onBack }: AuthProps = {}) {
             {loading ? 'PLEASE WAIT...' : isSignUp ? 'CREATE ACCOUNT' : 'SIGN IN'}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-xs text-white/60">
+          {isSignUp ? 'By creating an account you agree to our ' : 'See our '}
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white/80">Terms</a>
+          {' and '}
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white/80">Privacy Policy</a>.
+        </p>
       </div>
     </ScreenShell>
   );

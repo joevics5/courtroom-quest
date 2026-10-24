@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { appAlert } from './lib/appDialog';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
@@ -11,14 +11,6 @@ import LandingPage from './components/LandingPage';
 import CaseBoard from './components/CaseBoard';
 import { countMyGames } from './lib/gameCounts';
 import CaseSelection from './components/CaseSelection';
-import CustomCaseCreator from './components/CustomCaseCreator';
-import Investigation from './components/Investigation';
-import Courtroom from './components/Courtroom';
-import VerdictDisplay from './components/VerdictDisplay';
-import AdminPanel from './components/AdminPanel';
-import TrialTypeSelector from './components/TrialTypeSelector';
-import JurySelection from './components/JurySelection';
-import PreTrialScript from './components/PreTrialScript';
 import SubscriptionGate, { getTrialLimit, canCreateCustomCase } from './components/SubscriptionGate';
 import { db } from './lib/database';
 import { getLevelForWins, STARTING_RANK } from './lib/levels';
@@ -26,12 +18,22 @@ import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import { getSessionPlayerRole } from './lib/verdictUtils';
 import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
-import CasePreview from './components/CasePreview';
-import ChallengeBoard from './components/ChallengeBoard';
 import { supabase } from './lib/supabase';
-import Tutorial from './components/Tutorial';
 import { markTutorialSeen, tutorialAlreadySeen } from './lib/tutorialSeen';
 import Settings from './components/Settings';
+
+// Heavy screens load on demand so the first screen (home → play) downloads less code.
+const CustomCaseCreator = lazy(() => import('./components/CustomCaseCreator'));
+const Investigation = lazy(() => import('./components/Investigation'));
+const Courtroom = lazy(() => import('./components/Courtroom'));
+const VerdictDisplay = lazy(() => import('./components/VerdictDisplay'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const TrialTypeSelector = lazy(() => import('./components/TrialTypeSelector'));
+const JurySelection = lazy(() => import('./components/JurySelection'));
+const PreTrialScript = lazy(() => import('./components/PreTrialScript'));
+const CasePreview = lazy(() => import('./components/CasePreview'));
+const ChallengeBoard = lazy(() => import('./components/ChallengeBoard'));
+const Tutorial = lazy(() => import('./components/Tutorial'));
 
 type AppView =
   | 'landing'
@@ -987,11 +989,21 @@ function AppContent() {
   );
 }
 
+function ScreenFallback() {
+  return (
+    <div role="status" aria-label="Loading" className="min-h-[100dvh] bg-[#05060a] flex items-center justify-center">
+      <p className="font-game text-3xl text-white/70 animate-pulse">ALL RISE…</p>
+    </div>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
       <SessionProvider>
-        <AppContent />
+        <Suspense fallback={<ScreenFallback />}>
+          <AppContent />
+        </Suspense>
       </SessionProvider>
     </AuthProvider>
   );
