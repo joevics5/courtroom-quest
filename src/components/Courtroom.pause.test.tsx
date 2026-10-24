@@ -39,10 +39,17 @@ describe('Courtroom pause button and leaving the page', () => {
   beforeEach(() => updateSession.mockClear());
   afterEach(() => { cleanup(); setVisibility('visible'); });
 
-  it('shows Pause on a running trial and no avatar or courtroom switches', async () => {
+  it('shows Pause on a running trial, and the Courtroom button hides and shows the avatars', async () => {
     render(<Courtroom session={baseSession} onComplete={() => {}} onBack={() => {}} />);
     expect(await screen.findByRole('button', { name: 'Pause' })).toBeTruthy();
-    expect(screen.queryByTestId('scene-toggle')).toBeNull();
+    expect(screen.getAllByRole('img', { name: /Judge|Prosecution|Defense/i }).length).toBeGreaterThan(0);
+    const toggle = screen.getByTestId('scene-toggle');
+    fireEvent.click(toggle);
+    expect(screen.queryAllByRole('img', { name: /Judge|Prosecution|Defense/i }).length).toBe(0);
+    expect(toggle.getAttribute('aria-label')).toBe('Show avatars');
+    fireEvent.click(toggle);
+    expect(screen.getAllByRole('img', { name: /Judge|Prosecution|Defense/i }).length).toBeGreaterThan(0);
+    // only one such button: no separate Hide/Show Avatars button
     expect(screen.queryByTitle(/Hide Avatars|Show Avatars/)).toBeNull();
   });
 

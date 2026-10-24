@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
-import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, X, Mic, Sparkles, Gavel, Shield } from 'lucide-react';
+import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, X, Mic, Sparkles, Gavel, Shield, Landmark } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
@@ -280,7 +280,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
      else if (event.speaker_role === 'defense') setLastDefenseStatementEvent(event);
    };
     const prosecutionTurnTriggeredRef = useRef<number | null>(null);
-   const showVideoDisplay = true; // the avatar stage is always shown
+   const [showVideoDisplay, setShowVideoDisplay] = useState(true); // avatar stage on by default; the Courtroom button hides/shows it
    const [showRealVoiceInfo, setShowRealVoiceInfo] = useState(false);
    const [judgeInstructionPending, setJudgeInstructionPending] = useState(false);
 
@@ -2158,6 +2158,17 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                  <RotateCcw className="w-4 h-4" />
                  <span className="hidden sm:inline">End Trial</span>
                </button>
+              <button
+                onClick={() => setShowVideoDisplay(v => !v)}
+                className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-black/55 border border-white/15 text-white text-sm transition-colors active:bg-white/15"
+                title={showVideoDisplay ? 'Hide avatars' : 'Show avatars'}
+                aria-label={showVideoDisplay ? 'Hide avatars' : 'Show avatars'}
+                aria-pressed={showVideoDisplay}
+                data-testid="scene-toggle"
+              >
+                <Landmark className="w-4 h-4" />
+                <span className="hidden sm:inline">Courtroom</span>
+              </button>
               <button
                 onClick={() => setShowRealVoiceInfo(true)}
                 className="flex items-center gap-1.5 h-10 px-3 rounded-full bg-gradient-to-r from-purple-600/30 to-fuchsia-600/30 border border-purple-500/40 text-purple-200 transition-colors"
