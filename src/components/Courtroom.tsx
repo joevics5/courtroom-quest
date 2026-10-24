@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
-import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, Video, VideoOff, RotateCcw, X, Mic, Sparkles, Gavel, Shield, Landmark } from 'lucide-react';
+import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, X, Mic, Sparkles, Gavel, Shield } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
 import TrialStage from './TrialStage';
-import { pickStageScene, saveStageScene } from '../lib/stageScene';
+import { pickStageScene } from '../lib/stageScene';
 import { witnessAvatar } from '../lib/stageCast';
 import SceneBackdrop from './SceneBackdrop';
 import TranscriptMessage from './TranscriptMessage';
@@ -280,7 +280,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
      else if (event.speaker_role === 'defense') setLastDefenseStatementEvent(event);
    };
     const prosecutionTurnTriggeredRef = useRef<number | null>(null);
-   const [showVideoDisplay, setShowVideoDisplay] = useState(true); // Video display on by default
+   const showVideoDisplay = true; // the avatar stage is always shown
    const [showRealVoiceInfo, setShowRealVoiceInfo] = useState(false);
    const [judgeInstructionPending, setJudgeInstructionPending] = useState(false);
 
@@ -456,9 +456,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   const startTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (timerPaused || !trialDuration) return;
+    if (!trialDuration) return;
 
+    // A trial that comes back paused still has its clock: the Pause/Resume button and the time left must show.
     setTimerActive(true);
+    if (timerPaused) return;
     timerRef.current = setInterval(() => {
       setPhaseTimeRemaining((prev: Record<number, number>) => {
         const updated = { ...prev };
@@ -480,17 +482,16 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
        setPausedForDefense(false);
      }
 
-     // Save progress when pausing
+     // Save exactly where the clocks stand (the same save used when the player leaves the page)
      try {
-       await db.sessions.updateSession(session.id, {
-         current_phase: 'trial',
-         current_trial_phase: currentPhase,
-         timer_paused_at: newPausedState ? new Date().toISOString() : null,
-         session_state: {
-           ...session.session_state,
-           phaseTimeRemaining
-         }
-       });
+       await db.sessions.updateSession(session.id, (newPausedState
+         ? buildLeaveSave({ currentPhase, phaseTimeRemaining, totalTimeRemaining, sessionState: session.session_state as any })
+         : {
+             current_phase: 'trial',
+             current_trial_phase: currentPhase,
+             timer_paused_at: null,
+             session_state: { ...session.session_state, phaseTimeRemaining, totalTimeRemaining }
+           }) as any);
      } catch (error) {
        console.error('Failed to save pause state:', error);
      }
@@ -2083,13 +2084,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   }, [isProcessing, inWitnessExam, isPlayerTurn, inputOpen]);
 
   // Virtual courtroom extras (only drawn by the 'virtual' scene).
-  const [stageScene, setStageScene] = useState(() => pickStageScene());
-  const toggleStageScene = () => {
-    const next = stageScene === 'virtual' ? 'avatars' : 'virtual';
-    setStageScene(next);
-    saveStageScene(next);
-    setShowVideoDisplay(true); // switching scenes always brings the stage back
-  };
+  const stageScene = pickStageScene(); // avatars (the virtual courtroom is switched off for now)
   const [seatedJurorIds, setSeatedJurorIds] = useState<string[]>([]);
   useEffect(() => {
     if (stageScene !== 'virtual') return;
@@ -2164,23 +2159,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                  <span className="hidden sm:inline">End Trial</span>
                </button>
               <button
-                onClick={() => setShowVideoDisplay(!showVideoDisplay)}
-                className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-black/55 border border-white/15 text-white text-sm transition-colors active:bg-white/15"
-                title={showVideoDisplay ? 'Hide Avatars' : 'Show Avatars'}
-              >
-                {showVideoDisplay ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-                <span className="hidden sm:inline">{showVideoDisplay ? 'Hide Avatars' : 'Show Avatars'}</span>
-              </button>
-              <button
-                onClick={toggleStageScene}
-                className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-black/55 border border-white/15 text-white text-sm transition-colors active:bg-white/15"
-                title={stageScene === 'virtual' ? 'Switch to avatars' : 'Switch to virtual courtroom'}
-                data-testid="scene-toggle"
-              >
-                <Landmark className="w-4 h-4" />
-                <span className="hidden sm:inline">{stageScene === 'virtual' ? 'Avatars' : 'Courtroom'}</span>
-              </button>
-              <button
                 onClick={() => setShowRealVoiceInfo(true)}
                 className="flex items-center gap-1.5 h-10 px-3 rounded-full bg-gradient-to-r from-purple-600/30 to-fuchsia-600/30 border border-purple-500/40 text-purple-200 transition-colors"
                 title="Real Voice — Coming Soon"
@@ -2191,6 +2169,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                {timerActive && (
                  <button
                    onClick={togglePause}
+                   aria-label={timerPaused ? 'Resume' : 'Pause'}
                    className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-[#FFD43B] text-black font-semibold text-sm transition-colors active:bg-[#e6bd2c]"
                  >
                    {timerPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
