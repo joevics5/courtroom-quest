@@ -2141,10 +2141,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 <ArrowLeft className="w-5 h-5" />
               </button>
                <div className="min-w-0">
-                 <h1 className="logo-gold font-game text-2xl sm:text-3xl leading-none truncate">{phase?.name || 'COURTROOM'}</h1>
+                 <h1 className="hidden sm:block logo-gold font-game text-3xl leading-none truncate">{phase?.name || 'COURTROOM'}</h1>
                  {practiceMode
-                   ? <p className="text-[#FFD43B] text-xs sm:text-sm font-semibold mt-1">Practice Mode — no time limit</p>
-                   : timerActive && <p className="text-white/70 text-xs sm:text-sm mt-1">{formatTime(totalTimeRemaining)} remaining</p>}
+                   ? <p className="text-[#FFD43B] text-sm font-semibold sm:mt-1">Practice Mode — no time limit</p>
+                   : timerActive && <p className="text-white text-base font-semibold tabular-nums sm:text-sm sm:font-normal sm:text-white/70 sm:mt-1 whitespace-nowrap">{formatTime(totalTimeRemaining)} remaining</p>}
                </div>
             </div>
 
@@ -2168,14 +2168,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               >
                 <Landmark className="w-4 h-4" />
                 <span className="hidden sm:inline">Courtroom</span>
-              </button>
-              <button
-                onClick={() => setShowRealVoiceInfo(true)}
-                className="flex items-center gap-1.5 h-10 px-3 rounded-full bg-gradient-to-r from-purple-600/30 to-fuchsia-600/30 border border-purple-500/40 text-purple-200 transition-colors"
-                title="Real Voice — Coming Soon"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline text-xs font-semibold">Real Voice</span>
               </button>
                {timerActive && (
                  <button

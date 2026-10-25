@@ -58,7 +58,8 @@ export default function LandingPage({
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="logo-gold font-game text-3xl lg:text-5xl leading-none flex-1 min-w-0 truncate">COURTROOM QUEST</h1>
+          <h1 className="sr-only sm:not-sr-only logo-gold font-game text-3xl lg:text-5xl leading-none sm:flex-1 min-w-0 truncate">COURTROOM QUEST</h1>
+          <div className="flex-1 sm:hidden" aria-hidden="true" />
           {onOpenAdmin && (
             <button
               onClick={onOpenAdmin}

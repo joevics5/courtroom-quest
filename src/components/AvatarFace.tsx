@@ -575,7 +575,8 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       role="img"
       aria-label={label ?? 'Avatar'}
       className={className}
-      style={{ display: 'block', width: '100%', height: '100%' }}
+      // own compositing layer: avoids a phone GPU glitch where the wig drew as a flat rectangle
+      style={{ display: 'block', width: '100%', height: '100%', transform: 'translateZ(0)', isolation: 'isolate' }}
       preserveAspectRatio="xMidYMid slice"
     >
       <defs>
