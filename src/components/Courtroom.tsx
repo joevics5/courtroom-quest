@@ -1,3 +1,4 @@
+import { useLockPageScroll } from '@/lib/useLockPageScroll';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
 import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, X, Mic, Sparkles, Gavel, Shield, Landmark } from 'lucide-react';
@@ -19,7 +20,7 @@ import { aiRank, castAvatars } from '../lib/stageCast';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
 import ObjectionSelector from './ObjectionSelector';
-import { getTrialConfig, BAILIFF_PROMPTS, JUDGE_PROMPTS, getPhaseInfo, getRandomJudgeName, getRandomProsecutorName, formatTime } from '../lib/trialConfig';
+import { getTrialConfig, BAILIFF_PROMPTS, JUDGE_PROMPTS, getPhaseInfo, getRandomJudgeName, getRandomProsecutorName, formatTime, aiDefenseName, plainLawyerName } from '../lib/trialConfig';
 import {
   getAllowedActions,
   initializeTurnState,
@@ -116,8 +117,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // name (the random attorney pool for prosecution, a generic label for
   // defense, since there's no name pool for that side yet).
   const humanDisplayName = getUserDisplayName(user);
-  const effectiveProsecutorName = playerRole === 'prosecution' ? humanDisplayName : (prosecutorName || 'Prosecution');
-  const effectiveDefenseName = playerRole === 'defense' ? humanDisplayName : 'Defense Counsel';
+  const effectiveProsecutorName = playerRole === 'prosecution' ? humanDisplayName : plainLawyerName(prosecutorName || 'Prosecution');
+  const effectiveDefenseName = playerRole === 'defense' ? humanDisplayName : aiDefenseName(session.id);
   // Avatars for the stage: the human plays their own saved avatar; the judge and the
   // AI counsel come from the ready-made sets (same name -> same face every time).
   const myAvatar = useMemo(() => getUserAvatar(user), [user]);
@@ -1276,7 +1277,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         session_id: session.id,
         event_type: 'opening',
         speaker_role: 'prosecution',
-        speaker_name: prosecutorName || 'Prosecution',
+        speaker_name: plainLawyerName(prosecutorName || 'Prosecution'),
         content: statement,
         timestamp: new Date().toISOString(),
         metadata: { phase: currentPhase },
@@ -1513,7 +1514,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     if (!turnState) return;
 
     const callerRole: 'prosecution' | 'defense' = turnState.current_turn === 'defense' ? 'defense' : 'prosecution';
-    const callerName = callerRole === 'prosecution' ? (prosecutorName || 'Prosecution') : effectiveDefenseName;
+    const callerName = callerRole === 'prosecution' ? plainLawyerName(prosecutorName || 'Prosecution') : effectiveDefenseName;
 
     const event = await db.trialEvents.addEvent({
       session_id: session.id,
@@ -2110,6 +2111,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   });
   const turnBadge = describeTurn({ floor: stageFloor, playerRole, sameDevicePlay });
   const keyboardOpen = useKeyboardOpen();
+  useLockPageScroll(); // the page never scrolls or pans: only the chat panel does, so the header stays put
   // The input bar's real height, so the chat panel can stretch down to it with no dead space.
   const [inputBarRef, inputBarHeight] = useElementHeight<HTMLDivElement>();
   const chatPanelRef = useRef<HTMLDivElement>(null);
@@ -2130,7 +2132,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   useEffect(() => enterSpeechScope(), []);
 
   return (
-    <div className="relative min-h-[100dvh] bg-[#0b0d14] flex flex-col">
+    <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14] flex flex-col">
       <SceneBackdrop />
       {/* Fixed Header - Non-scrolling */}
       <div className="fixed top-0 left-0 right-0 bg-black/70 backdrop-blur-md border-b border-white/10 z-50 w-full" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
@@ -2185,7 +2187,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       </div>
 
       {/* Scrollable Content Area - Padding to account for fixed header (header is ~90px tall) */}
-      <div className="relative z-10 flex-1 px-3 sm:px-6 overflow-y-auto" style={{ paddingTop: 'calc(84px + env(safe-area-inset-top))', paddingBottom: `${(inputBarHeight || 200) + 8}px` }}>
+      <div className="relative z-10 flex-1 min-h-0 px-3 sm:px-6 overflow-y-auto" style={{ paddingTop: 'calc(84px + env(safe-area-inset-top))', paddingBottom: `${(inputBarHeight || 200) + 8}px` }}>
         <div className="max-w-[1800px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="hidden lg:block lg:col-span-1">

@@ -251,17 +251,46 @@ export const JUDGE_NAMES = [
 ];
 
 export const PROSECUTOR_NAMES = [
-  'District Attorney James Harrison (Violent Crimes Division)',
-  'Prosecutor Emily Rodriguez (Fraud & Financial Crimes)',
-  'State Attorney Marcus Webb (Homicide Division)',
-  'District Attorney Lisa Chang (Narcotics Division)',
-  'Prosecutor Thomas Bennett (Property Crimes)',
-  'State Attorney Karen Foster (Domestic Violence Unit)',
-  'District Attorney Robert Klein (White Collar Crimes)',
-  'Prosecutor Jennifer Wallace (Juvenile Division)',
-  'State Attorney David Morgan (Cybercrime Division)',
-  'District Attorney Amanda Peters (General Felonies)'
+  'District Attorney James Harrison',
+  'Prosecutor Emily Rodriguez',
+  'State Attorney Marcus Webb',
+  'District Attorney Lisa Chang',
+  'Prosecutor Thomas Bennett',
+  'State Attorney Karen Foster',
+  'District Attorney Robert Klein',
+  'Prosecutor Jennifer Wallace',
+  'State Attorney David Morgan',
+  'District Attorney Amanda Peters'
 ];
+
+/** Names for the AI defense attorney (when the player is prosecuting). */
+export const DEFENSE_NAMES = [
+  'Attorney Olivia Grant',
+  'Attorney Daniel Brooks',
+  'Attorney Sofia Reyes',
+  'Attorney Nathan Cole',
+  'Attorney Priya Sharma',
+  'Attorney Marcus Reid',
+  'Attorney Hannah Lopez',
+  'Attorney Benjamin Hayes',
+  'Attorney Grace Okafor',
+  'Attorney Samuel Ortiz'
+];
+
+/**
+ * The AI defense attorney's name. Picked from the session id, so it is the same in the pre-trial,
+ * in the trial and when a saved game is reopened, with nothing extra to store.
+ */
+export function aiDefenseName(sessionId: string): string {
+  let h = 0;
+  for (let i = 0; i < sessionId.length; i++) h = (h * 31 + sessionId.charCodeAt(i)) >>> 0;
+  return DEFENSE_NAMES[h % DEFENSE_NAMES.length];
+}
+
+/** Drops a trailing "(Division)" from a lawyer's name, so older saved games show just the name. */
+export function plainLawyerName(name: string): string {
+  return name.replace(/\s*\([^)]*\)\s*$/, '').trim();
+}
 
 export function getRandomJudgeName(): string {
   return JUDGE_NAMES[Math.floor(Math.random() * JUDGE_NAMES.length)];

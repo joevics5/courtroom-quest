@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Gavel } from 'lucide-react';
-import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName } from '../lib/trialConfig';
+import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName, aiDefenseName, plainLawyerName } from '../lib/trialConfig';
 import type { PlayerRole } from '../types';
 import { canSpeak, enterSpeechScope, speakAs, stopSpeaking } from '../lib/speech';
 import { AI_DEFENSE_PLEA, LINGER_MS, aiPleaLine, pretrialSteps, readingTimeMs } from '../lib/pretrial';
@@ -54,8 +54,8 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const [npcProsecutorName] = useState(prosecutorNameProp || getRandomProsecutorName());
   // The human is announced with their rank and own name, e.g. "Junior Counsel Victor Joshua".
   const myAnnouncedName = `${getLevelForWins(playerWins).title} ${userName}`;
-  const prosecutorDisplayName = playerRole === 'prosecution' ? myAnnouncedName : npcProsecutorName;
-  const defenseDisplayName = playerRole === 'defense' ? myAnnouncedName : 'Defense Counsel';
+  const prosecutorDisplayName = playerRole === 'prosecution' ? myAnnouncedName : plainLawyerName(npcProsecutorName);
+  const defenseDisplayName = playerRole === 'defense' ? myAnnouncedName : aiDefenseName(sessionId);
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
   const [pleaGuilty, setPleaGuilty] = useState<boolean | null>(null);
   const [isLoadingJudgeRequest] = useState(false);
