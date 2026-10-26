@@ -1,4 +1,5 @@
 import { useLockPageScroll } from '@/lib/useLockPageScroll';
+import { questionLimitFor, questionCounterLabel } from '@/lib/questionLimits';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
 import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, X, Mic, Sparkles, Gavel, Shield, Landmark } from 'lucide-react';
@@ -879,6 +880,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     if (turnState.current_turn !== aiRole) return;
     // A paused trial (including one just reopened) waits for the player to resume.
     if (timerPaused) return;
+    // The AI examiner is out of questions: no more turns, the examination is closing.
+    const aiLimit = questionLimitFor(trialDuration, turnState.current_phase_type);
+    if (aiLimit !== null && turnState.current_witness_id && (turnState.questions_asked ?? 0) >= aiLimit) return;
 
     console.log('[Courtroom] Scheduling AI turn for witness phase', currentPhase, turnState);
 
@@ -1549,6 +1553,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // Handle asking a question to witness
   const handleAskQuestion = async (question: string, witnessId: string) => {
     if (!turnState) return;
+    // Out of questions for this examination: nothing more can be asked (the phase is about to end).
+    const limitNow = questionLimitFor(trialDuration, turnState.current_phase_type);
+    if (limitNow !== null && (turnState.questions_asked ?? 0) >= limitNow) return;
 
     const witness = witnesses.find(w => w.id === witnessId);
     if (!witness) return;
@@ -1604,16 +1611,21 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       }
       trackObjectableStatement(questionEvent);
 
-      // Count the question for this phase (informational only). Questioning
-      // is limited purely by the phase clock — there is no per-phase cap on
-      // how many questions can be asked while time remains. This state
-      // update also keeps the AI-turn trigger effect re-firing after each
-      // question, so the AI keeps examining until the clock runs out or it
-      // chooses to rest.
+      // Count the question for this examination. Questioning ends at whichever comes first:
+      // the phase clock or the question cap (see lib/questionLimits.ts). This state update
+      // also keeps the AI-turn trigger effect re-firing after each question, so the AI keeps
+      // examining until the clock runs out, the cap is reached, or it chooses to rest.
+      const askedNow = (turnState.questions_asked ?? 0) + 1;
       setTurnState({
         ...turnState,
-        questions_asked: (turnState.questions_asked ?? 0) + 1
+        questions_asked: askedNow
       });
+      // That was the last allowed question: close the examination after a short pause to read the
+      // answer (the same "rests in 0:08 / Rest now" countdown the AI and the clock already use).
+      if (limitNow !== null && askedNow >= limitNow) {
+        setAwaitingUserInput(false);
+        startAutoRestCountdown(8);
+      }
 
       // Re-open the *human's* text input only when it's actually their
       // turn (or pass & play, where every turn is the human's). This used
@@ -2072,9 +2084,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect');
   const phaseClockLeft = phaseTimeRemaining[currentPhase];
   const clockRunning = practiceMode || phaseClockLeft === undefined || phaseClockLeft > 0;
+  // The question cap for this examination, and whether it has been used up.
+  const examLimit = inWitnessExam ? questionLimitFor(trialDuration, turnState?.current_phase_type) : null;
+  const examAsked = turnState?.questions_asked ?? 0;
+  const questionsExhausted = examLimit !== null && examAsked >= examLimit;
+  const questionCounter = isPlayerTurn || sameDevicePlay ? questionCounterLabel(examAsked, examLimit) : null;
   // Paused: the box stays open so a player can keep drafting, but nothing can be sent or called.
   const actionsPaused = timerPaused;
-  const inputOpen = (awaitingUserInput || (inWitnessExam && isPlayerTurn && !judgeInstructionPending && clockRunning)) && !pendingHandoff;
+  const inputOpen = (awaitingUserInput || (inWitnessExam && isPlayerTurn && !judgeInstructionPending && clockRunning)) && !pendingHandoff && !questionsExhausted;
 
   // Put the cursor back in the box after each question finishes so the
   // next one can be typed straight away (the keyboard stays up on mobile).
@@ -2339,6 +2356,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                {/* Fixed Bottom Input Bar - Static, doesn't scroll - MUST be at bottom */}
                <div ref={inputBarRef} className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md border-t border-white/10 p-3 sm:p-4 z-40 shadow-lg w-full" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
                  <div className="w-full max-w-[1800px] mx-auto">
+                   {questionCounter && (
+                     <p
+                       data-testid="question-counter"
+                       className={`mb-1.5 text-xs font-semibold tracking-wide ${questionsExhausted ? 'text-white/50' : examLimit !== null && examAsked >= examLimit - 1 ? 'text-[#FFD43B]' : 'text-white/60'}`}
+                     >
+                       {questionCounter}
+                     </p>
+                   )}
                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                      <div className="relative w-full sm:flex-1">
                        <textarea
