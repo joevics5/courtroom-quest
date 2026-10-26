@@ -1,29 +1,41 @@
 import type { StageSceneId } from '../components/stage/types';
 import { DEFAULT_SCENE } from '../components/stage/scenes';
+import { webglAvailable } from '../components/court3d/support';
 
 const KEY = 'cq-stage-scene';
 
-/** The virtual courtroom is switched off for now (not ready). Set to true to bring it, and ?scene=virtual, back. */
+/** The painted 2D virtual courtroom is switched off (not ready). */
 export const VIRTUAL_COURTROOM_ENABLED = false;
 
+/** The 3D courtroom is the default trial scene wherever the browser can draw WebGL. */
+export const COURT3D_ENABLED = true;
+
+type Pick = 'avatars' | 'court3d';
+
 /**
- * Which scene draws the trial. The avatar scene stays the default until the courtroom art is in;
- * to preview the virtual courtroom open any case with ?scene=virtual (remembered), or ?scene=avatars to go back.
+ * Which scene draws the trial and pre-trial.
+ *  - The 3D courtroom by default when the device supports WebGL.
+ *  - ?scene=avatars switches back to the avatar tiles (remembered), ?scene=court3d switches to 3D again.
+ *  - The old painted 2D scene stays off.
  */
 export function pickStageScene(search: string = typeof window !== 'undefined' ? window.location.search : ''): StageSceneId {
-  if (!VIRTUAL_COURTROOM_ENABLED) return DEFAULT_SCENE; // always the avatars, whatever an old visit saved
+  const canDo3D = COURT3D_ENABLED && webglAvailable();
   const asked = new URLSearchParams(search).get('scene');
+  const valid = (v: string | null): v is Pick => v === 'avatars' || v === 'court3d';
+  let choice: Pick | null = null;
   try {
-    if (asked === 'virtual' || asked === 'avatars') {
+    if (valid(asked)) {
       window.localStorage.setItem(KEY, asked);
-      return asked;
+      choice = asked;
+    } else {
+      const saved = typeof window !== 'undefined' ? window.localStorage.getItem(KEY) : null;
+      if (valid(saved)) choice = saved;
     }
-    const saved = typeof window !== 'undefined' ? window.localStorage.getItem(KEY) : null;
-    if (saved === 'virtual' || saved === 'avatars') return saved;
   } catch {
-    if (asked === 'virtual' || asked === 'avatars') return asked;
+    if (valid(asked)) choice = asked;
   }
-  return DEFAULT_SCENE;
+  if (choice === 'avatars') return 'avatars';
+  return canDo3D ? 'court3d' : DEFAULT_SCENE;
 }
 
 /** Remember the scene the player picked with the in-trial button. */

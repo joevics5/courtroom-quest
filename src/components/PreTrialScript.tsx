@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Gavel } from 'lucide-react';
 import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName } from '../lib/trialConfig';
 import type { PlayerRole } from '../types';
@@ -14,6 +14,11 @@ import { BAILIFF_AVATAR, getUserAvatar, type AvatarConfig } from '../lib/avatars
 import { aiRank, castAvatars } from '../lib/stageCast';
 import { LEVELS, getLevelForWins } from '../lib/levels';
 import type { StageSpeaker } from '../lib/stageSpeaker';
+import { pickStageScene } from '../lib/stageScene';
+import { db } from '../lib/database';
+import type { ShotName } from './court3d/stage';
+
+const Court3D = lazy(() => import('./court3d/Court3D'));
 
 interface PreTrialScriptProps {
   caseTitle: string;
@@ -128,7 +133,23 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
     }
   };
 
+  /** In the 3D courtroom the second line waits until the judge has walked in and sat down. */
+  const judgeSeatedRef = useRef(false);
   const playStep = (index: number) => {
+    if (index === 1 && show3D && !judgeSeatedRef.current) {
+      const id = runRef.current;
+      const started = Date.now();
+      const wait = () => {
+        if (id !== runRef.current) return;
+        if (judgeSeatedRef.current || Date.now() - started > 15000) playStepNow(index);
+        else timersRef.current.push(window.setTimeout(wait, 250));
+      };
+      wait();
+      return;
+    }
+    playStepNow(index);
+  };
+  const playStepNow = (index: number) => {
     const step = steps[index];
     setPhase(step.phase);
     addTranscript('Bailiff', step.text);
@@ -215,6 +236,49 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const muted = useSpeechMuted();
   const talking = TTS_SUPPORTED && !muted ? ttsSpeaking : recentLine;
   const [showTranscript, setShowTranscript] = useState(false);
+  // ---- 3D courtroom: walk to your chair, press Start, then the judge enters ----
+  const wants3D = useMemo(() => pickStageScene() === 'court3d', []);
+  const [failed3D, setFailed3D] = useState(false);
+  const show3D = wants3D && !failed3D;
+  const [seated, setSeated] = useState(false);
+  const [jurorIds, setJurorIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!show3D || !sessionId) return;
+    let cancelled = false;
+    db.jurySelections
+      .getSessionJurySelections(sessionId)
+      .then(rows => { if (!cancelled) setJurorIds(rows.map(r => r.juror_id)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [show3D, sessionId]);
+  const lineIndex = transcript.length - 1;
+  const [tour, setTour] = useState(0);
+  useEffect(() => {
+    if (lineIndex !== 1) { setTour(0); return; }
+    const id = window.setInterval(() => setTour(n => n + 1), 2300);
+    return () => window.clearInterval(id);
+  }, [lineIndex]);
+  /** Where the camera goes while the bailiff reads each line: the judge, then the jury and gallery, then each counsel. */
+  const shot: ShotName | null = useMemo(() => {
+    if (phase === 'idle') return null;
+    if (phase === 'plea_complete' || phase === 'start_trial') return 'wide';
+    if (lineIndex <= 0) return 'judge';
+    if (lineIndex === 1) {
+      const tourShots: ShotName[] = jurorIds.length ? ['jury', 'audience', 'judge'] : ['audience', 'judge'];
+      return tourShots[tour % tourShots.length];
+    }
+    if (lineIndex === 2) return 'prosecution';
+    if (lineIndex === 3) return 'defense';
+    return 'judge';
+  }, [phase, lineIndex, tour, jurorIds.length]);
+  const stagePeople = useMemo(() => ({
+    judge: { name: judgeName, avatar: faces.judge },
+    prosecution: { name: prosecutorDisplayName, avatar: faces.prosecution },
+    defense: { name: defenseDisplayName, avatar: faces.defense },
+    bailiff: { name: 'Bailiff', avatar: BAILIFF_AVATAR }
+  }), [judgeName, faces, prosecutorDisplayName, defenseDisplayName]);
+  const stageJurors = useMemo(() => jurorIds.map(id => ({ id })), [jurorIds]);
+
   // Once the bailiff has announced the case and the plea is asked, the text area goes away so the plea buttons rise (no scrolling).
   const pleaPrompt = phase === 'defendant_plea' && playerRole === 'defense' && !canSkip && transcript.length > 0;
   const star = cast[activeRole];
@@ -258,6 +322,27 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
         </header>
 
         <main className="flex-1 flex flex-col items-center justify-center gap-4 max-w-md lg:max-w-5xl w-full mx-auto py-4 lg:grid lg:grid-cols-2 lg:gap-x-12 lg:gap-y-5 lg:items-start lg:content-center">
+          {show3D && (
+            <Suspense fallback={<div className="w-full h-[46dvh] rounded-2xl bg-black/40 grid place-items-center text-white/60 text-sm">Entering the courtroom...</div>}>
+              <Court3D
+                mode="pretrial"
+                className="w-full h-[46dvh] lg:h-[62dvh] rounded-2xl ring-1 ring-white/20 lg:col-start-1 lg:row-start-1 lg:row-span-2"
+                {...stagePeople}
+                playerRole={playerRole}
+                active={activeRole}
+                talking={talking && latest !== undefined}
+                shot={shot}
+                jurors={stageJurors}
+                begun={phase !== 'idle'}
+                controls
+                onSeated={() => setSeated(true)}
+                onJudgeSeated={() => { judgeSeatedRef.current = true; }}
+                onFailed={() => setFailed3D(true)}
+              />
+            </Suspense>
+          )}
+          {!show3D && (
+            <>
           {/* the speaker, large */}
           <div className="flex flex-col items-center lg:col-start-1 lg:row-start-1">
             <div
@@ -298,6 +383,9 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
               );
             })}
           </div>
+
+            </>
+          )}
 
           {/* subtitle: the line being spoken (hidden while the plea is asked) */}
           {!pleaPrompt && (
@@ -353,10 +441,20 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
           {/* what the player does now */}
           <div className="w-full lg:col-start-2 lg:row-start-2">
             {phase === 'idle' && (
+              show3D ? (
+                <div className="flex flex-col items-center gap-2">
+                  <button onClick={handleStart} disabled={!seated} className={`${gameButton('gold', 'md')} w-full`}>
+                    <Gavel className="w-6 h-6" />
+                    START
+                  </button>
+                  <p className="text-white/60 text-xs text-center">{seated ? 'You are seated. Press Start when you are ready.' : 'Walk to your chair at the counsel table to begin.'}</p>
+                </div>
+              ) : (
               <button onClick={handleStart} className={`${gameButton('gold', 'md')} w-full`}>
                 <Gavel className="w-6 h-6" />
                 ENTER COURT
               </button>
+              )
             )}
 
             {pleaPrompt && (

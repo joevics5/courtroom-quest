@@ -53,4 +53,4 @@ export interface StageJuror {
   name?: string;
 }
 
-export type StageSceneId = 'avatars' | 'virtual';
+export type StageSceneId = 'avatars' | 'virtual' | 'court3d';

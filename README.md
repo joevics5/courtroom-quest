@@ -16,6 +16,17 @@ The Supabase URL and public anon key are set in `src/integrations/supabase/clien
 
 Scripts: `npm run dev`, `npm run build`, `npm test`, `npm run typecheck`, `npm run lint`.
 
+## 3D courtroom
+
+The trial and the pre-trial draw a 3D courtroom (Three.js) wherever the browser supports WebGL, and fall back to the avatar tiles otherwise.
+Add `?scene=avatars` to the URL to switch it off (remembered), `?scene=court3d` to switch it back on.
+
+- `src/components/court3d/room.ts`: the room and every seat position (judge, bailiff, counsel, witness box, 12 jury seats, gallery).
+- `src/components/court3d/character.ts`: people built from code, dressed from the same `AvatarConfig` as the 2D faces; walk, sit, stand, talk, gaze, blink.
+- `src/components/court3d/stage.ts`: `CourtStage` owns the scene. React gives it plain state (`StageInput`); it moves the camera and the people.
+- `src/components/stage/Court3DScene.tsx`: the trial scene, a normal `SceneProps` scene registered in `scenes.ts`.
+- Pre-trial (`PreTrialScript.tsx`): walk to your chair, press START, the judge enters while the bailiff reads; the camera cuts judge, jury, gallery, prosecution, defense.
+
 ## Backend (Supabase)
 
 - Apply everything in `supabase/migrations/` in order.

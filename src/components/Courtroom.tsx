@@ -2084,10 +2084,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   }, [isProcessing, inWitnessExam, isPlayerTurn, inputOpen]);
 
   // Virtual courtroom extras (only drawn by the 'virtual' scene).
-  const stageScene = pickStageScene(); // avatars (the virtual courtroom is switched off for now)
+  const stageScene = useMemo(() => pickStageScene(), []); // 3D courtroom where WebGL works, else avatars
   const [seatedJurorIds, setSeatedJurorIds] = useState<string[]>([]);
   useEffect(() => {
-    if (stageScene !== 'virtual') return;
+    if (stageScene !== 'virtual' && stageScene !== 'court3d') return;
     let cancelled = false;
     db.jurySelections
       .getSessionJurySelections(session.id)

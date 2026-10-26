@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import AvatarScene from './AvatarScene';
 import CourtroomScene from './CourtroomScene';
+import Court3DScene from './Court3DScene';
 import type { SceneProps, StageSceneId } from './types';
 
 /**
@@ -10,7 +11,8 @@ import type { SceneProps, StageSceneId } from './types';
  */
 export const STAGE_SCENES: Record<StageSceneId, ComponentType<SceneProps>> = {
   avatars: AvatarScene,
-  virtual: CourtroomScene
+  virtual: CourtroomScene,
+  court3d: Court3DScene
 };
 
 export const DEFAULT_SCENE: StageSceneId = 'avatars';
