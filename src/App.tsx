@@ -757,6 +757,13 @@ function AppContent() {
     setView('verdict');
   };
 
+  // The judge granted an appeal: the database has put the case back at the start of the pre-trial
+  // (same jurors, same transcript), so carry on from there like any resumed game.
+  const handleReopenCase = async (session: CaseSession) => {
+    setCurrentVerdict(null);
+    await resumeSession(session);
+  };
+
   const handleReturnHome = () => {
     setCurrentSession(null);
     setCurrentVerdict(null);
@@ -970,6 +977,7 @@ function AppContent() {
           playerRole={getSessionPlayerRole(currentSession, user.id)}
           wins={userProfile?.wins_count}
           onReturnHome={handleReturnHome}
+          onReopenCase={handleReopenCase}
         />
       )}
 

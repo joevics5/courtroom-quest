@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { appAlert } from '../lib/appDialog';
 import { CheckCircle, FileText, Home, Share2, XCircle } from 'lucide-react';
-import type { Verdict, TrialEvent, PlayerRole } from '../types';
+import type { Verdict, TrialEvent, PlayerRole, CaseSession } from '../types';
 import { db } from '../lib/database';
 import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
 import TranscriptViewer from './TranscriptViewer';
@@ -10,6 +10,9 @@ import AvatarFace from './AvatarFace';
 import SceneBackdrop from './SceneBackdrop';
 import { gameButton, PANEL_SOFT } from './ui';
 import { useAuth } from '../contexts/AuthContext';
+import { useVerdictAppeal } from '../lib/useVerdictAppeal';
+import AppealPanel from './AppealPanel';
+import AppealForm from './AppealForm';
 import { getUserAvatar } from '../lib/avatars';
 import { LEVELS, getLevelForWins, getNextLevel, getRankProgress } from '../lib/levels';
 import type { JuryRound } from '../lib/ai/trialAI';
@@ -22,15 +25,18 @@ interface VerdictDisplayProps {
   /** Cases won so far (after this one): shows rank progress and a NEW RANK badge. */
   wins?: number;
   onReturnHome: () => void;
+  /** The judge granted an appeal and the case is back at the start of the pre-trial. */
+  onReopenCase?: (session: CaseSession) => void;
 }
 
-export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playerRole, wins, onReturnHome }: VerdictDisplayProps) {
+export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playerRole, wins, onReturnHome, onReopenCase }: VerdictDisplayProps) {
   const { user } = useAuth();
   // isWin reflects whether the PLAYER won their case, not the raw AI
   // outcome field (which is an absolute guilty/not-guilty call and means
   // the opposite thing for a defense player vs. a prosecution player).
   const isWin = didPlayerWin(verdict.outcome, playerRole);
   const verdictWord = verdictLabel(verdict.outcome);
+  const appeal = useVerdictAppeal({ verdict, playerRole, playerWon: isWin, onReopen: onReopenCase });
   const [shareMessage, setShareMessage] = useState('');
   const [showTranscript, setShowTranscript] = useState(false);
   const [transcriptEvents, setTranscriptEvents] = useState<TrialEvent[]>([]);
@@ -131,7 +137,9 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
             >
               {isWin ? 'VICTORY' : 'DEFEAT'}
             </h1>
-            <p className="mt-2 text-white/60">The court has delivered its verdict</p>
+            <p className="mt-2 text-white/60">
+              {appeal.appealRound > 0 ? `The court has delivered its verdict after appeal ${appeal.appealRound}` : 'The court has delivered its verdict'}
+            </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <span className="rounded-full bg-black/55 border border-white/20 px-4 py-1.5 font-game text-xl leading-none text-white">
                 {rankTitle}
@@ -176,7 +184,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                 </div>
               </div>
 
-              {hasScore && (
+              {hasScore && !appeal.gated && (
                 <div>
                   <h3 className="font-game text-xl text-white/90 leading-none mb-2">PERFORMANCE SCORE</h3>
                   <div className="flex items-center gap-4">
@@ -222,7 +230,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                 </div>
               )}
 
-              {verdict.missed_opportunities && verdict.missed_opportunities.length > 0 && (
+              {!appeal.gated && verdict.missed_opportunities && verdict.missed_opportunities.length > 0 && (
                 <div>
                   <h3 className="font-game text-xl text-[#FFD43B] leading-none mb-2">MISSED OPPORTUNITIES</h3>
                   <div className="rounded-xl bg-[#FFD43B]/10 border border-[#FFD43B]/30 p-4">
@@ -242,10 +250,27 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
 
           {/* what next */}
           <div className="space-y-3">
-            <button onClick={onReturnHome} className={`${gameButton('gold', 'md')} w-full`}>
-              <Home className="w-6 h-6" />
-              RETURN TO CASES
-            </button>
+            {appeal.showPanel && (
+              <AppealPanel
+                last={appeal.last}
+                active={appeal.active}
+                grantedPending={appeal.grantedPending}
+                canStartAppeal={appeal.canStartAppeal}
+                remaining={appeal.remaining}
+                busy={appeal.busy}
+                error={appeal.error}
+                onAppeal={appeal.openForm}
+                onAccept={appeal.accept}
+                onReopen={appeal.reopen}
+                onRetry={appeal.retry}
+              />
+            )}
+            {!appeal.gated && (
+              <button onClick={onReturnHome} className={`${gameButton('gold', 'md')} w-full`}>
+                <Home className="w-6 h-6" />
+                RETURN TO CASES
+              </button>
+            )}
             <div className={`grid gap-3 ${isWin ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {isWin && (
                 <button onClick={handleShare} className={gameButton('outline', 'sm')}>
@@ -269,6 +294,15 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
 
       {showTranscript && (
         <TranscriptViewer events={transcriptEvents} caseTitle={caseTitle} onClose={() => setShowTranscript(false)} />
+      )}
+
+      {appeal.formOpen && (
+        <AppealForm
+          caseId={appeal.caseId}
+          appealNumber={appeal.nextNumber}
+          onSubmit={appeal.submit}
+          onClose={appeal.closeForm}
+        />
       )}
     </div>
   );
