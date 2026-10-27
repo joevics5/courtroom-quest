@@ -1,8 +1,9 @@
 /**
- * AI for appeals: the opposing counsel's answer and the judge's decision on whether to reopen the case.
+ * AI judge for appeals: decides whether the case is worth hearing again.
  *
- * Neither agent can add anything to the case. Both only look at what already exists (the case file, the witness
- * knowledge, the transcript and the verdict) and at what the two lawyers wrote.
+ * It cannot add anything to the case. It only looks at what already exists (the case file, the witness knowledge,
+ * the transcript and the verdict) and at what the two lawyers wrote. (Opposing AI counsel always accepts, so it needs
+ * no model call: see aiAcceptance in appeals.ts.)
  */
 
 import { getAIProvider } from './providerFactory';
@@ -77,28 +78,6 @@ export function parseJsonObject(text: string): Record<string, any> | null {
 
 const clip = (s: unknown, n: number) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
 
-function idsFrom(value: unknown, known: string[]): string[] {
-  if (!Array.isArray(value)) return [];
-  const set = new Set(known);
-  return Array.from(new Set(value.filter((v): v is string => typeof v === 'string' && set.has(v))));
-}
-
-/** Turns the model's reply into a valid response, or null when it did not answer properly. */
-export function toAppealResponse(raw: Record<string, any> | null, known: { evidence: string[]; witnesses: string[] }, by = 'ai', now = new Date()): AppealResponse | null {
-  if (!raw) return null;
-  const decision = raw.decision === 'accept' ? 'accept' : raw.decision === 'oppose' ? 'oppose' : null;
-  const explanation = clip(raw.explanation, 900);
-  if (!decision || !explanation) return null;
-  return {
-    decision,
-    explanation,
-    evidence_ids: idsFrom(raw.evidence_ids, known.evidence),
-    witness_ids: idsFrom(raw.witness_ids, known.witnesses),
-    by,
-    created_at: now.toISOString()
-  };
-}
-
 export function toAppealRuling(raw: Record<string, any> | null, now = new Date()): AppealRuling | null {
   if (!raw) return null;
   const decision = raw.decision === 'grant' ? true : raw.decision === 'deny' ? false : null;
@@ -158,33 +137,6 @@ const REASON_TEXT: Record<Appeal['reason'], string> = {
   other: 'Other (another reason to reconsider the verdict)'
 };
 
-export function buildResponsePrompt(c: AppealCase, appeal: Appeal, verdict: Verdict, transcript: string): { system: string; user: string } {
-  const side = c.appellantRole === 'prosecution' ? 'defense' : 'prosecution';
-  return {
-    system: `You are ${c.opponentName}, the ${side} lawyer in this case. The other lawyer lost and has appealed, asking the court to reopen the case.
-You answer with ONE decision:
-- "accept": you agree the court should reconsider. This does NOT admit the verdict was wrong.
-- "oppose": you argue the appeal does not justify reopening the case.
-
-Be honest and sensible. Accept when the appeal points to something that really exists in the case file and really was not used or brought out in the transcript. Oppose when the appeal only disagrees with the jury, repeats what was already argued, claims something the case file does not support, or would not change the outcome.
-You may point only to evidence and witnesses that already exist in the case file (use their ids). You cannot introduce anything new.
-${UNTRUSTED}
-
-Reply with JSON only: {"decision":"accept"|"oppose","explanation":"2-4 sentences","evidence_ids":[],"witness_ids":[]}`,
-    user: `${caseBlock(c, appeal)}
-
-VERDICT: ${verdict.outcome}. ${clip(verdict.reasoning, 1200)}
-
-TRANSCRIPT:
-${transcript}
-
-THE APPEAL (number ${appeal.number}), reason: ${REASON_TEXT[appeal.reason]}
-<player_submission>
-${appeal.explanation}
-</player_submission>`
-  };
-}
-
 export function buildRulingPrompt(
   c: AppealCase, appeal: Appeal, response: AppealResponse | undefined, verdict: Verdict, transcript: string, earlier: Appeal[]
 ): { system: string; user: string } {
@@ -192,20 +144,16 @@ export function buildRulingPrompt(
     system: `You are the judge deciding ONE question: is this case worth hearing again? You are not deciding the case itself.
 Read the appeal, the opposing counsel's answer, the case file, the transcript and the verdict, then decide.
 
-GRANT only if ALL of these hold:
-1. The appeal points to specific material that really exists in the case file (evidence, or something that a witness actually knows).
-2. The transcript shows that material was genuinely not used or not brought out. Material that was already used or heard is not "missed".
+IF OPPOSING COUNSEL ACCEPTED (agreed the case can be reconsidered, or did not answer in time): be lenient. Both sides are content to go again, so GRANT, unless the appeal is plainly unfounded: it asks for new evidence or new witnesses, it claims facts the case file clearly contradicts, or it is empty, abusive or nonsense.
+
+IF OPPOSING COUNSEL OPPOSED: look closely. GRANT only if ALL of these hold:
+1. The appeal points to specific material that really exists in the case file (evidence, or something a witness actually knows).
+2. The transcript shows that material was genuinely not used or not brought out. Material already used or heard is not "missed".
 3. Hearing it could realistically change the verdict, given the verdict's reasoning.
+DENY when the player only disagrees with the jury or the verdict, claims facts the case file does not support, asks for new material, or the material was already presented or would not change the outcome.
 
-DENY when any of these apply:
-- The player only disagrees with the jury or the verdict.
-- The appeal claims facts the case file does not support, or asks for new evidence or new witnesses.
-- The material was already presented, or would not change the outcome.
-- Reason "Other": this needs the strongest justification, such as a clear mistake against the record. Grant it rarely.
-- This is a later appeal: it must rest on different grounds than the earlier ones, so the bar is higher.
-
-Opposing counsel agreeing to reconsider is not binding, but it counts in favor when it matches the record. If opposing counsel did not answer, treat it as no opposition and decide on the appeal itself.
-Do not default to either outcome: grant well-founded appeals, deny weak ones.
+Reason "Other" needs a real justification even when accepted, such as a clear mistake against the record. Later appeals should rest on different grounds than earlier ones.
+Do not default to either outcome beyond the rules above.
 ${UNTRUSTED}
 
 Reply with JSON only: {"decision":"grant"|"deny","reasoning":"2-4 sentences addressed to the appealing player, naming what decided it"}`,
@@ -243,19 +191,6 @@ async function ask(request: AIRequest): Promise<Record<string, any> | null> {
   if (!provider || !provider.isAvailable()) throw new Error('The AI is not available right now.');
   const reply = await provider.generate({ ...request, responseFormat: 'json' });
   return parseJsonObject(reply.text);
-}
-
-export async function generateAppealResponse(args: {
-  case: AppealCase; appeal: Appeal; verdict: Verdict; events: TrialEvent[];
-}): Promise<AppealResponse> {
-  const prompt = buildResponsePrompt(args.case, args.appeal, args.verdict, compactTranscript(args.events, 16000));
-  const known = { evidence: args.case.evidence.map(e => e.id), witnesses: args.case.witnesses.map(w => w.id) };
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const raw = await ask({ ...prompt, temperature: 0.5, maxTokens: 700 });
-    const response = toAppealResponse(raw, known);
-    if (response) return response;
-  }
-  throw new Error('Opposing counsel could not respond. Please try again.');
 }
 
 export async function generateAppealRuling(args: {

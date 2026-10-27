@@ -4,8 +4,8 @@ const generate = vi.fn();
 vi.mock('./providerFactory', () => ({ getAIProvider: () => ({ isAvailable: () => true, generate: (r: unknown) => generate(r) }) }));
 
 import {
-  compactTranscript, parseJsonObject, toAppealResponse, toAppealRuling,
-  buildRulingPrompt, buildResponsePrompt, generateAppealResponse, generateAppealRuling, type AppealCase
+  compactTranscript, parseJsonObject, toAppealRuling,
+  buildRulingPrompt, generateAppealRuling, type AppealCase
 } from './appealAI';
 import type { Appeal } from '../appeals';
 import type { Verdict } from '../../types';
@@ -51,17 +51,6 @@ describe('parsing replies', () => {
     expect(parseJsonObject('{broken')).toBeNull();
   });
 
-  it('accepts only a valid response and drops ids that are not in the case', () => {
-    const known = { evidence: ['e1'], witnesses: ['w1'] };
-    const ok = toAppealResponse({ decision: 'accept', explanation: 'Fair point.', evidence_ids: ['e1', 'ghost'], witness_ids: ['w9'] }, known);
-    expect(ok?.decision).toBe('accept');
-    expect(ok?.evidence_ids).toEqual(['e1']);
-    expect(ok?.witness_ids).toEqual([]);
-    expect(toAppealResponse({ decision: 'maybe', explanation: 'x' }, known)).toBeNull();
-    expect(toAppealResponse({ decision: 'accept', explanation: '' }, known)).toBeNull();
-    expect(toAppealResponse(null, known)).toBeNull();
-  });
-
   it('accepts only a valid ruling', () => {
     expect(toAppealRuling({ decision: 'grant', reasoning: 'Fine.' })?.granted).toBe(true);
     expect(toAppealRuling({ decision: 'deny', reasoning: 'No.' })?.granted).toBe(false);
@@ -80,10 +69,13 @@ describe('prompts', () => {
     expect(p.user).toContain('The clerk transposed the digits'); // witness knowledge, so "missed insight" can be checked
   });
 
-  it('tell the opposing counsel it cannot add new material', () => {
-    const p = buildResponsePrompt(caseData, appeal, verdict, '[JUDGE] hi');
-    expect(p.system).toMatch(/cannot introduce anything new/);
-    expect(p.system).toMatch(/does NOT admit the verdict was wrong/);
+  it('tells the judge to be lenient when opposing counsel accepted and strict when it opposed', () => {
+    const p = buildRulingPrompt(caseData, appeal, undefined, verdict, 't', []);
+    expect(p.system).toMatch(/IF OPPOSING COUNSEL ACCEPTED/);
+    expect(p.system).toMatch(/be lenient/);
+    expect(p.system).toMatch(/GRANT, unless the appeal is plainly unfounded/);
+    expect(p.system).toMatch(/IF OPPOSING COUNSEL OPPOSED: look closely/);
+    expect(p.system).toMatch(/only disagrees with the jury/);
   });
 
   it('shows earlier appeals and a timeout note to the judge', () => {
@@ -96,13 +88,6 @@ describe('prompts', () => {
 });
 
 describe('calls', () => {
-  it('returns the opposing counsel response', async () => {
-    generate.mockResolvedValue({ text: '{"decision":"oppose","explanation":"The jury heard it.","evidence_ids":[],"witness_ids":["w1"]}' });
-    const r = await generateAppealResponse({ case: caseData, appeal, verdict, events: [] });
-    expect(r.decision).toBe('oppose');
-    expect(r.by).toBe('ai');
-  });
-
   it('retries once, then gives up with a clear error', async () => {
     generate.mockResolvedValue({ text: 'garbage' });
     await expect(generateAppealRuling({ case: caseData, appeal, verdict, events: [], earlier: [] })).rejects.toThrow(/could not rule/);

@@ -14,7 +14,7 @@ export interface HistoryEntry {
   finishedAt: string;
   verdict: Verdict;
   appealsUsed: number;
-  /** True when this game is a loss that can still be appealed (games against the AI, appeals left, not accepted). */
+  /** True when this game is a loss that can still be appealed (appeals left, verdict not accepted, none in progress). */
   appealable: boolean;
   /** Short line for the list: "Appeal denied", "2 appeals used"... or null. */
   appealNote: string | null;

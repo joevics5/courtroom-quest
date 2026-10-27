@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useVerdictAppeal } from '../lib/useVerdictAppeal';
 import AppealPanel from './AppealPanel';
 import AppealForm from './AppealForm';
+import AppealResponseForm from './AppealResponseForm';
 import { getUserAvatar } from '../lib/avatars';
 import { LEVELS, getLevelForWins, getNextLevel, getRankProgress } from '../lib/levels';
 import type { JuryRound } from '../lib/ai/trialAI';
@@ -36,7 +37,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
   // the opposite thing for a defense player vs. a prosecution player).
   const isWin = didPlayerWin(verdict.outcome, playerRole);
   const verdictWord = verdictLabel(verdict.outcome);
-  const appeal = useVerdictAppeal({ verdict, playerRole, playerWon: isWin, onReopen: onReopenCase });
+  const appeal = useVerdictAppeal({ verdict, playerRole, playerWon: isWin, userId: user?.id, onReopen: onReopenCase });
   const [shareMessage, setShareMessage] = useState('');
   const [showTranscript, setShowTranscript] = useState(false);
   const [transcriptEvents, setTranscriptEvents] = useState<TrialEvent[]>([]);
@@ -250,12 +251,11 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
 
           {/* what next */}
           <div className="space-y-3">
-            {appeal.showPanel && (
+            {appeal.showPanel && appeal.stage && (
               <AppealPanel
+                stage={appeal.stage}
                 last={appeal.last}
                 active={appeal.active}
-                grantedPending={appeal.grantedPending}
-                canStartAppeal={appeal.canStartAppeal}
                 remaining={appeal.remaining}
                 busy={appeal.busy}
                 error={appeal.error}
@@ -263,6 +263,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                 onAccept={appeal.accept}
                 onReopen={appeal.reopen}
                 onRetry={appeal.retry}
+                onRespond={appeal.openResponse}
               />
             )}
             {!appeal.gated && (
@@ -294,6 +295,15 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
 
       {showTranscript && (
         <TranscriptViewer events={transcriptEvents} caseTitle={caseTitle} onClose={() => setShowTranscript(false)} />
+      )}
+
+      {appeal.responseOpen && appeal.active && (
+        <AppealResponseForm
+          caseId={appeal.caseId}
+          appeal={appeal.active}
+          onSubmit={appeal.respond}
+          onClose={appeal.closeResponse}
+        />
       )}
 
       {appeal.formOpen && (

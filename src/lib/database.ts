@@ -539,6 +539,19 @@ export const db = {
       return (data || []) as unknown as HistorySession[];
     },
 
+    /** Finished online games where the other player has appealed and this player still has to answer. */
+    async getAppealRequests(userId: string): Promise<HistorySession[]> {
+      const { data, error } = await supabase
+        .from('case_sessions')
+        .select('*, cases(title, difficulty), verdicts(*)')
+        .eq('session_state->>appealAwaiting', userId)
+        .order('updated_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return (data || []) as unknown as HistorySession[];
+    },
+
     async getOngoingSessions(userId: string): Promise<CaseSession[]> {
       // Also match sessions where this user is the second player in a
       // multiplayer match (opposing_counsel_user_id) — otherwise the

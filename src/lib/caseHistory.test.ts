@@ -18,15 +18,15 @@ describe('case history', () => {
     expect(entries.find(e => e.sessionId === 'a')?.verdictWord).toBe('Guilty');
   });
 
-  it('marks only lost games against the AI with appeals left as appealable', () => {
+  it('marks lost games with appeals left, no verdict accepted and none in progress as appealable', () => {
     const lostAI = row({ id: 'a' });
     const won = row({ id: 'b', verdicts: [verdict('lose')] });
-    const lostOnline = row({ id: 'c', session_state: { playerRole: 'defense', isMultiplayer: true, defenseUserId: 'me' } });
+    const lostOnline = row({ id: 'c', session_state: { playerRole: 'defense', isMultiplayer: true, defenseUserId: 'me', prosecutionUserId: 'them' } });
     const accepted = row({ id: 'd', session_state: { playerRole: 'defense', verdictAccepted: true } });
     const spent = row({ id: 'e', session_state: { playerRole: 'defense', appeals: [{ status: 'denied' }, { status: 'denied' }] } });
     const pending = row({ id: 'f', session_state: { playerRole: 'defense', appeals: [{ status: 'awaiting_ruling' }] } });
     const m = Object.fromEntries(buildHistory([lostAI, won, lostOnline, accepted, spent, pending], 'me').map(e => [e.sessionId, e.appealable]));
-    expect(m).toEqual({ a: true, b: false, c: false, d: false, e: false, f: false });
+    expect(m).toEqual({ a: true, b: false, c: true, d: false, e: false, f: false });
   });
 
   it('describes appeals on a game', () => {

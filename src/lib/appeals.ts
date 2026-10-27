@@ -45,6 +45,8 @@ export interface AppealRuling {
 
 export interface Appeal {
   id: string;
+  /** Who filed it (an account id). Lets the other player know the appeal is addressed to them. */
+  by_user_id?: string;
   /** 1 or 2: which appeal this is for the case. */
   number: number;
   status: AppealStatus;
@@ -69,6 +71,21 @@ export interface AppealSubmission {
 }
 
 type SessionStateLike = Record<string, any> | null | undefined;
+
+export type OpponentMode = 'ai' | 'human' | 'local';
+
+/** Who answers the appeal: the AI, another player online, or the second player on the same device. */
+export function opponentMode(state: SessionStateLike): OpponentMode {
+  if (state?.isMultiplayer) return 'human';
+  if (state?.sameDevicePlay) return 'local';
+  return 'ai';
+}
+
+/** The account that has to answer an online appeal: whoever is on the other side from the appellant. */
+export function respondentUserId(state: SessionStateLike, appellantRole: 'prosecution' | 'defense'): string | null {
+  const id = appellantRole === 'defense' ? state?.prosecutionUserId : state?.defenseUserId;
+  return typeof id === 'string' && id ? id : null;
+}
 
 export function getAppeals(state: SessionStateLike): Appeal[] {
   const list = state?.appeals;
@@ -122,6 +139,7 @@ export function newAppeal(args: {
   submission: AppealSubmission;
   knownEvidenceIds: string[];
   knownWitnessIds: string[];
+  byUserId?: string;
   now?: Date;
 }): Appeal {
   const now = args.now ?? new Date();
@@ -131,6 +149,7 @@ export function newAppeal(args: {
     id: `appeal-${now.getTime()}`,
     number: getAppeals(args.state).length + 1,
     status: 'awaiting_response',
+    ...(args.byUserId ? { by_user_id: args.byUserId } : {}),
     reason: args.submission.reason as AppealReason,
     explanation: args.submission.explanation.trim(),
     evidence_ids: onlyKnownIds(args.submission.evidence_ids, args.knownEvidenceIds),
@@ -160,4 +179,63 @@ export function appealsEnabled(): boolean {
   } catch {
     return false;
   }
+}
+
+export interface ResponseSubmission {
+  decision: 'accept' | 'oppose' | null;
+  explanation: string;
+  evidence_ids: string[];
+  witness_ids: string[];
+}
+
+/** Why the opposing counsel's answer cannot be sent yet (null when it can). */
+export function validateResponse(input: ResponseSubmission): string | null {
+  if (!input.decision) return 'Choose Accept or Oppose.';
+  const text = input.explanation.trim();
+  if (text.length < MIN_EXPLANATION) return `Explain your position in at least ${MIN_EXPLANATION} characters.`;
+  if (text.length > MAX_EXPLANATION) return `Keep your explanation under ${MAX_EXPLANATION} characters.`;
+  return null;
+}
+
+export function newResponse(args: {
+  submission: ResponseSubmission;
+  knownEvidenceIds: string[];
+  knownWitnessIds: string[];
+  by: string;
+  now?: Date;
+}): AppealResponse {
+  const error = validateResponse(args.submission);
+  if (error) throw new Error(error);
+  return {
+    decision: args.submission.decision as 'accept' | 'oppose',
+    explanation: args.submission.explanation.trim(),
+    evidence_ids: onlyKnownIds(args.submission.evidence_ids, args.knownEvidenceIds),
+    witness_ids: onlyKnownIds(args.submission.witness_ids, args.knownWitnessIds),
+    by: args.by,
+    created_at: (args.now ?? new Date()).toISOString()
+  };
+}
+
+/** Opposing counsel in a game against the AI always agrees to reconsider: it keeps the game replayable. */
+export function aiAcceptance(opponentName: string, now: Date = new Date()): AppealResponse {
+  return {
+    decision: 'accept',
+    explanation: `${opponentName} does not oppose. Our case stands on the record, and we are ready to argue it again before the court.`,
+    evidence_ids: [],
+    witness_ids: [],
+    by: 'ai',
+    created_at: now.toISOString()
+  };
+}
+
+/** An online opponent who never answered: the appeal goes to the judge as unopposed. */
+export function timeoutResponse(now: Date = new Date()): AppealResponse {
+  return {
+    decision: 'accept',
+    explanation: `No answer was filed within ${RESPONSE_WINDOW_HOURS} hours, so the appeal is unopposed.`,
+    evidence_ids: [],
+    witness_ids: [],
+    by: 'timeout',
+    created_at: now.toISOString()
+  };
 }

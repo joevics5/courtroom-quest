@@ -6,6 +6,7 @@ import ScreenShell from './ScreenShell';
 import CaseWinners from './CaseWinners';
 import { getPhaseBadge, getSessionMode, timeAgo } from '../lib/sessionInfo';
 import { boardSessions } from '../lib/gameCounts';
+import { activeAppeal, appealsEnabled } from '../lib/appeals';
 import type { Case, CaseSession } from '../types';
 
 interface CaseBoardProps {
@@ -13,6 +14,8 @@ interface CaseBoardProps {
   onSelectCase?: (caseId: string) => void;
   /** Resume one specific game (a player can have several of the same case) */
   onContinueSession?: (sessionId: string) => void;
+  /** Open a finished game to answer the appeal the other player filed. */
+  onOpenAppeal?: (sessionId: string) => void;
   /**
    * Picker mode: the board is used to choose a case for a two-player match.
    * Shows only fresh cases, hides ongoing games and filters, and the button
@@ -40,11 +43,13 @@ interface WaitingGame {
   created_at?: string;
 }
 
-export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onPick, initialFilter = 'all' }: CaseBoardProps) {
+export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onOpenAppeal, onPick, initialFilter = 'all' }: CaseBoardProps) {
   const { user } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [ongoingCases, setOngoingCases] = useState<OngoingCase[]>([]);
   const [waitingGames, setWaitingGames] = useState<WaitingGame[]>([]);
+  // Opponent appeals waiting for this player's answer (shown like an invite).
+  const [appealRequests, setAppealRequests] = useState<{ sessionId: string; title: string; due?: string; filed?: string }[]>([]);
   const [cancellingKey, setCancellingKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'all' | 'new' | 'ongoing'>(initialFilter);
@@ -60,14 +65,21 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
         setCases(await db.cases.getPresetCases());
         setOngoingCases([]);
         setWaitingGames([]);
+        setAppealRequests([]);
         return;
       }
-      const [preset, ongoing, challenges, invitations] = await Promise.all([
+      const [preset, ongoing, challenges, invitations, appealRows] = await Promise.all([
         db.cases.getPresetCases(),
         db.sessions.getOngoingSessions(user.id),
         db.challenges.getMyChallenges(user.id).catch(() => []),
-        db.invitations.getInvitationsByUser(user.id).catch(() => [])
+        db.invitations.getInvitationsByUser(user.id).catch(() => []),
+        appealsEnabled() ? db.sessions.getAppealRequests(user.id).catch(() => []) : Promise.resolve([])
       ]);
+
+      setAppealRequests(appealRows.map(row => {
+        const appeal = activeAppeal(row.session_state);
+        return { sessionId: row.id, title: row.cases?.title ?? 'Your case', due: appeal?.response_due_at, filed: appeal?.created_at };
+      }));
 
       // Online challenges and friend invites that no one has joined yet are
       // games too — list them until they start (then they become real games).
@@ -178,9 +190,9 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
       <div>
         <div className={`flex gap-2 flex-wrap mb-6 ${onPick ? 'hidden' : ''}`}>
           {([
-            ['all', `All (${cases.length + ongoingCases.length + waitingGames.length})`],
+            ['all', `All (${cases.length + ongoingCases.length + waitingGames.length + appealRequests.length})`],
             ['new', `New cases (${cases.length})`],
-            ['ongoing', `My games (${ongoingCases.length + waitingGames.length})`]
+            ['ongoing', `My games (${ongoingCases.length + waitingGames.length + appealRequests.length})`]
           ] as const).map(([key, label]) => (
             <button
               key={key}
@@ -209,6 +221,35 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onP
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
             {/* Ongoing Cases - Show First (if not filtered) */}
+            {sortBy !== 'new' && appealRequests.map((req) => (
+              <div
+                key={`appeal-${req.sessionId}`}
+                className="border-2 border-red-400/70 bg-red-500/[0.08] rounded-2xl p-5 backdrop-blur-sm"
+              >
+                <div className="flex items-center gap-2 flex-wrap mb-3">
+                  <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-red-500/20 border-red-400/60 text-red-200">
+                    APPEAL FILED
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-rose-500/20 border-rose-400/60 text-rose-200">
+                    VS PLAYER
+                  </span>
+                </div>
+                <h3 className="font-game text-3xl leading-none text-white mb-1">{req.title}</h3>
+                <p className="text-sm text-white/65">
+                  Your opponent appealed the verdict. Answer within 48 hours, or the judge decides without you.
+                </p>
+                <div className="text-xs text-white/50 mt-2 mb-4">
+                  {req.filed ? `Filed ${timeAgo(req.filed)}` : ''}
+                </div>
+                <button
+                  onClick={() => onOpenAppeal?.(req.sessionId)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#FFD43B] text-black font-bold"
+                >
+                  Respond to appeal
+                </button>
+              </div>
+            ))}
+
             {sortBy !== 'new' && waitingGames.map((game) => (
               <div
                 key={game.key}

@@ -18,6 +18,7 @@ import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import { getSessionPlayerRole } from './lib/verdictUtils';
 import type { HistoryEntry } from './lib/caseHistory';
+import { appealsEnabled } from './lib/appeals';
 import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import { supabase } from './lib/supabase';
 import { markTutorialSeen, tutorialAlreadySeen } from './lib/tutorialSeen';
@@ -68,6 +69,8 @@ function AppContent() {
   const [caseBoardFilter, setCaseBoardFilter] = useState<'all' | 'ongoing'>('all');
   const [caseBoardFromHome, setCaseBoardFromHome] = useState(false);
   const [invites, setInvites] = useState<CaseInvitation[]>([]);
+  // Opponent appeals waiting for this player's answer: shown on the dashboard like invites.
+  const [appealRequestCount, setAppealRequestCount] = useState(0);
   const [respondingInviteId, setRespondingInviteId] = useState<string | null>(null);
   // Set when the challenge board is opened from the play-mode screen for an already-chosen case
   // Challenge board opened from the home PLAY popup (no case yet) or from a case file (case seeded)
@@ -97,19 +100,22 @@ function AppContent() {
       setOngoingCount(0);
       setWaitingSentCount(0);
       setInvites([]);
+      setAppealRequestCount(0);
       return;
     }
     if (!(showHome || view === 'landing')) return;
     let cancelled = false;
     (async () => {
       try {
-        const [ongoing, invites, myChallenges, myInvites] = await Promise.all([
+        const [ongoing, invites, myChallenges, myInvites, appealRows] = await Promise.all([
           db.sessions.getOngoingSessions(user.id),
           user.email ? db.invitations.getInvitationsByEmail(user.email) : Promise.resolve([]),
           db.challenges.getMyChallenges(user.id).catch(() => []),
-          db.invitations.getInvitationsByUser(user.id).catch(() => [])
+          db.invitations.getInvitationsByUser(user.id).catch(() => []),
+          appealsEnabled() ? db.sessions.getAppealRequests(user.id).catch(() => []) : Promise.resolve([])
         ]);
         if (!cancelled) {
+          setAppealRequestCount(appealRows.length);
           // Same rule as the Case Board, so the badges match what it lists.
           const counts = countMyGames({ userId: user.id, ongoing: ongoing as any[], challenges: myChallenges as any[], invitations: myInvites });
           setOngoingCount(counts.ongoing);
@@ -228,7 +234,7 @@ function AppContent() {
       <HomePage
         hasAccount={!!user && !user.is_anonymous}
         signedIn={!!user}
-        waitingCount={ongoingCount + invites.length}
+        waitingCount={ongoingCount + invites.length + appealRequestCount}
         myGamesCount={ongoingCount + waitingSentCount}
         onOpenDashboard={() => {
           setShowHome(false);
@@ -793,6 +799,32 @@ function AppContent() {
     }
   };
 
+  // The dashboard's "Respond to appeal": open that finished game on its verdict screen, where the appeal can be answered.
+  const handleOpenAppealRequest = async (sessionId: string) => {
+    try {
+      setIsLoading(true);
+      const session = await db.sessions.getSession(sessionId);
+      const [caseDetails, verdict] = await Promise.all([
+        session ? db.cases.getCaseWithDetails(session.case_id) : Promise.resolve(null),
+        db.verdicts.getSessionVerdict(sessionId)
+      ]);
+      if (!session || !caseDetails || !verdict) {
+        void appAlert({ title: 'CASE NOT FOUND', message: 'That appeal could not be opened.', tone: 'error' });
+        return;
+      }
+      setCurrentSession(session);
+      setCurrentCase(caseDetails);
+      setCurrentVerdict(verdict);
+      setVerdictFromHistory(false);
+      setView('verdict');
+    } catch (error) {
+      console.error('Failed to open appeal:', error);
+      void appAlert({ title: "COULDN'T OPEN THE APPEAL", message: 'Please try again.', tone: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleReturnHome = () => {
     if (verdictFromHistory) {
       // Came from the case history: go back to it (it reloads, so any appeal or accepted verdict shows).
@@ -869,6 +901,7 @@ function AppContent() {
 
       {view === 'case-board' && (
         <CaseBoard
+          onOpenAppeal={handleOpenAppealRequest}
           onBack={() => {
             // Came here from the Play popup's My games? Go back to Home.
             if (caseBoardFromHome) {
