@@ -17,6 +17,7 @@ import { getLevelForWins, STARTING_RANK } from './lib/levels';
 import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import { getSessionPlayerRole } from './lib/verdictUtils';
+import type { HistoryEntry } from './lib/caseHistory';
 import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import { supabase } from './lib/supabase';
 import { markTutorialSeen, tutorialAlreadySeen } from './lib/tutorialSeen';
@@ -27,6 +28,7 @@ const CustomCaseCreator = lazy(() => import('./components/CustomCaseCreator'));
 const Investigation = lazy(() => import('./components/Investigation'));
 const Courtroom = lazy(() => import('./components/Courtroom'));
 const VerdictDisplay = lazy(() => import('./components/VerdictDisplay'));
+const CaseHistory = lazy(() => import('./components/CaseHistory'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const TrialTypeSelector = lazy(() => import('./components/TrialTypeSelector'));
 const JurySelection = lazy(() => import('./components/JurySelection'));
@@ -37,6 +39,7 @@ const Tutorial = lazy(() => import('./components/Tutorial'));
 
 type AppView =
   | 'landing'
+  | 'case-history'
   | 'case-board'
   | 'case-selection'
   | 'custom-case-creator'
@@ -75,6 +78,8 @@ function AppContent() {
   const [currentSession, setCurrentSession] = useState<CaseSession | null>(null);
   const [currentCase, setCurrentCase] = useState<Case | null>(null);
   const [currentVerdict, setCurrentVerdict] = useState<Verdict | null>(null);
+  // True when the verdict on screen was opened from the case history, so "back" returns there.
+  const [verdictFromHistory, setVerdictFromHistory] = useState(false);
   const [isCurrentCaseCustom, setIsCurrentCaseCustom] = useState(false);
   const [showCaseReview, setShowCaseReview] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -760,11 +765,43 @@ function AppContent() {
   // The judge granted an appeal: the database has put the case back at the start of the pre-trial
   // (same jurors, same transcript), so carry on from there like any resumed game.
   const handleReopenCase = async (session: CaseSession) => {
+    setVerdictFromHistory(false);
     setCurrentVerdict(null);
     await resumeSession(session);
   };
 
+  // Open a finished case from the history on its verdict screen (where a loss can be appealed).
+  const handleOpenHistoryCase = async (entry: HistoryEntry) => {
+    try {
+      setIsLoading(true);
+      const session = await db.sessions.getSession(entry.sessionId);
+      const caseDetails = session ? await db.cases.getCaseWithDetails(session.case_id) : null;
+      if (!session || !caseDetails) {
+        void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be opened.', tone: 'error' });
+        return;
+      }
+      setCurrentSession(session);
+      setCurrentCase(caseDetails);
+      setCurrentVerdict(entry.verdict);
+      setVerdictFromHistory(true);
+      setView('verdict');
+    } catch (error) {
+      console.error('Failed to open case from history:', error);
+      void appAlert({ title: "COULDN'T OPEN THE CASE", message: 'Please try again.', tone: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleReturnHome = () => {
+    if (verdictFromHistory) {
+      // Came from the case history: go back to it (it reloads, so any appeal or accepted verdict shows).
+      setVerdictFromHistory(false);
+      setCurrentSession(null);
+      setCurrentVerdict(null);
+      setView('case-history');
+      return;
+    }
     setCurrentSession(null);
     setCurrentVerdict(null);
     setView('landing');
@@ -789,6 +826,7 @@ function AppContent() {
           onNavigateToCaseBoard={handleNavigateToCaseBoard}
           onNavigateToCustomCases={handleNavigateToCustomCases}
           onNavigateToChallengeBoard={() => setView('challenge-board')}
+          onNavigateToCaseHistory={user ? () => setView('case-history') : undefined}
           onPlayFeaturedCase={(caseId) => handleSelectCase(caseId, false)}
           onOpenSettings={() => setView('settings')}
           onOpenAdmin={isAdmin ? handleOpenAdmin : undefined}
@@ -966,6 +1004,14 @@ function AppContent() {
           onComplete={handleTrialComplete}
           onBack={handleBackFromCourtroom}
           playerWins={userProfile?.wins_count ?? 0}
+        />
+      )}
+
+      {view === 'case-history' && user && (
+        <CaseHistory
+          userId={user.id}
+          onBack={() => setView('landing')}
+          onOpen={handleOpenHistoryCase}
         />
       )}
 

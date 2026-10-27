@@ -1,5 +1,5 @@
 import { getLevelForWins, getNextLevel, getRankProgress } from '../lib/levels';
-import { ArrowLeft, Briefcase, FileText, Mail, Swords, Settings as SettingsIcon, Trophy } from 'lucide-react';
+import { ArrowLeft, Briefcase, FileText, Mail, ScrollText, Swords, Settings as SettingsIcon, Trophy } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getPublicName } from '../lib/userName';
 import CaseOfTheWeek from './CaseOfTheWeek';
@@ -12,6 +12,7 @@ interface LandingPageProps {
   onNavigateToCaseBoard: () => void;
   onNavigateToCustomCases: () => void;
   onNavigateToChallengeBoard: () => void;
+  onNavigateToCaseHistory?: () => void;
   onPlayFeaturedCase: (caseId: string) => void;
   onOpenSettings: () => void;
   onOpenAdmin?: () => void;
@@ -28,6 +29,7 @@ export default function LandingPage({
   onNavigateToCaseBoard,
   onNavigateToCustomCases,
   onNavigateToChallengeBoard,
+  onNavigateToCaseHistory,
   onPlayFeaturedCase,
   onOpenSettings,
   onOpenAdmin,
@@ -176,6 +178,15 @@ export default function LandingPage({
               subtitle="Face a real opponent. No AI."
               badge={invites.length > 0 ? `${invites.length} INVITE${invites.length > 1 ? 'S' : ''} WAITING` : 'LIVE 1V1'}
             />
+            {onNavigateToCaseHistory && (
+              <PathTile
+                onClick={onNavigateToCaseHistory}
+                icon={<ScrollText className="w-7 h-7 text-white" />}
+                iconBg="bg-slate-600"
+                title="CASE HISTORY"
+                subtitle="Every case won and lost. Appeal a verdict."
+              />
+            )}
           </div>
 
           <div className="text-center pt-1">

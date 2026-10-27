@@ -19,6 +19,11 @@ import type {
   PlayerRole
 } from '../types';
 
+export type HistorySession = CaseSession & {
+  cases: { title: string; difficulty?: string } | null;
+  verdicts: Verdict[] | Verdict | null;
+};
+
 export const db = {
   users: {
     async getUserProfile(userId: string): Promise<UserProfile | null> {
@@ -518,6 +523,20 @@ export const db = {
 
       if (error) throw error;
       return (data || []) as CaseSession[];
+    },
+
+    /** Every finished game this player took part in, newest first, with the case and the verdict. */
+    async getCaseHistory(userId: string): Promise<HistorySession[]> {
+      const { data, error } = await supabase
+        .from('case_sessions')
+        .select('*, cases(title, difficulty), verdicts(*)')
+        .or(`user_id.eq.${userId},opposing_counsel_user_id.eq.${userId}`)
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+      return (data || []) as unknown as HistorySession[];
     },
 
     async getOngoingSessions(userId: string): Promise<CaseSession[]> {
