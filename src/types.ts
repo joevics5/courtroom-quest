@@ -49,6 +49,8 @@ export interface Case {
   defendant_name?: string;
   is_preset: boolean;
   is_multiplayer?: boolean;
+  /** Optional thumbnail for case cards; no thumbnail is drawn when empty. */
+  image_url?: string | null;
   truth_state?: Record<string, any>;
   case_summary?: string;
   created_by?: string;

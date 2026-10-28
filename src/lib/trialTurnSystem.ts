@@ -60,6 +60,14 @@ export function getAllowedActions(
         requires_input: true
       });
     }
+    // Evidence may be submitted while calling a witness too (but never in openings or closings).
+    if (availableEvidence.some(e => !turnState.evidence_submitted.includes(e.id))) {
+      actions.push({
+        action: 'submit_evidence',
+        description: 'Submit evidence to the court',
+        requires_input: true
+      });
+    }
     actions.push({
       action: 'rest',
       description: 'Rest without calling a witness'
@@ -177,6 +185,14 @@ export function isWitnessPhase(phase: TrialPhase | undefined): boolean {
   return phaseName.includes('direct examination') || 
          phaseName.includes('cross-examination') || 
          phaseName.includes('redirect');
+}
+
+/**
+ * Evidence can only be submitted while witnesses are being called and examined (direct,
+ * cross-examination, redirect). Never during opening or closing statements.
+ */
+export function canSubmitEvidence(phase: TrialPhase | undefined): boolean {
+  return isWitnessPhase(phase);
 }
 
 /**

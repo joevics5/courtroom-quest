@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSession } from '../contexts/SessionContext';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
+import CaseThumb from './CaseThumb';
 import { getPhaseBadge } from '../lib/sessionInfo';
 import CaseWinners from './CaseWinners';
 import CustomCasesIntro from './CustomCasesIntro';
@@ -83,8 +84,9 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
         }`}
       >
         <div className="relative mb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 pr-12">
+          <div className="flex items-start gap-3">
+            <CaseThumb src={caseItem.image_url} />
+            <div className="flex-1 min-w-0 pr-12">
               <h3 className="text-lg font-semibold text-white">
                 {caseItem.title}
               </h3>

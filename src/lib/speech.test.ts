@@ -143,4 +143,33 @@ describe('courtroom speech', () => {
     b();
     expect(canSpeak()).toBe(false);
   });
+
+  it('stops counsel when it is no longer counsel\'s turn, without calling what was waiting on it', async () => {
+    const { speakAs, enterSpeechScope, stopSpeakingRole } = await load();
+    enterSpeechScope();
+    const onEnd = vi.fn();
+    speakAs('counsel', 'Members of the jury...', onEnd);
+    stopSpeakingRole('counsel');
+    expect(synth.cancel).toHaveBeenCalledTimes(1);
+    expect(onEnd).not.toHaveBeenCalled();
+  });
+
+  it('leaves the voice alone when the role asked to stop is not speaking', async () => {
+    const { speakAs, enterSpeechScope, stopSpeakingRole } = await load();
+    enterSpeechScope();
+    speakAs('judge', 'Please be seated.');
+    stopSpeakingRole('counsel');
+    expect(synth.cancel).not.toHaveBeenCalled();
+  });
+
+  it('cuts counsel off as soon as the judge or anyone else starts speaking', async () => {
+    const { speakAs, enterSpeechScope } = await load();
+    enterSpeechScope();
+    const counselEnd = vi.fn();
+    speakAs('counsel', 'And therefore, Your Honor...', counselEnd);
+    speakAs('judge', 'Thank you, counsel. Please be seated.');
+    expect(synth.cancel).toHaveBeenCalledTimes(1);
+    expect(counselEnd).not.toHaveBeenCalled();
+    expect(queue.map(u => u.text)).toEqual(['Thank you, counsel. Please be seated.']);
+  });
 });

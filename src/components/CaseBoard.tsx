@@ -3,6 +3,7 @@ import { ArrowLeft, Trophy, RefreshCw, Briefcase, Play } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
+import CaseThumb from './CaseThumb';
 import CaseWinners from './CaseWinners';
 import { getPhaseBadge, getSessionMode, timeAgo } from '../lib/sessionInfo';
 import { boardSessions } from '../lib/gameCounts';
@@ -293,7 +294,9 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide ${mode.badge}`}>{mode.label}</span>
                   </div>
 
-                  <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-start gap-3 mb-3">
+                    <CaseThumb src={ongoingCase.image_url} />
+                    <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
                     <h3 className="font-game text-3xl leading-none text-white">{ongoingCase.title}</h3>
                     <button
                       onClick={(e) => {
@@ -306,6 +309,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     >
                       <Trophy className="w-5 h-5" />
                     </button>
+                    </div>
                   </div>
 
                   <p className="text-white/70 text-sm line-clamp-2 mb-3">"{ongoingCase.description}"</p>
@@ -335,7 +339,9 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     NEW CASE
                   </span>
                 )}
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start gap-3 mb-4">
+                  <CaseThumb src={caseItem.image_url} />
+                  <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
                   <h3 className="font-game text-3xl leading-none text-white group-hover:text-[#FFD43B] transition-colors">
                     {caseItem.title}
                   </h3>
@@ -350,6 +356,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   >
                     <Trophy className="w-5 h-5" />
                   </button>
+                  </div>
                 </div>
 
                 <p className={`text-white/70 text-sm mb-4 ${onPick ? 'line-clamp-5' : 'line-clamp-2'}`}>

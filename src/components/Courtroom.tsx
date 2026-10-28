@@ -26,6 +26,7 @@ import {
   getAllowedActions,
   initializeTurnState,
   isWitnessPhase,
+  canSubmitEvidence,
   getExaminationType,
   type TurnState
 } from '../lib/trialTurnSystem';
@@ -40,7 +41,7 @@ import AutoRestChip from './AutoRestChip';
 import { buildLeaveSave, restoreTotalTime, shouldAutoPauseOnHide, startsPaused } from '../lib/trialResume';
 import { useTrialLifecycle } from '../lib/useTrialLifecycle';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
-import { enterSpeechScope, speakAs, stopSpeaking } from '../lib/speech';
+import { canSpeak, enterSpeechScope, speakAs, stopSpeaking, stopSpeakingRole } from '../lib/speech';
 import SpeechToggle from './SpeechToggle';
 import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case, EventType } from '../types';
 
@@ -251,6 +252,17 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
    // from whatever render was active when the countdown started, stale by
    // the time it actually fires.
    const handleRestPhaseRef = useRef<() => Promise<void>>(async () => {});
+   // True while a Rest (manual, countdown or phase timeout) is being processed, so the same rest can
+   // never be filed or advance the phase twice.
+   const restInFlightRef = useRef(false);
+   // The phase on screen right now, readable from callbacks that finish later (after an AI call).
+   const currentPhaseRef = useRef(currentPhase);
+   currentPhaseRef.current = currentPhase;
+   // While the witness's answer is being read out (or, muted, given a moment to be read) the AI
+   // examiner holds its next question, so answer and next question don't land on top of each other.
+   const [aiHold, setAiHold] = useState(false);
+   const answerHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   const aiNoopTurnsRef = useRef(0);
    // Vertical drag offset (px, added to the default bottom-6 position) for
    // the floating action button — it sits over the Rest/Object buttons on
    // small screens, so it needs to be movable out of the way.
@@ -465,11 +477,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     if (timerPaused) return;
     timerRef.current = setInterval(() => {
       setPhaseTimeRemaining((prev: Record<number, number>) => {
-        const updated = { ...prev };
-        if (updated[currentPhase] !== undefined && updated[currentPhase] > 0) {
-          updated[currentPhase] -= 1;
-        }
-        return updated;
+        // Nothing left on this phase's clock: keep the same object. Returning a fresh copy every
+        // second made the "time ran out" effect fire again and again until the phase changed.
+        if (!(prev[currentPhase] > 0)) return prev;
+        return { ...prev, [currentPhase]: prev[currentPhase] - 1 };
       });
 
       setTotalTimeRemaining((prev: number) => Math.max(0, prev - 1));
@@ -880,6 +891,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     if (turnState.current_turn !== aiRole) return;
     // A paused trial (including one just reopened) waits for the player to resume.
     if (timerPaused) return;
+    // The witness is still answering: wait for the answer to finish before the next move.
+    if (aiHold) return;
     // The AI examiner is out of questions: no more turns, the examination is closing.
     const aiLimit = questionLimitFor(trialDuration, turnState.current_phase_type);
     if (aiLimit !== null && turnState.current_witness_id && (turnState.questions_asked ?? 0) >= aiLimit) return;
@@ -891,7 +904,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole, timerPaused]);
+  }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole, timerPaused, aiHold]);
 
   // Judge Instruction Sub-Phase Handler
   // Before entering any counsel action phase, show judge instruction first
@@ -1146,13 +1159,28 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         recent_transcript: transcriptSummary,
         allowed_actions: allowedActions,
         trial_duration: trialDuration || 30,
-        witnesses_called_count: turnState.witnesses_called.length
+        witnesses_called_count: turnState.witnesses_called.length,
+        questions_remaining: (() => {
+          const cap = turnState.current_witness_id ? questionLimitFor(trialDuration, turnState.current_phase_type) : null;
+          return cap === null ? null : Math.max(0, cap - (turnState.questions_asked ?? 0));
+        })()
       } as const;
 
       const action = await generateProsecutionAction(prosecutionContext);
       // The player left while the AI was thinking: don't write its turn or move the trial on.
       if (!aliveRef.current) return;
-      await executeProsecutionAction(action);
+      const progressed = await executeProsecutionAction(action);
+      // An AI move that did nothing (no usable question, unknown witness...) would otherwise be retried
+      // forever. After two in a row the AI simply rests, so the trial always moves on.
+      if (progressed === false) {
+        aiNoopTurnsRef.current += 1;
+        if (aiNoopTurnsRef.current >= 2) {
+          aiNoopTurnsRef.current = 0;
+          await handleRestPhaseRef.current();
+        }
+      } else {
+        aiNoopTurnsRef.current = 0;
+      }
     } catch (error) {
       console.error('Failed to handle prosecution turn:', error);
     } finally {
@@ -1161,8 +1189,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   };
 
   // Execute prosecution action
-  const executeProsecutionAction = async (action: { action: string; content?: string; witness_name?: string; evidence_id?: string }) => {
-    if (!turnState) return;
+  const executeProsecutionAction = async (action: { action: string; content?: string; witness_name?: string; evidence_id?: string }): Promise<boolean> => {
+    if (!turnState) return false;
 
     switch (action.action) {
       case 'make_statement':
@@ -1184,46 +1212,55 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
             await handleGenerateOpeningStatement();
           }
         }
-        break;
+        return true;
 
-      case 'call_witness':
-        if (action.witness_name) {
-          const witness = witnesses.find(w => w.name === action.witness_name);
-          if (witness) {
-            await handleCallWitness(witness);
-          }
-        } else {
-          setShowWitnessSelector(true);
-        }
-        break;
+      case 'call_witness': {
+        // The AI never opens the player's pickers. It names a witness (matched loosely, since the
+        // model may change case or drop a title); if it names none we know, the next one not yet
+        // called takes the stand.
+        const wanted = (action.witness_name || '').trim().toLowerCase();
+        const notCalled = witnesses.filter(w => !turnState.witnesses_called.includes(w.id));
+        const witness =
+          (wanted && (notCalled.find(w => w.name.toLowerCase() === wanted) ||
+            notCalled.find(w => w.name.toLowerCase().includes(wanted) || wanted.includes(w.name.toLowerCase())))) ||
+          notCalled[0];
+        if (!witness) return false;
+        await handleCallWitness(witness);
+        return true;
+      }
 
-      case 'ask_question':
-        if (action.content && turnState.current_witness_id) {
-          await handleAskQuestion(action.content, turnState.current_witness_id);
-        }
-        break;
+      case 'ask_question': {
+        const question = (action.content || '').trim();
+        if (!question || !turnState.current_witness_id) return false;
+        await handleAskQuestion(question, turnState.current_witness_id);
+        return true;
+      }
 
-      case 'submit_evidence':
-        if (action.evidence_id) {
-          const evidenceItem = evidence.find(e => e.id === action.evidence_id);
-          if (evidenceItem) {
-            await handleSubmitEvidence(evidenceItem);
-          }
-        } else {
-          setShowEvidenceSelector(true);
-        }
-        break;
+      case 'submit_evidence': {
+        // Evidence only goes in while witnesses are being called and examined.
+        const phaseNow = trialDuration ? getPhaseInfo(currentPhase, trialDuration) : undefined;
+        if (!canSubmitEvidence(phaseNow)) return false;
+        const wanted = (action.evidence_id || '').trim().toLowerCase();
+        const open = evidence.filter(e => !turnState.evidence_submitted.includes(e.id));
+        const evidenceItem =
+          open.find(e => e.id === action.evidence_id) ||
+          (wanted ? open.find(e => (e.exhibit_label || '').toLowerCase() === wanted || e.title.toLowerCase() === wanted) : undefined);
+        if (!evidenceItem) return false;
+        await handleSubmitEvidence(evidenceItem);
+        return true;
+      }
 
       case 'end_phase':
         await handleEndPhase();
-        break;
+        return true;
 
       case 'rest':
         await handleRestPhase();
-        break;
+        return true;
 
       default:
         console.warn('Unknown prosecution action:', action.action);
+        return false;
     }
   };
 
@@ -1516,6 +1553,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // calling their witness, not mislabeled as the prosecution's.
   const handleCallWitness = async (witness: Witness) => {
     if (!turnState) return;
+    const phaseAtStart = turnState.current_phase_number;
 
     const callerRole: 'prosecution' | 'defense' = turnState.current_turn === 'defense' ? 'defense' : 'prosecution';
     const callerName = callerRole === 'prosecution' ? plainLawyerName(prosecutorName || 'Prosecution') : effectiveDefenseName;
@@ -1530,10 +1568,13 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         witness_id: witness.id,
         phase: currentPhase
       },
-      event_order: events.length + 1
+      event_order: eventsRef.current.length + 1
     });
 
-    setEvents([...events, event]);
+    // Add to the transcript from the latest list, not the copy this function started with: other lines
+    // (the judge's, a witness answer) may have been added while the save above was in flight.
+    eventsRef.current = [...eventsRef.current, event];
+    setEvents(prev => [...prev, event]);
 
     // Track prosecution event for objections
     if (turnState.current_turn === aiRole) {
@@ -1541,13 +1582,47 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }
     trackObjectableStatement(event);
 
-    setTurnState({
-      ...turnState,
-      current_witness_id: witness.id,
-      current_witness_name: witness.name,
-      witnesses_called: [...turnState.witnesses_called, witness.id]
-    });
+    // Same for the turn state, and never write into a phase that has moved on in the meantime.
+    setTurnState(prev =>
+      prev && prev.current_phase_number === phaseAtStart
+        ? {
+            ...prev,
+            current_witness_id: witness.id,
+            current_witness_name: witness.name,
+            witnesses_called: prev.witnesses_called.includes(witness.id) ? prev.witnesses_called : [...prev.witnesses_called, witness.id]
+          }
+        : prev
+    );
     setShowWitnessSelector(false);
+  };
+
+  const releaseAnswerHold = () => {
+    if (answerHoldTimerRef.current) {
+      clearTimeout(answerHoldTimerRef.current);
+      answerHoldTimerRef.current = null;
+    }
+    setAiHold(false);
+  };
+
+  // Gives a witness answer room before anything else happens. Spoken: wait for the voice to finish.
+  // Muted or no voice: a short pause sized to the answer so it can be read. `afterAnswer` runs once the
+  // answer is done (spoken) or straight away (nothing to wait for, the reading pause is separate).
+  const holdForAnswer = (text: string, afterAnswer?: () => void) => {
+    releaseAnswerHold();
+    setAiHold(true);
+    if (canSpeak()) {
+      const finished = () => {
+        releaseAnswerHold();
+        afterAnswer?.();
+      };
+      speakAs('witness', text, finished);
+      // Safety net in case the browser never reports the end of the line.
+      answerHoldTimerRef.current = setTimeout(finished, 45000);
+    } else {
+      afterAnswer?.();
+      const words = text.trim().split(/\s+/).filter(Boolean).length;
+      answerHoldTimerRef.current = setTimeout(releaseAnswerHold, Math.min(6000, 1500 + words * 200));
+    }
   };
 
   // Handle asking a question to witness
@@ -1560,33 +1635,51 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const witness = witnesses.find(w => w.id === witnessId);
     if (!witness) return;
 
-    // Add prosecution question to transcript
+    // Everything below belongs to the phase and turn that asked this question. Read it once up front: the
+    // answer takes seconds to come back and the trial may have moved on by then.
+    const phaseAtStart = turnState.current_phase_number;
+    const examinationType = turnState.current_phase_type;
+    const askerRole: 'prosecution' | 'defense' = turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense';
+    const askerIsAi = turnState.current_turn === aiRole;
+    const humanAsking = turnState.current_turn === playerRole || sameDevicePlay;
+    const askedNow = (turnState.questions_asked ?? 0) + 1;
+    const wasLastQuestion = limitNow !== null && askedNow >= limitNow;
+    // What this witness has already said, before this question joins the transcript.
+    const earlierEvents = eventsRef.current;
+    const base = earlierEvents.length;
+
+    // Add the question to the transcript
     const questionEvent = await db.trialEvents.addEvent({
       session_id: session.id,
       event_type: 'witness_examination',
-      speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
-      speaker_name: turnState.current_turn === 'prosecution' 
-        ? effectiveProsecutorName
-        : effectiveDefenseName,
+      speaker_role: askerRole,
+      speaker_name: askerRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
       content: question,
       metadata: { 
         witness_id: witnessId,
         phase: currentPhase,
-        examination_type: turnState.current_phase_type
+        examination_type: examinationType
       },
-      event_order: events.length + 1
+      event_order: base + 1
     });
 
-    setEvents([...events, questionEvent]);
+    eventsRef.current = [...eventsRef.current, questionEvent];
+    setEvents(prev => [...prev, questionEvent]);
 
     // Get witness response
     setIsProcessing(true);
+    let answered = false;
     try {
       // The last few real question-and-answer pairs with this witness.
-      const previousInteractions = buildWitnessHistory(events, witnessId);
+      const previousInteractions = buildWitnessHistory(earlierEvents, witnessId);
 
       const response = await generateWitnessResponse(witness, question, previousInteractions);
-      speakAs('witness', response);
+
+      // The answer is read out (or given time to be read) before the AI asks anything else, and the
+      // closing countdown after a last question only starts once the answer has been heard.
+      holdForAnswer(response, wasLastQuestion
+        ? () => { if (currentPhaseRef.current === phaseAtStart) startAutoRestCountdown(8); }
+        : undefined);
 
       // Add witness response to transcript
       const responseEvent = await db.trialEvents.addEvent({
@@ -1598,15 +1691,17 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         metadata: { 
           witness_id: witnessId,
           phase: currentPhase,
-          examination_type: turnState.current_phase_type
+          examination_type: examinationType
         },
-        event_order: events.length + 2
+        event_order: base + 2
       });
 
-      setEvents([...events, questionEvent, responseEvent]);
+      eventsRef.current = [...eventsRef.current, responseEvent];
+      setEvents(prev => [...prev, responseEvent]);
+      answered = true;
       
       // Track last prosecution event for objections
-      if (turnState.current_turn === aiRole) {
+      if (askerIsAi) {
         setLastProsecutionEvent(questionEvent);
       }
       trackObjectableStatement(questionEvent);
@@ -1614,38 +1709,21 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // Count the question for this examination. Questioning ends at whichever comes first:
       // the phase clock or the question cap (see lib/questionLimits.ts). This state update
       // also keeps the AI-turn trigger effect re-firing after each question, so the AI keeps
-      // examining until the clock runs out, the cap is reached, or it chooses to rest.
-      const askedNow = (turnState.questions_asked ?? 0) + 1;
-      setTurnState({
-        ...turnState,
-        questions_asked: askedNow
-      });
-      // That was the last allowed question: close the examination after a short pause to read the
-      // answer (the same "rests in 0:08 / Rest now" countdown the AI and the clock already use).
-      if (limitNow !== null && askedNow >= limitNow) {
-        setAwaitingUserInput(false);
-        startAutoRestCountdown(8);
-      }
-
-      // Re-open the *human's* text input only when it's actually their
-      // turn (or pass & play, where every turn is the human's). This used
-      // to also check `current_turn === aiRole`, but aiRole is always the
-      // opposite of playerRole, so that half of the condition was always
-      // true — the input box reopened after every question regardless of
-      // whose turn it was, letting a human type over what should have
-      // been the AI's own follow-up question instead of the AI continuing
-      // on its own (see the dedicated witness-phase AI-trigger effect,
-      // which now handles the AI's side of this).
-      if (turnState.current_turn === playerRole || sameDevicePlay) {
-        setAwaitingUserInput(true);
-      }
+      // examining until the clock runs out, the cap is reached, or it chooses to rest. It is applied to
+      // the latest turn state, and only if that is still the same phase.
+      setTurnState(prev =>
+        prev && prev.current_phase_number === phaseAtStart ? { ...prev, questions_asked: askedNow } : prev
+      );
+      // That was the last allowed question: the box closes; the examination ends after the answer has been
+      // heard (the same "rests in 0:08 / Rest now" countdown the AI and the clock already use).
+      if (wasLastQuestion) setAwaitingUserInput(false);
     } catch (error) {
       console.error('Failed to get witness response:', error);
     } finally {
       setIsProcessing(false);
-      // Even if the witness response failed, keep the examiner's box open
-      // so they can ask again (until they rest or time runs out).
-      if (turnState.current_turn === playerRole || sameDevicePlay) {
+      // Re-open the human's text box for the next question (they asked this one) unless that was the last.
+      // Even when the witness response failed the box stays open, so they can ask again.
+      if (humanAsking && !(wasLastQuestion && answered)) {
         setAwaitingUserInput(true);
       }
     }
@@ -1654,6 +1732,12 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // Handle evidence submission
   const handleSubmitEvidence = async (evidenceItem: Evidence) => {
     if (!turnState) return;
+    // Evidence only goes in while witnesses are being called and examined, never in openings or closings.
+    if (!canSubmitEvidence(trialDuration ? getPhaseInfo(currentPhase, trialDuration) : undefined)) {
+      setShowEvidenceSelector(false);
+      return;
+    }
+    const phaseAtStart = turnState.current_phase_number;
 
     const event = await db.trialEvents.addEvent({
       session_id: session.id,
@@ -1669,10 +1753,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         evidence_title: evidenceItem.title,
         phase: currentPhase
       },
-      event_order: events.length + 1
+      event_order: eventsRef.current.length + 1
     });
 
-    setEvents([...events, event]);
+    eventsRef.current = [...eventsRef.current, event];
+    setEvents(prev => [...prev, event]);
     
     // Track prosecution event for objections
     if (turnState.current_turn === aiRole) {
@@ -1680,10 +1765,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }
     trackObjectableStatement(event);
     
-    setTurnState({
-      ...turnState,
-      evidence_submitted: [...turnState.evidence_submitted, evidenceItem.id]
-    });
+    setTurnState(prev =>
+      prev && prev.current_phase_number === phaseAtStart
+        ? { ...prev, evidence_submitted: prev.evidence_submitted.includes(evidenceItem.id) ? prev.evidence_submitted : [...prev.evidence_submitted, evidenceItem.id] }
+        : prev
+    );
     setShowEvidenceSelector(false);
   };
 
@@ -1861,44 +1947,52 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   const handleRestPhase = async () => {
     if (!turnState || !aliveRef.current) return;
+    // One rest at a time: the phase clock, the countdown and the Rest button can all ask for it together.
+    if (restInFlightRef.current) return;
+    restInFlightRef.current = true;
 
-    // Cancel any pending auto-rest countdown immediately — whichever path
-    // triggered this (manual click, phase timeout, or the countdown
-    // itself finishing) is about to advance the phase, so there's nothing
-    // left to count down toward.
-    cancelAutoRestCountdown();
+    try {
+      // Cancel any pending auto-rest countdown immediately — whichever path
+      // triggered this (manual click, phase timeout, or the countdown
+      // itself finishing) is about to advance the phase, so there's nothing
+      // left to count down toward.
+      cancelAutoRestCountdown();
 
-    // Event type by phase, not hardcoded — this used to always tag the
-    // "rests" event as 'witness_examination' even during an opening/closing
-    // statement phase.
-    const config = trialDuration ? getTrialConfig(trialDuration) : null;
-    const phaseInfo = config?.phases.find(p => p.number === currentPhase);
-    const phaseNameLower = phaseInfo?.name.toLowerCase() || '';
-    const eventType: EventType = phaseNameLower.includes('closing')
-      ? 'closing'
-      : phaseNameLower.includes('opening')
-      ? 'opening'
-      : 'witness_examination';
+      // Event type by phase, not hardcoded — this used to always tag the
+      // "rests" event as 'witness_examination' even during an opening/closing
+      // statement phase.
+      const config = trialDuration ? getTrialConfig(trialDuration) : null;
+      const phaseInfo = config?.phases.find(p => p.number === currentPhase);
+      const phaseNameLower = phaseInfo?.name.toLowerCase() || '';
+      const eventType: EventType = phaseNameLower.includes('closing')
+        ? 'closing'
+        : phaseNameLower.includes('opening')
+        ? 'opening'
+        : 'witness_examination';
 
-    const event = await db.trialEvents.addEvent({
-      session_id: session.id,
-      event_type: eventType,
-      speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
-      speaker_name: turnState.current_turn === 'prosecution'
-        ? effectiveProsecutorName
-        : effectiveDefenseName,
-      content: `The ${turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense'} rests.`,
-      metadata: { phase: currentPhase, rested: true },
-      event_order: events.length + 1
-    });
+      const event = await db.trialEvents.addEvent({
+        session_id: session.id,
+        event_type: eventType,
+        speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
+        speaker_name: turnState.current_turn === 'prosecution'
+          ? effectiveProsecutorName
+          : effectiveDefenseName,
+        content: `The ${turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense'} rests.`,
+        metadata: { phase: currentPhase, rested: true },
+        event_order: eventsRef.current.length + 1
+      });
 
-    setEvents([...events, event]);
-    // Resting always hands off to the next phase immediately, with no
-    // time-based condition — the only gate handleNextPhase applies is the
-    // mandatory-statement one, and the "rests" event just added always
-    // satisfies it (speaker_role + phase match), even if nothing else was
-    // said this phase.
-    await handleNextPhase();
+      // The mandatory-statement check in handleNextPhase reads this list straight away, before React has
+      // re-rendered, so the new "rests" line has to be in it already or the phase could never advance.
+      eventsRef.current = [...eventsRef.current, event];
+      setEvents(prev => [...prev, event]);
+      // Resting hands off to the next phase immediately, with no time-based condition. Whoever was
+      // speaking stops: it is no longer their turn.
+      stopSpeakingRole('counsel');
+      await handleNextPhase();
+    } finally {
+      restInFlightRef.current = false;
+    }
   };
   // Keep the ref used by the auto-rest countdown pointed at the latest
   // handleRestPhase on every render.
@@ -2072,6 +2166,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // rather than letting them silently do nothing, or worse, let a human
   // act on the AI's behalf, when it isn't their turn.
   const isPlayerTurn = (turnState?.current_turn === playerRole) || sameDevicePlay;
+  // Evidence can only be submitted while witnesses are called and examined (direct, cross, redirect),
+  // never during opening or closing statements: there the Evidence tab is greyed out and does nothing.
+  const evidenceAllowed = canSubmitEvidence(phase);
+  const activeModalTab: 'witnesses' | 'evidence' = evidenceAllowed ? defenceModalTab : 'witnesses';
 
   // Witness examination (direct/cross/redirect) with a witness on the
   // stand: the examiner's text box stays open for as many questions as
@@ -2147,6 +2245,20 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   });
   // Voice is only allowed here and in the pre-trial; leaving the trial stops it at once.
   useEffect(() => enterSpeechScope(), []);
+
+  // Counsel's text is only read out while it is counsel's turn. The moment it stops being: the judge
+  // takes the floor (instruction, ruling, verdict), the phase moves on, or the other side starts, the
+  // voice stops. The witness's answer is cut with the phase too, so it never runs into the next one.
+  const counselTurn =
+    !!turnState && (turnState.current_turn === 'prosecution' || turnState.current_turn === 'defense') && !judgeInstructionPending;
+  useEffect(() => {
+    if (!counselTurn) stopSpeakingRole('counsel');
+  }, [counselTurn]);
+  useEffect(() => {
+    stopSpeakingRole('counsel');
+    stopSpeakingRole('witness');
+    releaseAnswerHold();
+  }, [currentPhase, turnState?.current_turn]);
 
   return (
     <div className="relative h-[100dvh] overflow-hidden bg-[#0b0d14] flex flex-col">
@@ -2476,7 +2588,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       )}
 
       {/* Evidence Selector Modal */}
-      {showEvidenceSelector && (
+      {showEvidenceSelector && evidenceAllowed && (
         <EvidenceSelector
           evidence={evidence}
           evidenceSubmitted={turnState?.evidence_submitted || []}
@@ -2511,7 +2623,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               <button
                 onClick={() => setDefenceModalTab('witnesses')}
                 className={`flex-1 px-3 py-2 font-medium transition-colors text-sm ${
-                  defenceModalTab === 'witnesses'
+                  activeModalTab === 'witnesses'
                     ? 'bg-slate-750 text-white border-b-2 border-blue-500'
                     : 'text-slate-400 hover:text-white'
                 }`}
@@ -2522,11 +2634,13 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 </div>
               </button>
               <button
-                onClick={() => setDefenceModalTab('evidence')}
-                className={`flex-1 px-3 py-2 font-medium transition-colors text-sm ${
-                  defenceModalTab === 'evidence'
+                onClick={() => { if (evidenceAllowed) setDefenceModalTab('evidence'); }}
+                disabled={!evidenceAllowed}
+                title={evidenceAllowed ? undefined : 'Evidence can only be submitted while witnesses are being called and examined'}
+                className={`flex-1 px-3 py-2 font-medium transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed ${
+                  activeModalTab === 'evidence'
                     ? 'bg-slate-750 text-white border-b-2 border-blue-500'
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-400 hover:text-white disabled:hover:text-slate-400'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
@@ -2537,7 +2651,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
             </div>
 
             <div className="max-h-80 overflow-y-auto">
-              {defenceModalTab === 'witnesses' && (
+              {activeModalTab === 'witnesses' && (
                 <div className="space-y-3">
                   {witnesses.filter(w => !turnState?.witnesses_called.includes(w.id)).length === 0 ? (
                     <div className="text-center py-8">
@@ -2582,7 +2696,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 </div>
               )}
 
-              {defenceModalTab === 'evidence' && (
+              {activeModalTab === 'evidence' && (
                 <div className="space-y-3">
                   {evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).length === 0 ? (
                     <div className="text-center py-8">
@@ -2596,7 +2710,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                           handleSubmitEvidence(item);
                           setShowDefenceModal(false);
                         }}
-                        disabled={!isPlayerTurn}
+                        disabled={!isPlayerTurn || !evidenceAllowed}
                         className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
                       >
                         <div className="font-semibold text-white">{item.title}</div>

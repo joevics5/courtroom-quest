@@ -27,6 +27,8 @@ let muted = readMuted();
 const muteListeners = new Set<() => void>();
 /** Utterances currently queued or playing. */
 const live = new Set<SpeechSynthesisUtterance>();
+/** Which voice each live utterance belongs to, so one role's lines can be stopped without touching the others. */
+const roleOf = new WeakMap<SpeechSynthesisUtterance, VoiceRole>();
 
 function readMuted(): boolean {
   try {
@@ -86,6 +88,24 @@ export function stopSpeaking(mode: 'discard' | 'finish' = 'discard'): void {
 }
 
 /**
+ * Stops everything that `role` is saying (or has queued), e.g. counsel's statement once it is no
+ * longer counsel's turn. Nothing waiting on those lines is called. The browser can only clear its
+ * whole queue at once, so lines of other roles that were queued at that moment are released as
+ * finished rather than replayed.
+ */
+export function stopSpeakingRole(role: VoiceRole): void {
+  if (!speechAvailable()) return;
+  const mine = [...live].filter(u => roleOf.get(u) === role);
+  if (mine.length === 0) return;
+  mine.forEach(u => {
+    u.onend = null;
+    u.onerror = null;
+    live.delete(u);
+  });
+  window.speechSynthesis.cancel();
+}
+
+/**
  * Call when a trial or pre-trial screen appears; call the returned function when it goes.
  * When the last such screen leaves, the voice stops.
  */
@@ -136,7 +156,12 @@ export function speakAs(role: VoiceRole, text: string, onEnd?: () => void): bool
     return false;
   }
 
+  // Counsel only talks while it is counsel's turn: as soon as anyone else (judge, bailiff, witness)
+  // starts speaking, whatever counsel was still reading out is cut off.
+  if (role !== 'counsel') stopSpeakingRole('counsel');
+
   const utterance = new SpeechSynthesisUtterance(text);
+  roleOf.set(utterance, role);
   const config = ROLE_VOICE_CONFIG[role];
   utterance.pitch = config.pitch;
   utterance.rate = config.rate;

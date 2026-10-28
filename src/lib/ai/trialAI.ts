@@ -159,6 +159,8 @@ export interface ProsecutionContext {
   allowed_actions: AllowedAction[];
   trial_duration: number;
   witnesses_called_count: number;
+  /** Questions this side may still ask in the current examination (null = no cap / not examining). */
+  questions_remaining?: number | null;
 }
 
 export interface ProsecutionAction {
@@ -895,8 +897,10 @@ WITNESS CALLING STRATEGY:
 
 RULES:
 - You may perform ONE action at a time.
-- Ask ONE question per action, but there is NO limit on how many questions you may ask in total. Keep asking follow-up questions on successive actions for as long as time remains and your line of questioning is productive.
-- During witness examination, use the time you have: probe inconsistencies, pin down details, and follow up on the witness's last answer. Only choose "rest" (or "end_phase") once you genuinely have nothing further worth asking or time is nearly out. Do not repeat a question you already asked.
+- Ask ONE question per action. Each examination has a fixed number of questions${context.questions_remaining != null ? ` — you have ${context.questions_remaining} question${context.questions_remaining === 1 ? '' : 's'} left in this one` : ''}, plus the clock, so make each one count: probe inconsistencies, pin down details, and follow up on the witness's last answer. Do not repeat a question you already asked.
+- When you run out of questions or have nothing further worth asking, choose "rest". Never ask a question that is not a real, complete question for the witness.
+- Evidence can only be submitted while witnesses are being called and examined, never during opening or closing statements.
+- When choosing a witness, use a name exactly as it appears in AVAILABLE WITNESSES; when submitting evidence, use an ID exactly as it appears in AVAILABLE EVIDENCE.
 - You may submit only evidence listed as available.
 - Respond ONLY in valid JSON format.
 
@@ -1072,25 +1076,24 @@ function parseProsecutionAction(text: string, allowedActions: AllowedAction[]): 
     }
   }
 
-  // Fallback: infer from text
-  const lowerText = text.toLowerCase();
-  if (lowerText.includes('question') || lowerText.includes('ask')) {
-    return { action: 'ask_question', content: text.substring(0, 200) };
+  // The reply was not usable JSON. Rescue what is there instead of turning stray model text into a
+  // "question" (which used to put half-written JSON or commentary in front of the witness).
+  const canDo = (name: string) => allowedActions.some(a => a.action === name);
+  const contentMatch = text.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (contentMatch && canDo('ask_question')) {
+    const content = contentMatch[1].replace(/\\"/g, '"').trim();
+    if (content.endsWith('?') || content.split(/\s+/).length >= 4) return { action: 'ask_question', content };
   }
-  if (lowerText.includes('evidence') || lowerText.includes('exhibit')) {
-    return { action: 'submit_evidence', evidence_id: '' };
-  }
-  if (lowerText.includes('end') || lowerText.includes('conclude')) {
-    return { action: 'end_phase' };
+  const trimmed = text.trim();
+  if (canDo('ask_question') && trimmed.endsWith('?') && trimmed.length <= 300 && !trimmed.includes('{')) {
+    return { action: 'ask_question', content: trimmed };
   }
 
-  // Prefer ask_question > submit_evidence > end_phase
-  const preferredActions = ['ask_question', 'submit_evidence', 'end_phase', 'rest'];
+  // Otherwise take a safe action. Never evidence with no ID, and never ending a phase early on a guess.
+  const preferredActions = ['rest', 'end_phase'];
   for (const preferred of preferredActions) {
-    const action = allowedActions.find(a => a.action === preferred);
-    if (action) return { action: action.action };
+    if (canDo(preferred)) return { action: preferred };
   }
-
   return { action: allowedActions[0]?.action || 'end_phase' };
 }
 

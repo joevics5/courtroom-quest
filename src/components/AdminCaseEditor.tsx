@@ -47,7 +47,8 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
     defendant_name: '',
     description: '',
     caseType: 'burglary' as CaseType,
-    difficulty: 'medium' as const
+    difficulty: 'medium' as const,
+    image_url: ''
   });
 
   const [evidenceItems, setEvidenceItems] = useState<EvidenceForm[]>([]);
@@ -68,7 +69,8 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
           defendant_name: caseData.defendant_name || (caseData.truth_state as any)?.defendant_name || '',
           description: caseData.description,
           caseType: caseData.case_type,
-          difficulty: caseData.difficulty || 'medium' as any
+          difficulty: caseData.difficulty || 'medium' as any,
+          image_url: caseData.image_url || ''
         });
 
         // Admin-only prompts live in evidence_secrets (generation.image_prompt)
@@ -265,6 +267,8 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
         description: caseInfo.description,
         case_type: caseInfo.caseType,
         difficulty: caseInfo.difficulty,
+        // Empty clears it: the case card then shows no thumbnail.
+        image_url: caseInfo.image_url.trim() || null,
         updated_at: new Date().toISOString()
       });
 
@@ -439,6 +443,30 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
                     placeholder="John Doe"
                     className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Thumbnail Image URL (Optional)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    {caseInfo.image_url.trim() && (
+                      <img
+                        src={caseInfo.image_url.trim()}
+                        alt=""
+                        className="w-16 h-16 rounded-xl object-cover border border-slate-600 flex-none"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                    <input
+                      type="url"
+                      value={caseInfo.image_url}
+                      onChange={(e) => setCaseInfo({ ...caseInfo, image_url: e.target.value })}
+                      placeholder="https://… (leave empty for no thumbnail)"
+                      className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Shown as a small picture on the case card. Hidden when empty.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
