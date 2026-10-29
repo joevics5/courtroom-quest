@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Swords, Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock, ChevronRight } from 'lucide-react';
+import { Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock, ChevronRight, Globe, Lock, Link2 } from 'lucide-react';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
 import CaseBoard from './CaseBoard';
+import ShareLinkBox from './ShareLinkBox';
+import { buildChallengeLink, challengeShareText } from '../lib/challengeLink';
 import type { Case, CaseChallenge, CaseInvitation, PlayerRole, CaseSession } from '../types';
 
 interface Props {
@@ -62,6 +64,10 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
   const [selectedCaseId, setSelectedCaseId] = useState<string>(initialCase?.id ?? '');
   const [selectedRole, setSelectedRole] = useState<PlayerRole>('defense');
   const [creating, setCreating] = useState(false);
+  // Public challenges are listed for anyone to accept; private ones only work through their link.
+  const [createPublic, setCreatePublic] = useState(true);
+  // A private challenge that was just opened: its link is shown so it can be sent right away.
+  const [createdPrivate, setCreatedPrivate] = useState<CaseChallenge | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,7 +77,6 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
   const [invitesLoading, setInvitesLoading] = useState(true);
   const [inviteCaseId, setInviteCaseId] = useState<string>(initialCase?.id ?? '');
   const [inviteRole, setInviteRole] = useState<PlayerRole>('defense');
-  const [inviteeEmail, setInviteeEmail] = useState('');
   const [inviteAllowSpectators, setInviteAllowSpectators] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
@@ -163,9 +168,14 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
     setCreating(true);
     setError(null);
     try {
-      await db.challenges.createChallenge(selectedCaseId, userId, selectedRole);
+      const created = await db.challenges.createChallenge(selectedCaseId, userId, selectedRole, { isPublic: createPublic });
       setShowCreate(false);
       setSelectedCaseId('');
+      // A private challenge is not listed anywhere, so show its link straight away.
+      if (!createPublic) {
+        const title = cases.find(c => c.id === created.case_id)?.title;
+        setCreatedPrivate({ ...(created as CaseChallenge), case_title: title });
+      }
       await refresh();
     } catch (err) {
       console.error('Failed to create challenge:', err);
@@ -199,23 +209,25 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
     }
   };
 
-  const handleSendInvite = async () => {
-    if (!inviteCaseId || !inviteeEmail.trim()) return;
-    if (inviteeEmail.trim().toLowerCase() === userEmail.trim().toLowerCase()) {
-      setInviteError("You can't invite yourself.");
-      return;
-    }
+  // "Invite a friend": opens a PRIVATE challenge and shows its link. Anyone with the link can accept,
+  // so no email address is needed.
+  const handleCreatePrivateLink = async () => {
+    if (!inviteCaseId) return;
     setSendingInvite(true);
     setInviteError(null);
     try {
-      await db.invitations.createInvitation(inviteCaseId, userId, inviteRole, inviteeEmail.trim(), inviteAllowSpectators);
+      const created = await db.challenges.createChallenge(inviteCaseId, userId, inviteRole, {
+        isPublic: false,
+        allowSpectators: inviteAllowSpectators
+      });
+      const title = cases.find(c => c.id === created.case_id)?.title;
+      setCreatedPrivate({ ...(created as CaseChallenge), case_title: title });
       setInviteCaseId('');
-      setInviteeEmail('');
       setInviteAllowSpectators(false);
-      await refreshInvites();
+      await refresh();
     } catch (err) {
-      console.error('Failed to send invitation:', err);
-      setInviteError('Could not send the invite. Try again.');
+      console.error('Failed to create the private challenge:', err);
+      setInviteError('Could not create the link. Try again.');
     } finally {
       setSendingInvite(false);
     }
@@ -272,7 +284,9 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
     }
   };
 
-  const myOpenChallenges = myChallenges.filter(c => c.status === 'open' && c.creator_user_id === userId);
+  // Waiting challenges of mine, split by how they're shared: public ones are on the board, private ones go by link.
+  const myOpenChallenges = myChallenges.filter(c => c.status === 'open' && c.creator_user_id === userId && c.is_public !== false);
+  const myPrivateOpen = myChallenges.filter(c => c.status === 'open' && c.creator_user_id === userId && c.is_public === false);
   const pendingSentInvites = sentInvites.filter(i => i.status === 'pending');
 
   return (
@@ -447,24 +461,15 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
             )}
 
             <div className={`${PANEL} mb-6`}>
-              <h2 className="font-game text-3xl text-white leading-none mb-4">INVITE A FRIEND</h2>
+              <h2 className="font-game text-3xl text-white leading-none mb-1">INVITE A FRIEND</h2>
+              <p className="text-white/60 text-sm mb-4">
+                Create a private challenge and send your friend its link. It never shows on the board, and anyone with the link can accept it. No email needed.
+              </p>
               <label className={LABEL}>Case</label>
               {renderCaseField(inviteCaseId, 'invite')}
 
               <label className={LABEL}>Your side</label>
               <SidePicker value={inviteRole} onChange={setInviteRole} className="mb-4" />
-
-              <label className={LABEL}>Friend's email</label>
-              <input
-                type="email"
-                value={inviteeEmail}
-                onChange={(e) => setInviteeEmail(e.target.value)}
-                placeholder="friend@example.com"
-                className="w-full px-3 py-3 bg-black/50 border border-white/20 rounded-xl text-white mb-4 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
-              />
-              <p className="text-white/40 text-xs mb-4">
-                They'll see this invite waiting for them the next time they open the Invite a Friend tab while signed in with that email. They'll play the opposite side.
-              </p>
 
               <label className="flex items-center gap-2 mb-4 cursor-pointer">
                 <input
@@ -477,20 +482,53 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
               </label>
 
               <button
-                onClick={handleSendInvite}
-                disabled={!inviteCaseId || !inviteeEmail.trim() || sendingInvite}
-                className={`w-full px-4 py-3 ${BIG_GOLD}`}
+                onClick={handleCreatePrivateLink}
+                disabled={!inviteCaseId || sendingInvite}
+                className={`w-full px-4 py-3 flex items-center justify-center gap-2 ${BIG_GOLD}`}
               >
-                {sendingInvite ? 'Sending...' : 'Send Invite'}
+                <Link2 className="w-5 h-5" />
+                {sendingInvite ? 'Creating…' : 'Create Invite Link'}
               </button>
             </div>
 
+            {myPrivateOpen.length > 0 && (
+              <div className="mb-6">
+                <h2 className={SECTION_HEADING}>
+                  <Lock className="w-4 h-4" />
+                  Private Links Waiting
+                </h2>
+                <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
+                  {myPrivateOpen.map(ch => (
+                    <div key={ch.id} className={`${CARD}`}>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <p className="text-white font-semibold text-sm truncate">{ch.case_title || 'Case'}</p>
+                          <p className="text-white/50 text-xs mt-1">You're playing {ch.creator_role}. Starts when your friend opens the link and accepts.</p>
+                        </div>
+                        <button
+                          onClick={() => handleCancel(ch.id)}
+                          className="text-white/40 hover:text-white transition-colors shrink-0"
+                          title="Cancel challenge"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <ShareLinkBox
+                        link={buildChallengeLink(ch.id, window.location.origin)}
+                        shareText={challengeShareText(ch.case_title, ch.creator_role)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <h2 className={SECTION_HEADING}>
               <Clock className="w-4 h-4" />
-              Invites You've Sent
+              Earlier Email Invites
             </h2>
             <p className="text-white/45 text-xs -mt-1 mb-3">
-              When your friend accepts, the game appears under My games.
+              Invites sent by email before links existed. When your friend accepts, the game appears under My games.
               {onOpenMyGames && (
                 <button onClick={onOpenMyGames} className="ml-1 font-bold text-[#FFD43B] underline underline-offset-2">Open My games</button>
               )}
@@ -499,7 +537,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
               <p className="text-white/40 text-sm">Loading...</p>
             ) : pendingSentInvites.length === 0 ? (
               <div className={`${CARD} text-center`}>
-                <p className="text-white/50 text-sm">No pending invites. Send one above.</p>
+                <p className="text-white/50 text-sm">No pending email invites.</p>
               </div>
             ) : (
               <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
@@ -578,7 +616,38 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
             {renderCaseField(selectedCaseId, 'quick')}
 
             <label className={LABEL}>Your side</label>
-            <SidePicker value={selectedRole} onChange={setSelectedRole} className="mb-6" />
+            <SidePicker value={selectedRole} onChange={setSelectedRole} className="mb-4" />
+
+            <label className={LABEL}>Who can accept it</label>
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              <button
+                type="button"
+                onClick={() => setCreatePublic(true)}
+                aria-pressed={createPublic}
+                className={`p-3 rounded-2xl border-2 border-b-[5px] flex flex-col items-center gap-1 transition-all active:translate-y-0.5 active:border-b-2 ${
+                  createPublic ? 'border-[#FFD43B] bg-[#FFD43B]/10' : 'border-white/15 bg-white/5'
+                }`}
+              >
+                <Globe className="w-6 h-6 text-[#FFD43B]" />
+                <span className="font-game text-2xl text-white leading-none">PUBLIC</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatePublic(false)}
+                aria-pressed={!createPublic}
+                className={`p-3 rounded-2xl border-2 border-b-[5px] flex flex-col items-center gap-1 transition-all active:translate-y-0.5 active:border-b-2 ${
+                  !createPublic ? 'border-[#FFD43B] bg-[#FFD43B]/10' : 'border-white/15 bg-white/5'
+                }`}
+              >
+                <Lock className="w-6 h-6 text-[#FFD43B]" />
+                <span className="font-game text-2xl text-white leading-none">PRIVATE</span>
+              </button>
+            </div>
+            <p className="text-white/50 text-xs mb-6">
+              {createPublic
+                ? 'Shown in the Challenge list. Anyone can accept it.'
+                : 'Not listed anywhere. You get a link to send; anyone with the link can accept.'}
+            </p>
 
             <div className="flex gap-3">
               <button
@@ -592,9 +661,34 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 disabled={!selectedCaseId || creating}
                 className={`flex-1 px-4 py-3 ${BIG_GOLD}`}
               >
-                {creating ? 'Creating...' : 'Open Challenge'}
+                {creating ? 'Creating...' : createPublic ? 'Open Challenge' : 'Create Link'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {createdPrivate && (
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#14161f] rounded-3xl p-6 max-w-md w-full border border-white/15 shadow-2xl">
+            <h2 className="font-game text-3xl text-white mb-1 leading-none flex items-center gap-2">
+              <Lock className="w-6 h-6 text-[#FFD43B]" /> PRIVATE CHALLENGE
+            </h2>
+            <p className="text-white/70 text-sm mb-4">
+              {createdPrivate.case_title ? <span className="text-white font-semibold">{createdPrivate.case_title}</span> : 'Your challenge'} is ready.
+              Send this link to your friend: they open it, accept, and take the {createdPrivate.creator_role === 'defense' ? 'prosecution' : 'defense'}. It won't show on the board.
+            </p>
+            <ShareLinkBox
+              link={buildChallengeLink(createdPrivate.id, window.location.origin)}
+              shareText={challengeShareText(createdPrivate.case_title, createdPrivate.creator_role)}
+              className="mb-4"
+            />
+            <p className="text-white/45 text-xs mb-4">The game starts when they accept and appears under My games. You can find the link again under Private Links Waiting.</p>
+            <button
+              onClick={() => setCreatedPrivate(null)}
+              className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold transition-colors"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

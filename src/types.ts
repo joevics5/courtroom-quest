@@ -10,6 +10,9 @@ export interface CaseChallenge {
   creator_user_id: string;
   creator_role: PlayerRole;
   status: ChallengeStatus;
+  /** Public challenges are listed for everyone; private ones only work through their link. */
+  is_public?: boolean;
+  allow_spectators?: boolean;
   opponent_user_id?: string;
   session_id?: string;
   created_at: string;

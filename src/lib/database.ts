@@ -24,6 +24,18 @@ export type HistorySession = CaseSession & {
   verdicts: Verdict[] | Verdict | null;
 };
 
+/** What a challenge link shows before you accept it. */
+export interface ChallengePreview {
+  id: string;
+  case_id: string;
+  case_title: string | null;
+  creator_role: 'defense' | 'prosecution';
+  creator_name: string | null;
+  status: 'open' | 'matched' | 'cancelled';
+  is_public: boolean;
+  is_mine: boolean;
+}
+
 export const db = {
   users: {
     async getUserProfile(userId: string): Promise<UserProfile | null> {
@@ -326,15 +338,28 @@ export const db = {
   },
 
   challenges: {
-    async createChallenge(caseId: string, creatorUserId: string, creatorRole: 'defense' | 'prosecution') {
+    /**
+     * Opens a challenge. Public ones are listed on the Challenge board for anyone to accept; private ones
+     * are never listed and are joined only through their link (see lib/challengeLink).
+     */
+    async createChallenge(
+      caseId: string,
+      creatorUserId: string,
+      creatorRole: 'defense' | 'prosecution',
+      options: { isPublic?: boolean; allowSpectators?: boolean } = {}
+    ) {
+      const isPublic = options.isPublic ?? true;
       const { data, error } = await supabase
         .from('case_challenges')
         .insert([{
           case_id: caseId,
           creator_user_id: creatorUserId,
           creator_role: creatorRole,
-          status: 'open'
-        }])
+          status: 'open',
+          is_public: isPublic,
+          // Public matches have always allowed spectators; private ones only if the creator says so.
+          allow_spectators: options.allowSpectators ?? isPublic
+        } as any])
         .select()
         .single();
 
@@ -342,11 +367,20 @@ export const db = {
       return data;
     },
 
+    /** What a challenge link points at (case, side, who is asking), or null if it doesn't exist. */
+    async getChallengePreview(challengeId: string): Promise<ChallengePreview | null> {
+      const { data, error } = await (supabase as any).rpc('get_challenge_preview', { p_id: challengeId });
+      if (error) throw error;
+      return (data as ChallengePreview | null) ?? null;
+    },
+
     async listOpenChallenges() {
       const { data, error } = await supabase
         .from('case_challenges')
         .select('*, cases(title)')
         .eq('status', 'open')
+        // Private challenges never appear in the list (the database hides them too).
+        .eq('is_public', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -388,29 +422,13 @@ export const db = {
     // Multiplayer sessions skip role/difficulty selection (already
     // decided by the challenge) and go straight to investigation.
     async joinChallenge(challengeId: string, joinerUserId: string) {
-      const { data: challenge, error: fetchError } = await supabase
-        .from('case_challenges')
-        .select('*')
-        .eq('id', challengeId)
-        .single();
-      if (fetchError) throw fetchError;
-      if (!challenge || challenge.status !== 'open') {
-        throw new Error('This challenge is no longer open — someone may have already joined it.');
+      // The seat is taken in one step inside the database (works for public challenges and for private
+      // ones reached by link, and two people can never take the same seat).
+      const { data: claimedRow, error: claimError } = await (supabase as any).rpc('claim_challenge', { p_id: challengeId });
+      if (claimError || !claimedRow) {
+        throw new Error(claimError?.message || 'This challenge was just taken by someone else. Try another one.');
       }
-      if (challenge.creator_user_id === joinerUserId) {
-        throw new Error("You can't join your own challenge.");
-      }
-
-      const { data: claimed, error: claimError } = await supabase
-        .from('case_challenges')
-        .update({ status: 'matched', opponent_user_id: joinerUserId, matched_at: new Date().toISOString() })
-        .eq('id', challengeId)
-        .eq('status', 'open') // guards against a double-join race
-        .select()
-        .single();
-      if (claimError || !claimed) {
-        throw new Error('This challenge was just taken by someone else. Try another one.');
-      }
+      const claimed = claimedRow as any;
 
       const joinerRole: 'defense' | 'prosecution' = claimed.creator_role === 'defense' ? 'prosecution' : 'defense';
       const prosecutionUserId = claimed.creator_role === 'prosecution' ? claimed.creator_user_id : joinerUserId;
@@ -425,12 +443,9 @@ export const db = {
           current_phase: 'investigation',
           evidence_filed: false,
           witnesses_locked: false,
-          // Quick Match games are already visible to anyone on the open
-          // board, so spectating defaults on here (unlike Invite a
-          // Friend / Pass & Play, which are private unless explicitly
-          // opted in — see createInvitation/acceptInvitation and
-          // createSameDevicePlaySession).
-          allow_spectators: true,
+          // Public matches are already visible to anyone on the open board, so spectating defaults
+          // on there; a private challenge only allows it when its creator chose so.
+          allow_spectators: claimed.allow_spectators ?? true,
           session_state: {
             isMultiplayer: true,
             prosecutionUserId,

@@ -23,6 +23,8 @@ import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, Subs
 import { supabase } from './lib/supabase';
 import { markTutorialSeen, tutorialAlreadySeen } from './lib/tutorialSeen';
 import Settings from './components/Settings';
+import ChallengeLink from './components/ChallengeLink';
+import { captureChallengeLink, clearPendingChallenge } from './lib/challengeLink';
 
 // Heavy screens load on demand so the first screen (home → play) downloads less code.
 const CustomCaseCreator = lazy(() => import('./components/CustomCaseCreator'));
@@ -93,6 +95,8 @@ function AppContent() {
   const [subscriptionGateFeature, setSubscriptionGateFeature] = useState('');
   const [subscriptionGateRequired, setSubscriptionGateRequired] = useState<SubscriptionTier>('basic');
   const [showAuth, setShowAuth] = useState(false);
+  // A private-challenge link was opened (?challenge=...): shown instead of the home screen until accepted or dismissed.
+  const [linkChallengeId, setLinkChallengeId] = useState<string | null>(() => captureChallengeLink());
 
   // Refresh the badge counts whenever the player lands on Home or the dashboard
   useEffect(() => {
@@ -285,9 +289,33 @@ function AppContent() {
     return <LoadingScreen authReady={!authLoading} onDone={() => setBootDone(true)} />;
   }
 
+  const dismissChallengeLink = () => {
+    clearPendingChallenge();
+    setLinkChallengeId(null);
+  };
+
   if (!user) {
     if (showAuth) {
       return <Auth onBack={() => setShowAuth(false)} />;
+    }
+    if (linkChallengeId) {
+      return (
+        <ChallengeLink
+          challengeId={linkChallengeId}
+          userId={null}
+          onPlayAsGuest={async () => {
+            const { error } = await signInAsGuest();
+            // Guest sign-in unavailable: fall back to the normal sign-in page (the link is remembered).
+            if (error) {
+              console.error('Guest sign-in failed, falling back to sign-in page:', error);
+              setShowAuth(true);
+            }
+          }}
+          onSignIn={() => setShowAuth(true)}
+          onAccepted={() => {}}
+          onDismiss={dismissChallengeLink}
+        />
+      );
     }
     return homeScreen;
   }
@@ -303,7 +331,7 @@ function AppContent() {
     );
   }
 
-  if (showHome) {
+  if (showHome && !linkChallengeId) {
     return homeScreen;
   }
 
@@ -847,6 +875,28 @@ function AppContent() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-white text-lg">Loading case...</div>
       </div>
+    );
+  }
+
+  // Someone opened a challenge link: show it (case, your side, Accept) before anything else.
+  if (linkChallengeId) {
+    return (
+      <ChallengeLink
+        challengeId={linkChallengeId}
+        userId={user.id}
+        onPlayAsGuest={async () => {}}
+        onSignIn={() => {}}
+        onAccepted={async session => {
+          clearPendingChallenge();
+          setLinkChallengeId(null);
+          setShowHome(false);
+          await handleMatched(session);
+        }}
+        onDismiss={() => {
+          dismissChallengeLink();
+          setShowHome(false);
+        }}
+      />
     );
   }
 

@@ -73,33 +73,39 @@ export type Database = {
       }
       case_challenges: {
         Row: {
+          allow_spectators: boolean
           case_id: string
           created_at: string | null
           creator_role: string
           creator_user_id: string
           id: string
+          is_public: boolean
           matched_at: string | null
           opponent_user_id: string | null
           session_id: string | null
           status: string
         }
         Insert: {
+          allow_spectators?: boolean
           case_id: string
           created_at?: string | null
           creator_role: string
           creator_user_id: string
           id?: string
+          is_public?: boolean
           matched_at?: string | null
           opponent_user_id?: string | null
           session_id?: string | null
           status?: string
         }
         Update: {
+          allow_spectators?: boolean
           case_id?: string
           created_at?: string | null
           creator_role?: string
           creator_user_id?: string
           id?: string
+          is_public?: boolean
           matched_at?: string | null
           opponent_user_id?: string | null
           session_id?: string | null

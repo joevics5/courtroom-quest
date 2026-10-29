@@ -38,6 +38,7 @@ import { getUserDisplayName } from '../lib/userName';
 import { buildExaminationRecap, buildWitnessHistory } from '../lib/witnessHistory';
 import { useElementHeight } from '../lib/useElementHeight';
 import AutoRestChip from './AutoRestChip';
+import { shouldFreezeForAbsentOpponent, shouldFreezeWhileHidden, useOpponentPresence } from '../lib/presence';
 import { buildLeaveSave, restoreTotalTime, shouldAutoPauseOnHide, startsPaused } from '../lib/trialResume';
 import { useTrialLifecycle } from '../lib/useTrialLifecycle';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
@@ -210,7 +211,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
    const [timerActive, setTimerActive] = useState(false);
    // A trial that was left mid-way comes back paused; the player resumes on purpose.
-   const [timerPaused, setTimerPaused] = useState(() => startsPaused(session as any, practiceMode));
+   // Two people on two devices: a game can take days. Nobody has to press Pause: the clocks stand still
+   // while the player whose turn it is is away, and the game picks up when they come back.
+   const onlineTwoPlayer = isMultiplayer && !sameDevicePlay;
+   const opponentOnline = useOpponentPresence(session.id, onlineTwoPlayer && !showPreTrial);
+   const [timerPaused, setTimerPaused] = useState(() => !onlineTwoPlayer && startsPaused(session as any, practiceMode));
    const [pausedForDefense, setPausedForDefense] = useState(false);
    const [phaseTimeRemaining, setPhaseTimeRemaining] = useState<Record<number, number>>(() => {
      // Load from session if available
@@ -375,7 +380,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // own: the player does not have to press Pause, and it does not matter whose turn it is. The exact
   // time left is saved with the pause, and coming back opens the trial paused (they resume on purpose).
   useEffect(() => {
-    if (showPreTrial || practiceMode || !trialDuration) return;
+    if (showPreTrial || practiceMode || !trialDuration || onlineTwoPlayer) return;
 
     const handleVisibilityChange = () => {
       if (!shouldAutoPauseOnHide({
@@ -477,6 +482,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     return () => clearInterval(syncInterval);
   }, [isMultiplayer, showPreTrial, session.id, currentPhase]);
 
+  // True while the clocks must stand still for the other player (they're away on their turn, or this page is hidden).
+  const freezeForAbsenceRef = useRef(false);
+  freezeForAbsenceRef.current = false;
+  const opponentAway = shouldFreezeForAbsentOpponent({
+    onlineTwoPlayer, opponentOnline, currentTurn: turnState?.current_turn as string | undefined, playerRole
+  });
+  freezeForAbsenceRef.current = opponentAway;
+
   const startTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (!trialDuration) return;
@@ -488,6 +501,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // An objection is being heard: the questioning counsel's time (and the trial total) stands still
       // until they start talking again.
       if (objectionPausedRef.current) return;
+      if (freezeForAbsenceRef.current || shouldFreezeWhileHidden(onlineTwoPlayer, document.visibilityState === 'hidden')) return;
       setPhaseTimeRemaining((prev: Record<number, number>) => {
         // Nothing left on this phase's clock: keep the same object. Returning a fresh copy every
         // second made the "time ran out" effect fire again and again until the phase changed.
@@ -634,7 +648,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     setQuestionRestLeft(seconds);
     questionRestTimerRef.current = setInterval(() => {
       if (!aliveRef.current) return;
-      if (timerPausedRef.current || isProcessingObjectionRef.current) return;
+      if (timerPausedRef.current || isProcessingObjectionRef.current || freezeForAbsenceRef.current) return;
       const next = (questionRestRef.current ?? 0) - 1;
       if (next <= 0) {
         clearQuestionRest();
@@ -2504,7 +2518,13 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 </div>
               )}
 
-              {!isProsecutionThinking && autoRestSecondsLeft === null && !restLabel && !sameDevicePlay && turnState?.current_turn === aiRole && (
+              {opponentAway && (
+                <div className="rounded-full border border-amber-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-amber-200">
+                  Your opponent is away. The clock is paused until they come back and respond.
+                </div>
+              )}
+
+              {!isMultiplayer && !isProsecutionThinking && autoRestSecondsLeft === null && !restLabel && !sameDevicePlay && turnState?.current_turn === aiRole && (
                 <div className="rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/85">
                   Waiting for {aiRole === 'prosecution' ? 'prosecution' : 'the defense'}…
                 </div>
