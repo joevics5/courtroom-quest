@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { appConfirm } from '../lib/appDialog';
 import { AlertTriangle, FileText, Loader2, RefreshCw, Save, Sparkles, Upload, X } from 'lucide-react';
 import ScreenShell from './ScreenShell';
+import { INPUT, gameButton } from './ui';
 import OpposingPlaybook from './caseCreator/OpposingPlaybook';
 import { Fields, ListEditor } from './caseCreator/JsonFields';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,8 +32,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'analysis', label: 'Analysis' },
 ];
 
-const field = 'w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]';
-const primary = 'flex items-center justify-center gap-2 px-5 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-lg disabled:bg-slate-700 disabled:text-slate-500 transition-colors';
+const field = INPUT;
+const primary = gameButton('gold');
 const MAX_NOTES = 40_000;
 
 const nestedBlank = (path: string) => {
@@ -173,18 +174,18 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
       <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm p-5 space-y-5">
         {!draft && (
           <>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-white/70">
               Give the AI your case file. It builds a playable case from it and works out where opposing counsel is likely to attack,
               so you can rehearse before the real thing. You review and edit everything before it is saved.
             </p>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Which side will you argue?</label>
+              <label className="block text-sm font-medium text-white/70 mb-2">Which side will you argue?</label>
               <div className="grid grid-cols-2 gap-3">
                 {(['defence', 'prosecution'] as Side[]).map((s) => (
                   <button
                     key={s} type="button" onClick={() => setSide(s)} disabled={working} aria-pressed={side === s}
-                    className={`py-3 rounded-lg font-semibold border transition-colors ${side === s ? 'bg-[#FFD43B] text-black border-[#FFD43B]' : 'bg-black/40 text-slate-200 border-white/20 hover:border-white/40'}`}
+                    className={gameButton(side === s ? 'gold' : 'ghost', 'sm')}
                   >
                     {sideLabel(s)}
                   </button>
@@ -193,7 +194,7 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Case file (PDF)</label>
+              <label className="block text-sm font-medium text-white/70 mb-2">Case file (PDF)</label>
               <input
                 ref={fileInput} type="file" accept="application/pdf,.pdf" className="hidden"
                 onChange={(e) => { void pickFile(e.target.files?.[0] ?? null); e.target.value = ''; }}
@@ -202,26 +203,26 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
                 <div className="flex items-center gap-3 rounded-lg border border-white/20 bg-black/40 px-3 py-2">
                   <FileText className="w-5 h-5 text-[#FFD43B] shrink-0" />
                   <span className="text-sm text-white truncate flex-1">{file.name}</span>
-                  <span className="text-xs text-slate-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-                  <button onClick={() => void clearFile()} disabled={working} aria-label="Remove PDF" className="text-slate-300 hover:text-white"><X className="w-4 h-4" /></button>
+                  <span className="text-xs text-white/55">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                  <button onClick={() => void clearFile()} disabled={working} aria-label="Remove PDF" className="text-white/70 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
               ) : (
                 <button
                   type="button" onClick={() => fileInput.current?.click()} disabled={working}
-                  className="w-full flex items-center justify-center gap-2 py-6 rounded-lg border-2 border-dashed border-white/25 text-slate-300 hover:border-[#FFD43B] hover:text-white transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-6 rounded-lg border-2 border-dashed border-white/25 text-white/70 hover:border-[#FFD43B] hover:text-white transition-colors"
                 >
                   <Upload className="w-5 h-5" /> Choose a PDF (max 10 MB)
                 </button>
               )}
               {fileError && <p role="alert" className="text-sm text-red-300 mt-2">{fileError}</p>}
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-xs text-white/55 mt-2">
                 The PDF is sent to Google's Gemini model to be read, and deleted from our storage as soon as parsing finishes. Redact client names and
                 anything privileged before uploading; you are responsible for confidentiality obligations.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">{file ? 'Extra notes (optional)' : 'Or paste your notes'}</label>
+              <label className="block text-sm font-medium text-white/70 mb-2">{file ? 'Extra notes (optional)' : 'Or paste your notes'}</label>
               <textarea
                 value={notes} onChange={(e) => setNotes(e.target.value)} rows={file ? 4 : 9} maxLength={MAX_NOTES}
                 placeholder={file ? 'Anything the PDF does not say: your theory, concerns, what you expect the other side to argue...' : 'Paste the facts, statements, exhibits and dates. The more detail, the better.'}
@@ -245,10 +246,10 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
                 {working ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
                 {busy === 'upload' ? 'Uploading PDF...' : busy === 'core' ? 'Step 1/2: reading the file...' : busy === 'analysis' ? 'Step 2/2: evidence and attacks...' : 'Parse with AI'}
               </button>
-              <button onClick={onManual} disabled={working} className="px-5 py-3 text-slate-300 hover:text-white">Fill in manually instead</button>
+              <button onClick={onManual} disabled={working} className="px-5 py-3 text-white/70 hover:text-white">Fill in manually instead</button>
             </div>
-            {working && <p className="text-xs text-slate-400">Each step can take a minute or two. Keep this screen open.</p>}
-            {!side && <p className="text-xs text-slate-400">Pick a side first. The opposing playbook is built against it.</p>}
+            {working && <p className="text-xs text-white/55">Each step can take a minute or two. Keep this screen open.</p>}
+            {!side && <p className="text-xs text-white/55">Pick a side first. The opposing playbook is built against it.</p>}
           </>
         )}
 
@@ -271,13 +272,13 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
 
             {(check.errors.length > 0 || check.warnings.length > 0 || warnings.length > 0) && (
               <details className="rounded-lg border border-white/15 bg-black/30" open={check.errors.length > 0}>
-                <summary className="px-4 py-2 text-sm cursor-pointer text-slate-200">
+                <summary className="px-4 py-2 text-sm cursor-pointer text-white/80">
                   <span className="text-red-300">{check.errors.length} problem(s)</span> · <span className="text-amber-300">{check.warnings.length + warnings.length} note(s)</span>
                 </summary>
                 <ul className="px-4 pb-3 text-xs space-y-1">
                   {check.errors.map((m, i) => <li key={`e${i}`} className="text-red-300">• {m}</li>)}
                   {check.warnings.map((m, i) => <li key={`w${i}`} className="text-amber-300">• {m}</li>)}
-                  {warnings.map((m, i) => <li key={`s${i}`} className="text-slate-400">• AI note: {m}</li>)}
+                  {warnings.map((m, i) => <li key={`s${i}`} className="text-white/55">• AI note: {m}</li>)}
                 </ul>
               </details>
             )}
@@ -286,11 +287,11 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
               {TABS.map((t) => (
                 <button
                   key={t.id} onClick={() => setTab(t.id)}
-                  className={`px-3 py-2 text-sm rounded-t ${tab === t.id ? 'bg-white/10 text-white border border-b-0 border-white/20' : 'text-slate-400 hover:text-white'}`}
+                  className={`px-3 py-2 text-sm rounded-t ${tab === t.id ? 'bg-white/10 text-white border border-b-0 border-white/20' : 'text-white/55 hover:text-white'}`}
                 >
                   {t.label}
-                  {t.id === 'witnesses' && <span className="ml-1 text-xs text-slate-500">{draft.witnesses.length}</span>}
-                  {t.id === 'evidence' && <span className="ml-1 text-xs text-slate-500">{draft.evidence.length}</span>}
+                  {t.id === 'witnesses' && <span className="ml-1 text-xs text-white/45">{draft.witnesses.length}</span>}
+                  {t.id === 'evidence' && <span className="ml-1 text-xs text-white/45">{draft.evidence.length}</span>}
                 </button>
               ))}
             </div>
@@ -341,8 +342,8 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
               <button onClick={save} disabled={busy !== null || check.errors.length > 0 || needsAnalysis} className={primary}>
                 {busy === 'save' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} Save case and begin
               </button>
-              <button onClick={() => void discard()} disabled={busy !== null} className="px-4 py-3 text-slate-300 hover:text-white">Discard</button>
-              <span className="text-xs text-slate-400">Saved as your own case. Only you can see the private analysis.</span>
+              <button onClick={() => void discard()} disabled={busy !== null} className="px-4 py-3 text-white/70 hover:text-white">Discard</button>
+              <span className="text-xs text-white/55">Saved as your own case. Only you can see the private analysis.</span>
             </div>
           </div>
         )}

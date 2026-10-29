@@ -2,7 +2,7 @@ import { useLockPageScroll } from '@/lib/useLockPageScroll';
 import { questionRestSeconds, questionRestLabel, OBJECTION_WINDOW_SECONDS } from '@/lib/questionRest';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
-import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, X, Mic, Sparkles, Gavel, Shield, Landmark } from 'lucide-react';
+import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, Mic, Gavel, Shield, Landmark } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
@@ -18,6 +18,7 @@ import { fetchPublicProfile, type PublicProfile } from '../lib/publicProfile';
 import { getLevelForWins } from '../lib/levels';
 import { describeTurn, getTrialFloor } from '../lib/stageSpeaker';
 import { aiRank, castAvatars } from '../lib/stageCast';
+import ModalSheet, { CHOICE_ROW } from './ModalSheet';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
 import ObjectionSelector from './ObjectionSelector';
@@ -309,8 +310,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
    };
     const prosecutionTurnTriggeredRef = useRef<number | null>(null);
    const [showVideoDisplay, setShowVideoDisplay] = useState(true); // avatar stage on by default; the Courtroom button hides/shows it
-   const [showRealVoiceInfo, setShowRealVoiceInfo] = useState(false);
-   const [judgeInstructionPending, setJudgeInstructionPending] = useState(false);
+    const [judgeInstructionPending, setJudgeInstructionPending] = useState(false);
 
   useEffect(() => {
     // Force phase 7 if we're in trial phase but phase is too early
@@ -2545,25 +2545,23 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       )}
 
       {pendingHandoff && turnState && (
-        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-sm w-full border border-white/10 shadow-2xl text-center">
-            <div className={`w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center ${turnState.current_turn === 'prosecution' ? 'bg-red-500/20' : 'bg-blue-500/20'}`}>
-              {turnState.current_turn === 'prosecution'
-                ? <Gavel className="w-7 h-7 text-red-400" />
-                : <Shield className="w-7 h-7 text-blue-400" />}
-            </div>
-            <h2 className="text-white text-lg font-bold mb-2">Pass the device</h2>
-            <p className="text-white/60 text-sm mb-6">
-              It's the {turnState.current_turn === 'prosecution' ? 'Prosecution' : 'Defense'} player's turn. Hand over the device, then tap below when you're ready.
-            </p>
-            <button
-              onClick={() => turnHandoffKey && setDeviceRevealedFor(turnHandoffKey)}
-              className={`w-full px-4 py-3 rounded-lg text-white font-semibold transition-colors ${turnState.current_turn === 'prosecution' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-            >
-              I'm the {turnState.current_turn === 'prosecution' ? 'Prosecution' : 'Defense'} player — I'm ready
-            </button>
-          </div>
-        </div>
+        <ModalSheet
+          title="PASS THE DEVICE"
+          icon={turnState.current_turn === 'prosecution'
+            ? <Gavel className="w-6 h-6 text-[#E5484D]" />
+            : <Shield className="w-6 h-6 text-[#FFD43B]" />}
+          maxWidth="max-w-md"
+        >
+          <p className="text-white/70 text-sm mb-5">
+            It's the {turnState.current_turn === 'prosecution' ? 'Prosecution' : 'Defense'} player's turn. Hand over the device, then tap below when you're ready.
+          </p>
+          <button
+            onClick={() => turnHandoffKey && setDeviceRevealedFor(turnHandoffKey)}
+            className={`${gameButton(turnState.current_turn === 'prosecution' ? 'danger' : 'gold')} w-full`}
+          >
+            I'm the {turnState.current_turn === 'prosecution' ? 'Prosecution' : 'Defense'} player — ready
+          </button>
+        </ModalSheet>
       )}
 
                {/* Fixed Bottom Input Bar - Static, doesn't scroll - MUST be at bottom */}
@@ -2661,27 +2659,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         />
       )}
 
-      {showRealVoiceInfo && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-md w-full border border-purple-500/30 shadow-2xl">
-            <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 mb-4">
-              <Sparkles className="w-7 h-7 text-purple-300" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-1 text-center">Real Voice — Coming Soon</h2>
-            <p className="text-purple-300 text-xs font-semibold text-center mb-4 uppercase tracking-wide">Live Voice Trial Mode</p>
-            <p className="text-white/70 text-sm leading-relaxed text-center mb-6">
-              A fully spoken courtroom — natural, distinct voices for every character, low-latency back-and-forth, no typing at all. What's here today (the mic input and read-aloud lines) is the free version; this is the upgraded experience we're building next.
-            </p>
-            <button
-              onClick={() => setShowRealVoiceInfo(false)}
-              className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Evidence Selector Modal */}
       {showEvidenceSelector && evidenceAllowed && (
         <EvidenceSelector
@@ -2702,132 +2679,96 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       {/* Defence Actions Modal */}
       {showDefenceModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">Defence Actions</h2>
-              <button
-                onClick={() => setShowDefenceModal(false)}
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex border-b border-slate-700 mb-4">
-              <button
-                onClick={() => setDefenceModalTab('witnesses')}
-                className={`flex-1 px-3 py-2 font-medium transition-colors text-sm ${
-                  activeModalTab === 'witnesses'
-                    ? 'bg-slate-750 text-white border-b-2 border-blue-500'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <User className="w-4 h-4" />
-                  Witnesses
-                </div>
-              </button>
-              <button
-                onClick={() => { if (evidenceAllowed) setDefenceModalTab('evidence'); }}
-                disabled={!evidenceAllowed}
-                title={evidenceAllowed ? undefined : 'Evidence can only be submitted while witnesses are being called and examined'}
-                className={`flex-1 px-3 py-2 font-medium transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed ${
-                  activeModalTab === 'evidence'
-                    ? 'bg-slate-750 text-white border-b-2 border-blue-500'
-                    : 'text-slate-400 hover:text-white disabled:hover:text-slate-400'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Evidence
-                </div>
-              </button>
-            </div>
-
-            <div className="max-h-80 overflow-y-auto">
-              {activeModalTab === 'witnesses' && (
-                <div className="space-y-3">
-                  {witnesses.filter(w => !turnState?.witnesses_called.includes(w.id)).length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-slate-400">All witnesses have been called.</p>
-                    </div>
-                  ) : (
-                    witnesses.filter(w => !turnState?.witnesses_called.includes(w.id)).map((witness) => (
-                      <button
-                        key={witness.id}
-                        onClick={() => {
-                          handleCallWitness(witness);
-                          setShowDefenceModal(false);
-                        }}
-                        className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                        disabled={!isWitnessPhase(phase) || turnState?.current_witness_id !== null || !isPlayerTurn}
-                      >
-                        <div className="font-semibold text-white">{witness.name}</div>
-                        <div className="text-sm text-slate-400 mt-1">{witness.role}</div>
-                        {witness.background && (
-                          <div className="text-xs text-slate-500 mt-2 line-clamp-2">
-                            {witness.background}
-                          </div>
-                        )}
-                      </button>
-                    ))
-                  )}
-                  {!isWitnessPhase(phase) && (
-                    <div className="text-center py-4 text-slate-400 text-sm">
-                      Witness calling is only available during witness examination phases.
-                    </div>
-                  )}
-                  {turnState?.current_witness_id !== null && (
-                    <div className="text-center py-4 text-slate-400 text-sm">
-                      A witness is currently being examined. Rest first to call a new witness.
-                    </div>
-                  )}
-                  {!isPlayerTurn && (
-                    <div className="text-center py-4 text-slate-400 text-sm">
-                      It isn't your turn to call a witness right now.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeModalTab === 'evidence' && (
-                <div className="space-y-3">
-                  {evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-slate-400">All evidence has been submitted.</p>
-                    </div>
-                  ) : (
-                    evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          handleSubmitEvidence(item);
-                          setShowDefenceModal(false);
-                        }}
-                        disabled={!isPlayerTurn || !evidenceAllowed}
-                        className="w-full text-left p-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                      >
-                        <div className="font-semibold text-white">{item.title}</div>
-                        <div className="text-sm text-slate-400 mt-1">{item.evidence_type.replace('_', ' ')}</div>
-                        {item.description && (
-                          <div className="text-xs text-slate-500 mt-2 line-clamp-2">
-                            {item.description}
-                          </div>
-                        )}
-                      </button>
-                    ))
-                  )}
-                  {!isPlayerTurn && evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).length > 0 && (
-                    <div className="text-center py-2 text-slate-400 text-sm">
-                      It isn't your turn to submit evidence right now.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+        <ModalSheet title="DEFENCE ACTIONS" onClose={() => setShowDefenceModal(false)}>
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setDefenceModalTab('witnesses')}
+              className={`${gameButton(activeModalTab === 'witnesses' ? 'gold' : 'ghost', 'sm')} flex-1`}
+            >
+              <User className="w-4 h-4" /> Witnesses
+            </button>
+            <button
+              onClick={() => { if (evidenceAllowed) setDefenceModalTab('evidence'); }}
+              disabled={!evidenceAllowed}
+              title={evidenceAllowed ? undefined : 'Evidence can only be submitted while witnesses are being called and examined'}
+              className={`${gameButton(activeModalTab === 'evidence' ? 'gold' : 'ghost', 'sm')} flex-1`}
+            >
+              <FileText className="w-4 h-4" /> Evidence
+            </button>
           </div>
-        </div>
+
+          {activeModalTab === 'witnesses' && (
+            <div className="space-y-3">
+              {witnesses.filter(w => !turnState?.witnesses_called.includes(w.id)).length === 0 ? (
+                <p className="text-white/60 text-center py-8">All witnesses have been called.</p>
+              ) : (
+                witnesses.filter(w => !turnState?.witnesses_called.includes(w.id)).map((witness) => (
+                  <button
+                    key={witness.id}
+                    onClick={() => {
+                      handleCallWitness(witness);
+                      setShowDefenceModal(false);
+                    }}
+                    className={`${CHOICE_ROW} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    disabled={!isWitnessPhase(phase) || turnState?.current_witness_id !== null || !isPlayerTurn}
+                  >
+                    <div className="font-semibold text-white">{witness.name}</div>
+                    <div className="text-sm text-white/60 mt-1">{witness.role}</div>
+                    {witness.background && (
+                      <div className="text-xs text-white/45 mt-2 line-clamp-2">{witness.background}</div>
+                    )}
+                  </button>
+                ))
+              )}
+              {!isWitnessPhase(phase) && (
+                <p className="text-center py-2 text-white/55 text-sm">
+                  Witness calling is only available during witness examination phases.
+                </p>
+              )}
+              {turnState?.current_witness_id !== null && (
+                <p className="text-center py-2 text-white/55 text-sm">
+                  A witness is currently being examined. Rest first to call a new witness.
+                </p>
+              )}
+              {!isPlayerTurn && (
+                <p className="text-center py-2 text-white/55 text-sm">
+                  It isn't your turn to call a witness right now.
+                </p>
+              )}
+            </div>
+          )}
+
+          {activeModalTab === 'evidence' && (
+            <div className="space-y-3">
+              {evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).length === 0 ? (
+                <p className="text-white/60 text-center py-8">All evidence has been submitted.</p>
+              ) : (
+                evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleSubmitEvidence(item);
+                      setShowDefenceModal(false);
+                    }}
+                    disabled={!isPlayerTurn || !evidenceAllowed}
+                    className={`${CHOICE_ROW} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <div className="font-semibold text-white">{item.title}</div>
+                    <div className="text-sm text-white/60 mt-1">{item.evidence_type.replace('_', ' ')}</div>
+                    {item.description && (
+                      <div className="text-xs text-white/45 mt-2 line-clamp-2">{item.description}</div>
+                    )}
+                  </button>
+                ))
+              )}
+              {!isPlayerTurn && evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).length > 0 && (
+                <p className="text-center py-2 text-white/55 text-sm">
+                  It isn't your turn to submit evidence right now.
+                </p>
+              )}
+            </div>
+          )}
+        </ModalSheet>
       )}
     </div>
   );

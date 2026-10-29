@@ -1,4 +1,5 @@
 import ScreenShell from './ScreenShell';
+import { INPUT, PANEL, PANEL_SOFT, gameButton } from './ui';
 import { appConfirm } from '../lib/appDialog';
 import { useState, useEffect, useRef } from 'react';
 import { FileText, PenLine, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
@@ -68,9 +69,9 @@ const EVIDENCE_TYPES: { value: EvidenceType; label: string }[] = [
   { value: 'timeline_logs', label: 'Timeline/Logs' },
 ];
 
-const inputCls = 'w-full px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]';
-const cardCls = 'bg-black/40 rounded-lg p-4 border border-white/15';
-const primaryBtn = 'w-full bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disabled:bg-slate-700 disabled:text-slate-500 py-3 px-4 rounded-lg transition-colors';
+const inputCls = INPUT;
+const cardCls = `${PANEL_SOFT} p-4`;
+const primaryBtn = `${gameButton('gold')} w-full`;
 
 const emptyInfo = { title: '', defendant_name: '', description: '', caseType: 'burglary' as CaseType, difficulty: 'medium' as Difficulty };
 
@@ -362,24 +363,24 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
   if (mode === 'choose') {
     return (
       <ScreenShell title="NEW CASE" onBack={onCancel} maxWidth="max-w-3xl lg:max-w-4xl">
-        <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm p-6 space-y-4">
-          <p className="text-slate-300 text-sm">How do you want to build your case?</p>
+        <div className={`${PANEL} space-y-4`}>
+          <p className="text-white/70 text-sm">How do you want to build your case?</p>
           <button
             onClick={() => setMode('ai')}
-            className="w-full text-left rounded-xl border border-[#FFD43B]/60 bg-[#FFD43B]/10 hover:bg-[#FFD43B]/20 p-4 transition-colors"
+            className="w-full text-left rounded-2xl border border-[#FFD43B]/60 bg-[#FFD43B]/10 hover:bg-[#FFD43B]/20 p-4 transition-colors"
           >
             <div className="flex items-center gap-2 text-[#FFD43B] font-bold"><Sparkles className="w-5 h-5" /> Parse with AI</div>
-            <p className="text-sm text-slate-200 mt-1">
+            <p className="text-sm text-white/80 mt-1">
               Upload a case-file PDF or paste your notes. The AI builds the witnesses, evidence and timeline, and shows where opposing counsel is likely to attack.
             </p>
-            <p className="text-xs text-slate-400 mt-2 flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> You review and edit everything before saving.</p>
+            <p className="text-xs text-white/55 mt-2 flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> You review and edit everything before saving.</p>
           </button>
           <button
             onClick={() => setMode('manual')}
-            className="w-full text-left rounded-xl border border-white/20 bg-black/30 hover:bg-white/5 p-4 transition-colors"
+            className="w-full text-left rounded-2xl border border-white/20 bg-white/[0.06] hover:border-[#FFD43B]/60 p-4 transition-colors"
           >
             <div className="flex items-center gap-2 text-white font-bold"><PenLine className="w-5 h-5" /> Fill in the form</div>
-            <p className="text-sm text-slate-300 mt-1">Write the case, evidence and witnesses yourself.</p>
+            <p className="text-sm text-white/70 mt-1">Write the case, evidence and witnesses yourself.</p>
           </button>
         </div>
       </ScreenShell>
@@ -389,11 +390,11 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
   if (loading || loadError) {
     return (
       <ScreenShell title="EDIT CASE" onBack={onCancel} maxWidth="max-w-3xl lg:max-w-4xl">
-        <div className="rounded-2xl bg-black/55 border border-white/15 p-8 text-center text-slate-300">
+        <div className={`${PANEL} p-8 text-center text-white/70`}>
           {loadError ? (
             <div className="space-y-4">
               <p className="text-red-300">{loadError}</p>
-              <button onClick={onCancel} className="px-4 py-2 bg-[#FFD43B] text-black font-bold rounded-lg">Back</button>
+              <button onClick={onCancel} className={gameButton('gold', 'sm')}>Back</button>
             </div>
           ) : 'Loading case...'}
         </div>
@@ -405,7 +406,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
   return (
     <ScreenShell title={isEditMode ? 'EDIT CASE' : 'NEW CASE'} onBack={handleCancel} maxWidth="max-w-3xl lg:max-w-4xl">
-      <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm overflow-hidden">
+      <div className={`${PANEL_SOFT} overflow-hidden`}>
         <div className="border-b border-white/15 px-6 py-4">
           <div className="flex gap-3">
             {STEPS.map((s, i) => (
@@ -413,11 +414,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                 key={s}
                 onClick={() => setStep(s)}
                 disabled={(i > 0 && !infoValid) || saving}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors capitalize ${
-                  step === s
-                    ? 'bg-[#FFD43B] text-black font-bold'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed'
-                }`}
+                className={`${gameButton(step === s ? 'gold' : 'ghost', 'sm')} flex-1 capitalize`}
               >
                 {i + 1}. {s}
                 {s === 'evidence' && filledEvidence > 0 && ` (${filledEvidence})`}
@@ -441,7 +438,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
           {step === 'info' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Case Title</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">Case Title</label>
                 <input
                   type="text" value={caseInfo.title} maxLength={120}
                   onChange={(e) => setCaseInfo({ ...caseInfo, title: e.target.value })}
@@ -450,7 +447,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Defendant Name</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">Defendant Name</label>
                 <input
                   type="text" value={caseInfo.defendant_name} maxLength={80}
                   onChange={(e) => setCaseInfo({ ...caseInfo, defendant_name: e.target.value })}
@@ -460,7 +457,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Case Type</label>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Case Type</label>
                   <select
                     value={caseInfo.caseType}
                     onChange={(e) => setCaseInfo({ ...caseInfo, caseType: e.target.value as CaseType })}
@@ -470,7 +467,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Difficulty</label>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Difficulty</label>
                   <select
                     value={caseInfo.difficulty}
                     onChange={(e) => setCaseInfo({ ...caseInfo, difficulty: e.target.value as Difficulty })}
@@ -484,13 +481,13 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Case Description</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">Case Description</label>
                 <textarea
                   value={caseInfo.description} maxLength={4000} rows={6}
                   onChange={(e) => setCaseInfo({ ...caseInfo, description: e.target.value })}
                   placeholder="Provide a detailed description of the case..." className={inputCls}
                 />
-                <p className="text-xs text-slate-400 mt-1">Players see this. Don't give away loopholes or hidden evidence.</p>
+                <p className="text-xs text-white/55 mt-1">Players see this. Don't give away loopholes or hidden evidence.</p>
               </div>
 
               <button onClick={() => setStep('evidence')} disabled={!infoValid} className={primaryBtn}>
@@ -505,7 +502,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                 <h3 className="text-lg font-semibold text-white">Evidence Items</h3>
                 <button
                   onClick={addEvidence}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-lg transition-colors"
+                  className={gameButton('gold', 'sm')}
                 >
                   <Plus className="w-4 h-4" />
                   Add Evidence
@@ -513,7 +510,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
               </div>
 
               {evidenceItems.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">No evidence added yet. Click "Add Evidence" to begin.</div>
+                <div className="text-center py-12 text-white/55">No evidence added yet. Click "Add Evidence" to begin.</div>
               ) : (
                 evidenceItems.map((item) => (
                   <div key={item.uid} className={cardCls}>
@@ -568,7 +565,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                 <h3 className="text-lg font-semibold text-white">Witnesses</h3>
                 <button
                   onClick={addWitness}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-lg transition-colors"
+                  className={gameButton('gold', 'sm')}
                 >
                   <Plus className="w-4 h-4" />
                   Add Witness
@@ -576,7 +573,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
               </div>
 
               {witnesses.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">No witnesses added yet. Click "Add Witness" to begin.</div>
+                <div className="text-center py-12 text-white/55">No witnesses added yet. Click "Add Witness" to begin.</div>
               ) : (
                 witnesses.map((witness, index) => (
                   <div key={witness.uid} className={cardCls}>
@@ -589,12 +586,12 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Witness Photo (Optional)</label>
+                        <label className="block text-sm font-medium text-white/70 mb-2">Witness Photo (Optional)</label>
                         <div className="flex items-center gap-3 flex-wrap">
                           {witness.photoUrl && (
                             <img src={witness.photoUrl} alt={witness.name || 'Witness'} className="w-16 h-16 rounded-full object-cover" />
                           )}
-                          <label className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded cursor-pointer transition-colors">
+                          <label className={`${gameButton("ghost", "sm")} cursor-pointer`}>
                             <Upload className="w-4 h-4" />
                             {witness.photoUrl ? 'Change Photo' : 'Upload Photo'}
                             <input
@@ -609,7 +606,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                           {witness.photoUrl && (
                             <button
                               onClick={() => removeWitnessPhoto(witness.uid)}
-                              className="flex items-center gap-1 px-3 py-2 text-slate-300 hover:text-white text-sm"
+                              className="flex items-center gap-1 px-3 py-2 text-white/70 hover:text-white text-sm"
                             >
                               <X className="w-4 h-4" /> Remove
                             </button>
@@ -666,7 +663,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                 <button
                   onClick={handleSubmit}
                   disabled={saving}
-                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                  className={primaryBtn}
                 >
                   {saving
                     ? (isEditMode ? 'Saving Changes...' : 'Creating Case...')
