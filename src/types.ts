@@ -136,7 +136,8 @@ export interface Witness {
   created_at: string;
 }
 
-export type TrialDuration = 15 | 30 | 60;
+/** Trial length in minutes: 5 = Quick Play. */
+export type TrialDuration = 5 | 15 | 30 | 60;
 
 export interface CaseSession {
   id: string;

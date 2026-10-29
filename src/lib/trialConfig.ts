@@ -51,7 +51,15 @@ function generateWitnessPhases(duration: TrialDuration): TrialPhase[] {
   const phases: TrialPhase[] = [];
   let phaseNumber = 9; // Start after opening statements (phases 7, 8)
 
-  if (duration === 15) {
+  if (duration === 5) {
+    // Quick Play: 1 prosecution witness, 1 defense witness, direct + cross only, very short clocks
+    phases.push(
+      { number: phaseNumber++, name: 'Prosecution Witness 1 - Direct Examination', category: 'trial', duration: 0.75 },
+      { number: phaseNumber++, name: 'Prosecution Witness 1 - Cross-Examination', category: 'trial', duration: 0.5 },
+      { number: phaseNumber++, name: 'Defense Witness 1 - Direct Examination', category: 'trial', duration: 0.75 },
+      { number: phaseNumber++, name: 'Defense Witness 1 - Cross-Examination', category: 'trial', duration: 0.5 }
+    );
+  } else if (duration === 15) {
     // 1 prosecution witness, 1 defense witness
     phases.push(
       { number: phaseNumber++, name: 'Prosecution Witness 1 - Direct Examination', category: 'trial', duration: 1.5 },
@@ -131,7 +139,10 @@ function generatePhaseDurations(duration: TrialDuration, phases: TrialPhase[]): 
   const durations: Record<number, number> = {};
   
   // Opening statements
-  if (duration === 15) {
+  if (duration === 5) {
+    durations[7] = 0.5; // Opening - Prosecution
+    durations[8] = 0.5;
+  } else if (duration === 15) {
     durations[7] = 2; // Opening - Prosecution
     durations[8] = 2; // Opening - Defense
   } else if (duration === 30) {
@@ -156,13 +167,13 @@ function generatePhaseDurations(duration: TrialDuration, phases: TrialPhase[]): 
   const verdict = phases.find(p => p.name === 'Verdict Delivery');
   
   if (closingProsecution) {
-    durations[closingProsecution.number] = duration === 15 ? 2 : duration === 30 ? 3 : 5;
+    durations[closingProsecution.number] = duration === 5 ? 0.5 : duration === 15 ? 2 : duration === 30 ? 3 : 5;
   }
   if (closingDefense) {
-    durations[closingDefense.number] = duration === 15 ? 2 : duration === 30 ? 3 : 5;
+    durations[closingDefense.number] = duration === 5 ? 0.5 : duration === 15 ? 2 : duration === 30 ? 3 : 5;
   }
   if (deliberation) {
-    durations[deliberation.number] = duration === 15 ? 1 : duration === 30 ? 3 : 5;
+    durations[deliberation.number] = duration === 5 ? 0.5 : duration === 15 ? 1 : duration === 30 ? 3 : 5;
   }
   if (verdict) {
     durations[verdict.number] = 0; // No strict limit
@@ -172,6 +183,16 @@ function generatePhaseDurations(duration: TrialDuration, phases: TrialPhase[]): 
 }
 
 // Generate trial configs
+const TRIAL_CONFIGS_5 = (() => {
+  const phases = generateTrialPhases(5);
+  return {
+    duration: 5 as TrialDuration,
+    phases,
+    phaseDurations: generatePhaseDurations(5, phases),
+    maxWitnesses: 2 // Quick Play: 1 prosecution + 1 defense witness
+  };
+})();
+
 const TRIAL_CONFIGS_15 = (() => {
   const phases = generateTrialPhases(15);
   return {
@@ -203,6 +224,7 @@ const TRIAL_CONFIGS_60 = (() => {
 })();
 
 export const TRIAL_CONFIGS: Record<TrialDuration, TrialConfig> = {
+  5: TRIAL_CONFIGS_5,
   15: TRIAL_CONFIGS_15,
   30: TRIAL_CONFIGS_30,
   60: TRIAL_CONFIGS_60

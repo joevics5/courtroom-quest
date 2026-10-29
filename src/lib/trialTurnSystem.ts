@@ -10,7 +10,7 @@ export interface TurnState {
   current_witness_name: string | null;
   current_phase_type: PhaseType | null;
   current_phase_number: number;
-  questions_asked: number; // questions asked in this examination; capped by lib/questionLimits.ts (the phase clock still applies)
+  questions_asked: number; // questions asked in this examination (informational: there is no cap, the phase clock and the rest between questions pace it)
   phase_time_remaining: number; // in seconds
   witnesses_called: string[]; // witness IDs
   evidence_submitted: string[]; // evidence IDs

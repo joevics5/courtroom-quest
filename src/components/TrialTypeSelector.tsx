@@ -35,9 +35,10 @@ const COURTS: Array<{
 ];
 
 const LENGTHS: Array<{ value: TrialDuration; big: string; unit: string; label: string }> = [
-  { value: 15, big: '15', unit: 'MIN', label: 'Quick' },
+  { value: 5, big: '5', unit: 'MIN', label: 'Quick Play' },
+  { value: 15, big: '15', unit: 'MIN', label: 'Short' },
   { value: 30, big: '30', unit: 'MIN', label: 'Standard' },
-  { value: 60, big: '1', unit: 'HOUR', label: 'Full trial' }
+  { value: 60, big: '60', unit: 'MIN', label: 'Full trial' }
 ];
 
 /**
@@ -113,7 +114,7 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
 
           <div className="rounded-3xl bg-black/60 backdrop-blur-sm border border-white/15 p-3 lg:col-span-2">
             <h2 className="font-game text-2xl text-white/90 leading-none mb-2.5 px-1">HOW LONG?</h2>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {LENGTHS.map(len => {
                 const selected = selectedDuration === len.value;
                 return (
@@ -121,13 +122,13 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
                     key={len.value}
                     onClick={() => setSelectedDuration(len.value)}
                     aria-pressed={selected}
-                    className={`rounded-2xl border-2 py-2 text-center transition-all active:translate-y-0.5 ${
+                    className={`rounded-2xl border-2 py-2 px-0.5 text-center transition-all active:translate-y-0.5 ${
                       selected ? 'border-[#FFD43B] bg-[#FFD43B] text-black' : 'border-white/15 bg-white/5 text-white'
                     }`}
                   >
                     <span className="block font-game text-4xl leading-none">{len.big}</span>
                     <span className="block text-[11px] font-black tracking-widest">{len.unit}</span>
-                    <span className={`block text-[11px] font-semibold ${selected ? 'text-black/70' : 'text-white/55'}`}>{len.label}</span>
+                    <span className={`block text-[11px] font-semibold whitespace-nowrap ${selected ? 'text-black/70' : 'text-white/55'}`}>{len.label}</span>
                   </button>
                 );
               })}

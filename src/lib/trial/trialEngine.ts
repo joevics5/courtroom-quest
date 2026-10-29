@@ -76,7 +76,7 @@ export async function runTrialStep({
 }: {
   state: TrialState;
   action: 'NEXT' | 'USER_INPUT' | 'OBJECT';
-  trialDuration: 15 | 30 | 60;
+  trialDuration: 5 | 15 | 30 | 60;
   context: TrialContext;
   userInput?: string;
 }): Promise<TrialStepResult> {

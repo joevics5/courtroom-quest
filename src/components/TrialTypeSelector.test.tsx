@@ -11,11 +11,12 @@ const setup = () => {
 };
 
 describe('TrialTypeSelector', () => {
-  it('shows both courts, all three lengths and the confirm button together on one screen', () => {
+  it('shows both courts, all four lengths and the confirm button together on one screen', () => {
     const { container } = setup();
     expect(screen.getByText('BENCH TRIAL')).toBeInTheDocument();
     expect(screen.getByText('JURY TRIAL')).toBeInTheDocument();
-    expect(screen.getByText('Quick')).toBeInTheDocument();
+    expect(screen.getByText('Quick Play')).toBeInTheDocument();
+    expect(screen.getByText('Short')).toBeInTheDocument();
     expect(screen.getByText('Standard')).toBeInTheDocument();
     expect(screen.getByText('Full trial')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /PICK A COURT/ })).toBeInTheDocument();
@@ -51,11 +52,24 @@ describe('TrialTypeSelector', () => {
   it('marks the chosen court and length as pressed, and back cancels', () => {
     const { onCancel } = setup();
     fireEvent.click(screen.getByText('JURY TRIAL'));
-    fireEvent.click(screen.getByText('Quick'));
+    fireEvent.click(screen.getByText('Short'));
     expect(screen.getByText('JURY TRIAL').closest('button')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('BENCH TRIAL').closest('button')).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByText('Quick').closest('button')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Short').closest('button')).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('offers Quick Play (5 min) in the same single row as the other lengths, and 60 shows as 60 MIN', () => {
+    const { onSelect } = setup();
+    const row = screen.getByText('Quick Play').closest('button')!.parentElement as HTMLElement;
+    expect(row.className).toContain('grid-cols-4');
+    expect(row.querySelectorAll('button')).toHaveLength(4);
+    expect(screen.getByText('60')).toBeInTheDocument();
+    expect(screen.queryByText('HOUR')).toBeNull();
+    fireEvent.click(screen.getByText('BENCH TRIAL'));
+    fireEvent.click(screen.getByText('Quick Play'));
+    fireEvent.click(screen.getByRole('button', { name: /TO THE COURTROOM/ }));
+    expect(onSelect).toHaveBeenCalledWith('judge', 5);
   });
 });

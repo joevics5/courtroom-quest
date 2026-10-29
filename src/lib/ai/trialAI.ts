@@ -159,8 +159,6 @@ export interface ProsecutionContext {
   allowed_actions: AllowedAction[];
   trial_duration: number;
   witnesses_called_count: number;
-  /** Questions this side may still ask in the current examination (null = no cap / not examining). */
-  questions_remaining?: number | null;
 }
 
 export interface ProsecutionAction {
@@ -782,6 +780,17 @@ RESPOND WITH VALID JSON:
 }`;
 }
 
+/** "30 seconds", "1 minute", "3 minutes": the statement clock in words (Quick Play statements are under a minute). */
+function formatTimeLimit(minutes: number): string {
+  if (minutes < 1) return `${Math.round(minutes * 60)} seconds`;
+  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+}
+
+/** Very short clocks (Quick Play) need a very short statement; longer clocks keep the usual length. */
+function statementLengthHint(minutes: number): string {
+  return minutes < 1 ? `You only have ${formatTimeLimit(minutes)}: ONE short paragraph, about 60 words, no more` : '';
+}
+
 function buildProsecutionOpeningPrompt(context: ProsecutionOpeningContext): string {
   const timeLimit = context.timeLimitMinutes;
   const isDefense = context.side === 'defense';
@@ -814,7 +823,7 @@ ${context.investigationWitnessTranscripts}
 
 YOUR TASK: Deliver a comprehensive opening statement that SPECIFICALLY REFERENCES the investigation findings above.
 
-TIME LIMIT: ${timeLimit} ${timeLimit === 1 ? 'minute' : 'minutes'}
+TIME LIMIT: ${formatTimeLimit(timeLimit)}
 
 AVAILABLE EVIDENCE:
 ${evidenceList || 'No evidence listed yet.'}
@@ -826,7 +835,7 @@ MANDATORY REQUIREMENTS:
 ${isDefense
     ? '- DO NOT use generic statements like "my client is innocent"\n- SPECIFICALLY REFERENCE evidence from the INVESTIGATION FINDINGS section that supports your client\n- MENTION specific witness statements and what they said\n- Begin directly with substantive content (no greetings)\n- Be professional but composed and persuasive\n- Outline the defense\'s theory of the case using SPECIFIC investigation details, focused on reasonable doubt'
     : '- DO NOT use generic statements like "we will show the defendant is guilty"\n- SPECIFICALLY REFERENCE evidence from the INVESTIGATION FINDINGS section\n- MENTION specific witness statements and what they said\n- Begin directly with substantive content (no greetings)\n- Be professional but forceful and persuasive\n- Outline the prosecution\'s theory of the case using SPECIFIC investigation details'}
-- Keep it comprehensive but focused — aim for 2-4 paragraphs`;
+- ${statementLengthHint(timeLimit) || 'Keep it comprehensive but focused — aim for 2-4 paragraphs'}`;
 }
 
 function buildClosingArgumentPrompt(context: ClosingArgumentContext): string {
@@ -862,7 +871,7 @@ ${evidenceList || 'No evidence was formally submitted during the trial.'}
 WITNESSES WHO ACTUALLY TESTIFIED:
 ${witnessList || 'No witnesses were called during the trial.'}
 
-TIME LIMIT: ${timeLimit} ${timeLimit === 1 ? 'minute' : 'minutes'}
+TIME LIMIT: ${formatTimeLimit(timeLimit)}
 
 YOUR TASK: Deliver a closing argument that argues from what actually happened at trial above — this is a summation, not a preview. Do not say things like "we will show" or "we will prove"; the evidence and testimony have already been presented. Reference specific testimony and evidence from the transcript above.
 
@@ -870,11 +879,11 @@ MANDATORY REQUIREMENTS:
 ${isDefense
     ? '- SPECIFICALLY REFERENCE testimony and evidence from the trial transcript above\n- Point out gaps, inconsistencies, or reasonable doubt raised during the actual testimony\n- If a witness said something damaging to the defense, address it directly rather than ignoring it\n- Begin directly with substantive content (no greetings)\n- Be professional but composed and persuasive\n- Do not introduce new evidence or witnesses that were not part of the trial'
     : '- SPECIFICALLY REFERENCE testimony and evidence from the trial transcript above\n- Tie the actual testimony and evidence together into a coherent case for guilt beyond a reasonable doubt\n- If a witness said something damaging to the prosecution, address it directly rather than ignoring it\n- Begin directly with substantive content (no greetings)\n- Be professional but forceful and persuasive\n- Do not introduce new evidence or witnesses that were not part of the trial'}
-- Keep it comprehensive but focused — aim for 2-4 paragraphs`;
+- ${statementLengthHint(timeLimit) || 'Keep it comprehensive but focused — aim for 2-4 paragraphs'}`;
 }
 
 function buildProsecutionPrompt(context: ProsecutionContext): string {
-  const maxWitnesses = context.trial_duration === 15 ? 1 : context.trial_duration === 30 ? 2 : 3;
+  const maxWitnesses = context.trial_duration <= 15 ? 1 : context.trial_duration === 30 ? 2 : 3;
   const isDefense = context.side === 'defense';
 
   return `You are the ${isDefense ? 'Defense' : 'Prosecution'} in a courtroom trial.
@@ -897,8 +906,8 @@ WITNESS CALLING STRATEGY:
 
 RULES:
 - You may perform ONE action at a time.
-- Ask ONE question per action. Each examination has a fixed number of questions${context.questions_remaining != null ? ` — you have ${context.questions_remaining} question${context.questions_remaining === 1 ? '' : 's'} left in this one` : ''}, plus the clock, so make each one count: probe inconsistencies, pin down details, and follow up on the witness's last answer. Do not repeat a question you already asked.
-- When you run out of questions or have nothing further worth asking, choose "rest". Never ask a question that is not a real, complete question for the witness.
+- Ask ONE question per action. There is no limit on how many questions you may ask, only the clock — and after each answer there is a short enforced pause so the answer can be heard and the other side can object. Use the time well: probe inconsistencies, pin down details, and follow up on the witness's last answer. Do not repeat a question you already asked.
+- When you have nothing further worth asking, choose "rest". Never ask a question that is not a real, complete question for the witness.
 - Evidence can only be submitted while witnesses are being called and examined, never during opening or closing statements.
 - When choosing a witness, use a name exactly as it appears in AVAILABLE WITNESSES; when submitting evidence, use an ID exactly as it appears in AVAILABLE EVIDENCE.
 - You may submit only evidence listed as available.
