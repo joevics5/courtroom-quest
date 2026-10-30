@@ -5,7 +5,7 @@ let rows: Record<string, any> = {};
 vi.mock('./supabase', () => {
   const builder = (table: string) => {
     const b: any = {
-      select: () => b, eq: () => b, order: () => b, insert: () => b, update: () => b, delete: () => b,
+      select: () => b, eq: () => b, neq: () => b, order: () => b, insert: () => b, update: () => b, delete: () => b,
       single: () => Promise.resolve({ data: rows[table], error: null }),
       maybeSingle: () => Promise.resolve({ data: rows[table], error: null }),
       then: (res: any) => res({ data: Array.isArray(rows[table]) ? rows[table] : [rows[table]], error: null })

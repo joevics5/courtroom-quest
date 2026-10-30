@@ -266,6 +266,7 @@ export type Database = {
           id: string
           is_multiplayer: boolean | null
           is_preset: boolean | null
+          status: string
           minimum_tier: string | null
           title: string
           truth_state: Json | null
@@ -281,6 +282,7 @@ export type Database = {
           id?: string
           is_multiplayer?: boolean | null
           is_preset?: boolean | null
+          status?: string
           minimum_tier?: string | null
           title: string
           truth_state?: Json | null
@@ -296,6 +298,7 @@ export type Database = {
           id?: string
           is_multiplayer?: boolean | null
           is_preset?: boolean | null
+          status?: string
           minimum_tier?: string | null
           title?: string
           truth_state?: Json | null

@@ -92,17 +92,21 @@ export const db = {
   },
 
   cases: {
-    async getPresetCases(opts: { fresh?: boolean } = {}): Promise<Case[]> {
-      return cached('cases:preset', CASE_DATA_TTL_MS, async () => {
+    /** Published preset cases. Admin screens pass includeDrafts to also get the hidden ones. */
+    async getPresetCases(opts: { fresh?: boolean; includeDrafts?: boolean } = {}): Promise<Case[]> {
+      const { includeDrafts, ...cacheOpts } = opts;
+      return cached(includeDrafts ? 'cases:preset:all' : 'cases:preset', CASE_DATA_TTL_MS, async () => {
         const { data, error } = await supabase
           .from('cases')
           .select('*')
           .eq('is_preset', true)
+          // Not-equal to a value no case has keeps every row (admin view); 'draft' hides drafts.
+          .neq('status', includeDrafts ? 'none' : 'draft')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
         return (data || []) as Case[];
-      }, opts);
+      }, cacheOpts);
     },
 
     async getUserCases(userId: string): Promise<Case[]> {

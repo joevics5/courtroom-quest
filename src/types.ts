@@ -51,6 +51,8 @@ export interface Case {
   difficulty?: Difficulty;
   defendant_name?: string;
   is_preset: boolean;
+  /** 'draft' hides a preset case from players; admins still see it. */
+  status?: 'published' | 'draft';
   is_multiplayer?: boolean;
   /** Optional thumbnail for case cards; no thumbnail is drawn when empty. */
   image_url?: string | null;

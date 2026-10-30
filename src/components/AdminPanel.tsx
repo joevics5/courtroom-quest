@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
-import { ArrowLeft, Plus, Edit, Trash2, Shield, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Shield, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { db } from '../lib/database';
 import AdminCaseEditor from './AdminCaseEditor';
 import AdminCaseCreator from './AdminCaseCreator';
@@ -34,12 +34,22 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const loadPresetCases = async () => {
     try {
       setLoading(true);
-      const cases = await db.cases.getPresetCases({ fresh: true });
+      const cases = await db.cases.getPresetCases({ fresh: true, includeDrafts: true });
       setPresetCases(cases);
     } catch (error) {
       console.error('Failed to load preset cases:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleDraft = async (caseItem: Case) => {
+    try {
+      await db.cases.updateCase(caseItem.id, { status: caseItem.status === 'draft' ? 'published' : 'draft' });
+      await loadPresetCases();
+    } catch (error) {
+      console.error('Failed to change case status:', error);
+      await appAlert('Could not change the case status.');
     }
   };
 
@@ -260,6 +270,9 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                           {caseItem.description}
                         </p>
                         <div className="flex items-center gap-2 mt-3">
+                          <span className={`text-xs px-2 py-1 rounded font-medium ${caseItem.status === 'draft' ? 'text-amber-300 bg-amber-500/15' : 'text-green-400 bg-green-500/10'}`}>
+                            {caseItem.status === 'draft' ? 'draft (hidden)' : 'published'}
+                          </span>
                           {caseItem.difficulty && (
                             <span className="text-xs px-2 py-1 rounded font-medium text-blue-400 bg-blue-500/10">
                               {caseItem.difficulty}
@@ -268,6 +281,13 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                         </div>
                       </div>
                       <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => toggleDraft(caseItem)}
+                          title={caseItem.status === 'draft' ? 'Publish (show to players)' : 'Set to draft (hide from players)'}
+                          className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                        >
+                          {caseItem.status === 'draft' ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
                         <button
                           onClick={() => { setCreatorCaseId(caseItem.id); setShowCreator(true); }}
                           title="Improve with AI"
