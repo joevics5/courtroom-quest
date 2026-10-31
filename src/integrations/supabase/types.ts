@@ -84,6 +84,7 @@ export type Database = {
           opponent_user_id: string | null
           session_id: string | null
           status: string
+          reference: string | null
         }
         Insert: {
           allow_spectators?: boolean
@@ -97,6 +98,7 @@ export type Database = {
           opponent_user_id?: string | null
           session_id?: string | null
           status?: string
+          reference?: string | null
         }
         Update: {
           allow_spectators?: boolean
@@ -110,6 +112,7 @@ export type Database = {
           opponent_user_id?: string | null
           session_id?: string | null
           status?: string
+          reference?: string | null
         }
         Relationships: [
           {

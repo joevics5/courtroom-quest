@@ -53,6 +53,8 @@ export interface Case {
   is_preset: boolean;
   /** 'draft' hides a preset case from players; admins still see it. */
   status?: 'published' | 'draft';
+  /** Admin note: the real-world case a fictionalized case is inspired by. */
+  reference?: string | null;
   is_multiplayer?: boolean;
   /** Optional thumbnail for case cards; no thumbnail is drawn when empty. */
   image_url?: string | null;
