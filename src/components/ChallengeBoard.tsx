@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock, ChevronRight, Globe, Lock, Link2 } from 'lucide-react';
+import { Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock, ChevronRight, Lock, Link2 } from 'lucide-react';
 import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
 import CaseBoard from './CaseBoard';
@@ -619,28 +619,26 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
             <SidePicker value={selectedRole} onChange={setSelectedRole} className="mb-4" />
 
             <label className={LABEL}>Who can accept it</label>
-            <div className="grid grid-cols-2 gap-3 mb-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <button
                 type="button"
                 onClick={() => setCreatePublic(true)}
                 aria-pressed={createPublic}
-                className={`p-3 rounded-2xl border-2 border-b-[5px] flex flex-col items-center gap-1 transition-all active:translate-y-0.5 active:border-b-2 ${
-                  createPublic ? 'border-[#FFD43B] bg-[#FFD43B]/10' : 'border-white/15 bg-white/5'
+                className={`h-10 rounded-full border text-sm font-semibold tracking-wide transition-colors active:bg-white/10 ${
+                  createPublic ? 'border-[#FFD43B] bg-[#FFD43B]/15 text-[#FFD43B]' : 'border-white/15 bg-white/5 text-white/70'
                 }`}
               >
-                <Globe className="w-6 h-6 text-[#FFD43B]" />
-                <span className="font-game text-2xl text-white leading-none">PUBLIC</span>
+                PUBLIC
               </button>
               <button
                 type="button"
                 onClick={() => setCreatePublic(false)}
                 aria-pressed={!createPublic}
-                className={`p-3 rounded-2xl border-2 border-b-[5px] flex flex-col items-center gap-1 transition-all active:translate-y-0.5 active:border-b-2 ${
-                  !createPublic ? 'border-[#FFD43B] bg-[#FFD43B]/10' : 'border-white/15 bg-white/5'
+                className={`h-10 rounded-full border text-sm font-semibold tracking-wide transition-colors active:bg-white/10 ${
+                  !createPublic ? 'border-[#FFD43B] bg-[#FFD43B]/15 text-[#FFD43B]' : 'border-white/15 bg-white/5 text-white/70'
                 }`}
               >
-                <Lock className="w-6 h-6 text-[#FFD43B]" />
-                <span className="font-game text-2xl text-white leading-none">PRIVATE</span>
+                PRIVATE
               </button>
             </div>
             <p className="text-white/50 text-xs mb-6">
