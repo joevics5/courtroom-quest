@@ -978,9 +978,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
     console.log('[Courtroom] Scheduling AI turn for witness phase', currentPhase, turnState);
 
+    // After a failed or empty AI turn, wait a few seconds before trying again.
+    const delay = aiNoopTurnsRef.current > 0 ? 5000 : 1500;
     const timer = setTimeout(() => {
       handleProsecutionTurn();
-    }, 1500);
+    }, delay);
 
     return () => clearTimeout(timer);
   }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole, timerPaused, aiHold, questionRestLeft, isProcessingObjection]);
@@ -1245,19 +1247,13 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // The player left while the AI was thinking: don't write its turn or move the trial on.
       if (!aliveRef.current) return;
       const progressed = await executeProsecutionAction(action);
-      // An AI move that did nothing (no usable question, unknown witness...) would otherwise be retried
-      // forever. After two in a row the AI simply rests, so the trial always moves on.
-      if (progressed === false) {
-        aiNoopTurnsRef.current += 1;
-        if (aiNoopTurnsRef.current >= 2) {
-          aiNoopTurnsRef.current = 0;
-          await handleRestPhaseRef.current();
-        }
-      } else {
-        aiNoopTurnsRef.current = 0;
-      }
+      // An AI move that did nothing (no usable question, unknown witness...) never ends the AI's turn:
+      // the phase clock does that. It is just retried after a short pause (see the trigger effect), so
+      // a failing AI service is not hammered every 1.5 seconds.
+      aiNoopTurnsRef.current = progressed === false ? aiNoopTurnsRef.current + 1 : 0;
     } catch (error) {
       console.error('Failed to handle prosecution turn:', error);
+      aiNoopTurnsRef.current += 1; // same short pause before the retry
     } finally {
       setIsProsecutionThinking(false);
     }
