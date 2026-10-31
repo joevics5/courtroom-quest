@@ -90,7 +90,14 @@ Deno.serve(async (req: Request) => {
 
     let lastError: string | null = null;
 
-    for (const model of FALLBACK_MODELS) {
+    // Gemini preview models sometimes hang for a minute or more before answering 503. Give each model
+    // a bounded time so the next fallback takes over quickly; the last model gets the most patience.
+    // Short replies (examiner moves, witness answers) are cut off sooner than long statements.
+    const baseTimeoutMs = maxTokens <= 1000 ? 12_000 : 25_000;
+
+    for (let i = 0; i < FALLBACK_MODELS.length; i++) {
+      const model = FALLBACK_MODELS[i];
+      const isLast = i === FALLBACK_MODELS.length - 1;
       try {
         console.log(`[ai-generate] attempting model: ${model}`);
         const response = await fetch(
@@ -98,6 +105,7 @@ Deno.serve(async (req: Request) => {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(isLast ? baseTimeoutMs * 2 : baseTimeoutMs),
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: {
@@ -135,7 +143,9 @@ Deno.serve(async (req: Request) => {
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       } catch (err) {
-        lastError = `${model}: ${err instanceof Error ? err.message : String(err)}`;
+        const timedOut = err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError");
+        lastError = `${model}: ${timedOut ? "timed out" : err instanceof Error ? err.message : String(err)}`;
+        console.error(`[ai-generate] ${lastError}`);
         continue;
       }
     }
