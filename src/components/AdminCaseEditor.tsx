@@ -5,6 +5,7 @@ import { db } from '../lib/database';
 import { supabase } from '../lib/supabase';
 import type { Case, CaseType, EvidenceType } from '../types';
 import { exhibitLabel } from '../lib/exhibitLabel';
+import { uploadCaseImage, checkImageFile, parseFileUrls, isImageUrl } from '../lib/caseImages';
 
 interface AdminCaseEditorProps {
   caseId: string;
@@ -32,7 +33,8 @@ interface EvidenceForm {
   aiDescription?: string;
   /** Admin-only: prompt to create the image or document. Stored in evidence_secrets. */
   prompt?: string;
-  files?: File[];
+  /** New files picked in this session, keyed by their temporary preview link. Uploaded when the case is saved. */
+  pendingFiles?: Record<string, File>;
   fileUrls?: string[];
 }
 
@@ -40,6 +42,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
   const [step, setStep] = useState<'info' | 'evidence' | 'witnesses'>('info');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingThumb, setUploadingThumb] = useState(false);
   const secretsRef = useRef<Record<string, any>>({});
 
   const [caseInfo, setCaseInfo] = useState({
@@ -82,20 +85,10 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
         secretsRef.current = secretRows;
 
         setEvidenceItems(caseData.evidence.map(e => {
-          let fileUrls: string[] = [];
-
-          // Handle multiple file URLs stored as JSON string or single URL
-          if (e.file_urls) {
-            fileUrls = e.file_urls;
-          } else if (e.file_url) {
-            // Try to parse as JSON array, fallback to single URL
-            try {
-              const parsed = JSON.parse(e.file_url);
-              fileUrls = Array.isArray(parsed) ? parsed : [e.file_url];
-            } catch {
-              fileUrls = [e.file_url];
-            }
-          }
+          // Dead browser-only links (blob:) from older saves are dropped; real picture URLs are kept.
+          const fileUrls: string[] = e.file_urls
+            ? e.file_urls.filter((u: string) => !u.startsWith('blob:'))
+            : parseFileUrls(e.file_url);
 
           return {
             id: e.id,
@@ -164,19 +157,25 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
   const handleEvidenceFileUpload = (index: number, files: FileList | null) => {
     if (!files) return;
 
+    const picked = Array.from(files);
     const updated = [...evidenceItems];
     const currentItem = updated[index];
-    const currentFiles = currentItem.files || [];
-    const currentUrls = currentItem.fileUrls || [];
-
-    // Add new files to existing arrays
-    const newFiles = Array.from(files);
-    const newUrls = newFiles.map(file => URL.createObjectURL(file));
+    const pending = { ...(currentItem.pendingFiles || {}) };
+    const newUrls: string[] = [];
+    for (const file of picked) {
+      if (file.type.startsWith('image/')) {
+        const problem = checkImageFile(file);
+        if (problem) { void appAlert({ title: 'PICTURE NOT ADDED', message: `${file.name}: ${problem}`, tone: 'error' }); continue; }
+      }
+      const url = URL.createObjectURL(file);
+      pending[url] = file;
+      newUrls.push(url);
+    }
 
     updated[index] = {
       ...currentItem,
-      files: [...currentFiles, ...newFiles],
-      fileUrls: [...currentUrls, ...newUrls]
+      pendingFiles: pending,
+      fileUrls: [...(currentItem.fileUrls || []), ...newUrls]
     };
 
     setEvidenceItems(updated);
@@ -185,21 +184,40 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
   const removeEvidenceFile = (evidenceIndex: number, fileIndex: number) => {
     const updated = [...evidenceItems];
     const currentItem = updated[evidenceIndex];
-    const currentFiles = currentItem.files || [];
     const currentUrls = currentItem.fileUrls || [];
+    const removed = currentUrls[fileIndex];
+    const pending = { ...(currentItem.pendingFiles || {}) };
 
-    // Remove the file and revoke the URL
-    if (currentUrls[fileIndex]) {
-      URL.revokeObjectURL(currentUrls[fileIndex]);
+    if (removed && pending[removed]) {
+      URL.revokeObjectURL(removed);
+      delete pending[removed];
     }
 
     updated[evidenceIndex] = {
       ...currentItem,
-      files: currentFiles.filter((_, i) => i !== fileIndex),
+      pendingFiles: pending,
       fileUrls: currentUrls.filter((_, i) => i !== fileIndex)
     };
 
     setEvidenceItems(updated);
+  };
+
+  const handleThumbnailUpload = async (file: File | undefined) => {
+    if (!file) return;
+    const problem = checkImageFile(file);
+    if (problem) { void appAlert({ title: 'PICTURE NOT ADDED', message: problem, tone: 'error' }); return; }
+    try {
+      setUploadingThumb(true);
+      const url = await uploadCaseImage(file, `thumbnails/${caseId}`);
+      // Saved straight away so the thumbnail is never lost if the rest of the case isn't saved.
+      await db.cases.updateCase(caseId, { image_url: url, updated_at: new Date().toISOString() });
+      setCaseInfo((info) => ({ ...info, image_url: url }));
+    } catch (error) {
+      console.error('Thumbnail upload failed:', error);
+      void appAlert({ title: "THUMBNAIL WASN'T UPLOADED", message: 'Could not upload the thumbnail. Check that you are signed in as an admin and try again.', tone: 'error' });
+    } finally {
+      setUploadingThumb(false);
+    }
   };
 
   const addWitness = () => {
@@ -286,10 +304,18 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
       // Update or create evidence
       for (const item of evidenceItems) {
         if (item.title) {
+          // Files picked this session are uploaded now, so the saved link works for every player (a browser
+          // preview link would only ever work in this tab).
+          const finalUrls: string[] = [];
+          for (const url of item.fileUrls || []) {
+            const file = item.pendingFiles?.[url];
+            if (!file) { if (!url.startsWith('blob:')) finalUrls.push(url); continue; }
+            finalUrls.push(await uploadCaseImage(file, `evidence/${caseId}`));
+          }
           // Store multiple file URLs as JSON string if there are multiple files
-          const fileUrlData = item.fileUrls && item.fileUrls.length > 1
-            ? JSON.stringify(item.fileUrls)
-            : (item.fileUrls && item.fileUrls.length === 1 ? item.fileUrls[0] : undefined);
+          const fileUrlData = finalUrls.length > 1
+            ? JSON.stringify(finalUrls)
+            : (finalUrls.length === 1 ? finalUrls[0] : null);
 
           if (item.id) {
             await db.evidence.updateEvidence(item.id, {
@@ -462,11 +488,33 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
                       type="url"
                       value={caseInfo.image_url}
                       onChange={(e) => setCaseInfo({ ...caseInfo, image_url: e.target.value })}
-                      placeholder="https://… (leave empty for no thumbnail)"
+                      placeholder="https://… (or upload a picture below)"
                       className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">Shown as a small picture on the case card. Hidden when empty.</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <label className={`flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded cursor-pointer transition-colors ${uploadingThumb ? 'opacity-60 pointer-events-none' : ''}`}>
+                      <Upload className="w-4 h-4" />
+                      {uploadingThumb ? 'Uploading…' : 'Upload thumbnail'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        data-testid="thumbnail-upload"
+                        className="hidden"
+                        onChange={(e) => { void handleThumbnailUpload(e.target.files?.[0]); e.target.value = ''; }}
+                      />
+                    </label>
+                    {caseInfo.image_url.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setCaseInfo({ ...caseInfo, image_url: '' })}
+                        className="text-sm text-red-400 hover:text-red-300"
+                      >
+                        Remove thumbnail
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Shown as a small picture on the case card. With none, the first picture in the evidence is used instead.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -604,11 +652,13 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
                                 {item.fileUrls.map((url, fileIndex) => (
                                   <div key={fileIndex} className="flex items-center justify-between bg-slate-700 rounded px-3 py-2">
                                     <div className="flex items-center gap-2">
-                                      {getEvidenceIcon(item.type)}
+                                      {(item.pendingFiles?.[url]?.type.startsWith('image/') || isImageUrl(url)) ? (
+                                        <img src={url} alt="" className="w-10 h-10 rounded object-cover border border-slate-600" />
+                                      ) : getEvidenceIcon(item.type)}
                                       <span className="text-sm text-slate-300">
                                         File {fileIndex + 1}
-                                        {item.files && item.files[fileIndex] && (
-                                          <span className="text-slate-400 ml-2">({item.files[fileIndex].name})</span>
+                                        {item.pendingFiles?.[url] && (
+                                          <span className="text-slate-400 ml-2">({item.pendingFiles[url].name}, uploads on save)</span>
                                         )}
                                       </span>
                                     </div>

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
-import { ArrowLeft, Plus, Edit, Trash2, Shield, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Shield, Sparkles, Eye, EyeOff, ImagePlus } from 'lucide-react';
 import { db } from '../lib/database';
 import AdminCaseEditor from './AdminCaseEditor';
 import AdminCaseCreator from './AdminCaseCreator';
+import CaseThumb from './CaseThumb';
+import { uploadCaseImage, checkImageFile } from '../lib/caseImages';
 import type { Case, CaseType, Difficulty } from '../types';
 
 interface AdminPanelProps {
@@ -13,6 +15,7 @@ interface AdminPanelProps {
 export default function AdminPanel({ onBack }: AdminPanelProps) {
   const [presetCases, setPresetCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [editingCase, setEditingCase] = useState<Case | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
@@ -40,6 +43,23 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
       console.error('Failed to load preset cases:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const uploadThumbnail = async (caseItem: Case, file: File | undefined) => {
+    if (!file) return;
+    const problem = checkImageFile(file);
+    if (problem) { await appAlert(problem); return; }
+    try {
+      setUploadingFor(caseItem.id);
+      const url = await uploadCaseImage(file, `thumbnails/${caseItem.id}`);
+      await db.cases.updateCase(caseItem.id, { image_url: url, updated_at: new Date().toISOString() });
+      await loadPresetCases();
+    } catch (error) {
+      console.error('Failed to upload thumbnail:', error);
+      await appAlert('Could not upload the thumbnail. Check that you are signed in as an admin and try again.');
+    } finally {
+      setUploadingFor(null);
     }
   };
 
@@ -259,6 +279,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                     className="bg-slate-750 rounded-lg p-4 border border-slate-600"
                   >
                     <div className="flex items-start justify-between">
+                      <CaseThumb src={caseItem.image_url} className="mr-3" />
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-white mb-1">
                           {caseItem.title}
@@ -281,6 +302,19 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
                         </div>
                       </div>
                       <div className="flex gap-2 ml-4">
+                        <label
+                          title="Upload thumbnail"
+                          className={`p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer ${uploadingFor === caseItem.id ? 'opacity-50 pointer-events-none' : ''}`}
+                        >
+                          <ImagePlus className="w-4 h-4" />
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            className="hidden"
+                            data-testid={`thumb-upload-${caseItem.id}`}
+                            onChange={(e) => { void uploadThumbnail(caseItem, e.target.files?.[0]); e.target.value = ''; }}
+                          />
+                        </label>
                         <button
                           onClick={() => toggleDraft(caseItem)}
                           title={caseItem.status === 'draft' ? 'Publish (show to players)' : 'Set to draft (hide from players)'}

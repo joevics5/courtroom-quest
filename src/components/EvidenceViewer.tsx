@@ -2,6 +2,7 @@ import { FileText, Image, Video, Mic, Users, Package, Database, FileCheck, Messa
 import type { Evidence } from '../types';
 import ScreenShell from './ScreenShell';
 import { PANEL, gameButton } from './ui';
+import { parseFileUrls, isImageUrl } from '../lib/caseImages';
 
 interface EvidenceViewerProps {
   evidence: Evidence;
@@ -33,6 +34,8 @@ const formatEvidenceType = (type: string) => {
 export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps) {
   const Icon = getEvidenceIcon(evidence.evidence_type);
   const label = 'text-xs font-black tracking-widest text-[#FFD43B] mb-2';
+  const urls = parseFileUrls(evidence.file_url);
+  const attachments = { images: urls.filter(isImageUrl), files: urls.filter((u) => !isImageUrl(u)) };
 
   return (
     <ScreenShell title={evidence.exhibit_label || 'EVIDENCE'} subtitle="Back to the investigation with the arrow." onBack={onBack} maxWidth="max-w-3xl">
@@ -64,13 +67,33 @@ export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps
           </div>
         )}
 
-        {evidence.file_url && (
+        {attachments.images.length > 0 && (
+          <div className="space-y-3">
+            {attachments.images.map((url) => (
+              <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                <img
+                  src={url}
+                  alt={evidence.title}
+                  loading="lazy"
+                  data-testid="evidence-image"
+                  className="w-full max-h-[60vh] object-contain rounded-2xl border border-white/15 bg-black/30"
+                />
+              </a>
+            ))}
+          </div>
+        )}
+
+        {attachments.files.length > 0 && (
           <div>
             <h3 className={label}>ATTACHMENT</h3>
-            <a href={evidence.file_url} target="_blank" rel="noopener noreferrer" className={gameButton('gold', 'sm')}>
-              <FileText className="w-4 h-4" />
-              View File
-            </a>
+            <div className="flex flex-wrap gap-2">
+              {attachments.files.map((url, i) => (
+                <a key={url} href={url} target="_blank" rel="noopener noreferrer" className={gameButton('gold', 'sm')}>
+                  <FileText className="w-4 h-4" />
+                  {attachments.files.length > 1 ? `View File ${i + 1}` : 'View File'}
+                </a>
+              ))}
+            </div>
           </div>
         )}
 

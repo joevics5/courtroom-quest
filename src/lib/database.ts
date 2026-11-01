@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { firstImageUrl } from './caseImages';
 import { cached, invalidate, CASE_DATA_TTL_MS } from './dataCache';
 import type {
   Case,
@@ -34,6 +35,36 @@ export interface ChallengePreview {
   status: 'open' | 'matched' | 'cancelled';
   is_public: boolean;
   is_mine: boolean;
+}
+
+
+/**
+ * A case with no thumbnail of its own borrows the first picture attached to its evidence. A thumbnail that was
+ * attached to the case always wins. Best effort: if the evidence can't be read the cases come back unchanged.
+ */
+async function withEvidenceThumbnails(cases: Case[]): Promise<Case[]> {
+  const missing = cases.filter((c) => !c.image_url?.trim()).map((c) => c.id);
+  if (!missing.length) return cases;
+  try {
+    const { data, error } = await supabase
+      .from('evidence')
+      .select('case_id, file_url, exhibit_label')
+      .in('case_id', missing)
+      .eq('is_hidden', false)
+      .not('file_url', 'is', null)
+      .order('exhibit_label', { ascending: true });
+    if (error || !data) return cases;
+    const byCase = new Map<string, string>();
+    for (const row of data as { case_id: string; file_url: string | null }[]) {
+      if (byCase.has(row.case_id)) continue;
+      const url = firstImageUrl(row.file_url);
+      if (url) byCase.set(row.case_id, url);
+    }
+    if (!byCase.size) return cases;
+    return cases.map((c) => (byCase.has(c.id) ? { ...c, image_url: byCase.get(c.id) } : c));
+  } catch {
+    return cases;
+  }
 }
 
 export const db = {
@@ -105,7 +136,7 @@ export const db = {
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return (data || []) as Case[];
+        return withEvidenceThumbnails((data || []) as Case[]);
       }, cacheOpts);
     },
 
@@ -118,7 +149,7 @@ export const db = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as Case[];
+      return withEvidenceThumbnails((data || []) as Case[]);
     },
 
     async getUserCasesWithSessionStatus(userId: string): Promise<(Case & { has_sessions: boolean; has_completed_sessions: boolean; current_phase?: string })[]> {
