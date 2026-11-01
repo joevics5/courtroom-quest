@@ -90,6 +90,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
               <h3 className="text-lg font-semibold text-white">
                 {caseItem.title}
               </h3>
+              {caseItem.versus && <p className="text-sm text-white/60">({caseItem.versus})</p>}
               <p className="text-sm text-white/55 mt-1 capitalize">{caseItem.case_type}</p>
             </div>
             <div className="absolute top-0 right-0 flex items-center gap-2">

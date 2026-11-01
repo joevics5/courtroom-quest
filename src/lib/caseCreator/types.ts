@@ -91,6 +91,8 @@ export interface Draft {
     description: string; jurisdiction: string; court_type: string; location: string; time_period: string;
     estimated_minutes: number | null; min_players: number | null; max_players: number | null;
     primary_dispute: string; secondary_disputes: string[];
+    /** "Ella vs. Nelson": shown in brackets under the title on case cards. */
+    versus?: string;
   };
   truth: Record<string, any>;
   facts: { id: string; text: string; status: string; public: boolean }[];

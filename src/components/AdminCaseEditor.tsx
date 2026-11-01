@@ -47,6 +47,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
 
   const [caseInfo, setCaseInfo] = useState({
     title: '',
+    versus: '',
     defendant_name: '',
     description: '',
     caseType: 'burglary' as CaseType,
@@ -69,6 +70,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
       if (caseData) {
         setCaseInfo({
           title: caseData.title,
+          versus: caseData.versus || '',
           defendant_name: caseData.defendant_name || (caseData.truth_state as any)?.defendant_name || '',
           description: caseData.description,
           caseType: caseData.case_type,
@@ -281,6 +283,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
       // Update case info
       await db.cases.updateCase(caseId, {
         title: caseInfo.title,
+        versus: caseInfo.versus.trim() || null,
         defendant_name: caseInfo.defendant_name,
         description: caseInfo.description,
         case_type: caseInfo.caseType,
@@ -454,6 +457,19 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
                     value={caseInfo.title}
                     onChange={(e) => setCaseInfo({ ...caseInfo, title: e.target.value })}
                     placeholder="The State vs. John Doe"
+                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Versus (shown in brackets under the title)
+                  </label>
+                  <input
+                    type="text"
+                    value={caseInfo.versus}
+                    onChange={(e) => setCaseInfo({ ...caseInfo, versus: e.target.value })}
+                    placeholder="Ella vs. Nelson"
                     className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

@@ -75,6 +75,8 @@ async function insertDraft(d: Draft, asCustom = false): Promise<string> {
       difficulty: c.difficulty || 'medium',
       defendant_name: c.defendant_name?.trim() || null,
       subtitle: c.subtitle?.trim() || null,
+    // Only written when the draft carries it, so an AI-made draft never wipes a hand-typed value.
+    ...(c.versus !== undefined ? { versus: c.versus.trim() || null } : {}),
       jurisdiction: c.jurisdiction?.trim() || null,
       court_type: c.court_type?.trim() || null,
       location: c.location?.trim() || null,

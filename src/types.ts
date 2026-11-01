@@ -55,6 +55,8 @@ export interface Case {
   status?: 'published' | 'draft';
   /** Admin note: the real-world case a fictionalized case is inspired by. */
   reference?: string | null;
+  /** Who is against whom, e.g. "Ella vs. Nelson". Shown in brackets under the title on case cards. */
+  versus?: string | null;
   is_multiplayer?: boolean;
   /** Optional thumbnail for case cards; no thumbnail is drawn when empty. */
   image_url?: string | null;

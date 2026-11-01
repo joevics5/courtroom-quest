@@ -56,6 +56,7 @@ export default function CaseOfTheWeek({ onPlayCase }: Props) {
       </div>
 
       <h3 className="font-game text-4xl text-white leading-none mt-3">{featuredCase.title}</h3>
+      {featuredCase.versus && <p className="text-white/60 text-sm mt-1">({featuredCase.versus})</p>}
       <p className="text-white/70 text-sm mt-2 line-clamp-2">{featuredCase.description}</p>
 
       <button

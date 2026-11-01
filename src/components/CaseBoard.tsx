@@ -344,6 +344,9 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
                   <h3 className="font-game text-3xl leading-none text-white group-hover:text-[#FFD43B] transition-colors">
                     {caseItem.title}
+                    {caseItem.versus && (
+                      <span className="block mt-1 font-sans text-sm font-normal tracking-normal text-white/60">({caseItem.versus})</span>
+                    )}
                   </h3>
                   <button
                     onClick={(e) => {
