@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { Gavel } from 'lucide-react';
+import { ArrowLeft, Gavel } from 'lucide-react';
 import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName, aiDefenseName, plainLawyerName } from '../lib/trialConfig';
 import type { PlayerRole } from '../types';
 import { canSpeak, enterSpeechScope, speakAs, stopSpeaking } from '../lib/speech';
@@ -31,6 +31,8 @@ interface PreTrialScriptProps {
   /** The player's cases won: sets their rank, which dresses their avatar. */
   playerWins?: number;
   onComplete: (pleaGuilty: boolean, judgeName: string, prosecutorName: string) => void;
+  /** Leave the pre-trial (the session is kept; it can be continued later). */
+  onBack?: () => void;
 }
 
 type PreTrialPhase =
@@ -42,7 +44,7 @@ type PreTrialPhase =
   | 'plea_complete'
   | 'start_trial';
 
-export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, playerRole = 'defense', sessionId = '', playerWins = 0, onComplete }: PreTrialScriptProps) {
+export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, playerRole = 'defense', sessionId = '', playerWins = 0, onComplete, onBack }: PreTrialScriptProps) {
   const [phase, setPhase] = useState<PreTrialPhase>('idle');
   // Fall back to a fresh random pick only if a caller doesn't supply one
   // (e.g. an old session created before this was lifted to App.tsx).
@@ -316,6 +318,16 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
         style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)', paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}
       >
         <header className="relative text-center max-w-md lg:max-w-2xl w-full mx-auto px-12">
+          {onBack && (
+            <button
+              type="button"
+              onClick={() => { cancelScript(); onBack(); }}
+              aria-label="Back"
+              className="absolute left-0 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-black/55 border border-white/15 text-white active:bg-white/15"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
           <SpeechToggle className="absolute right-0 top-0" />
           <h1 className="logo-gold font-game text-4xl lg:text-5xl leading-none">COURT IS IN SESSION</h1>
           <p className="text-white/60 text-sm mt-2 truncate">{caseTitle}</p>

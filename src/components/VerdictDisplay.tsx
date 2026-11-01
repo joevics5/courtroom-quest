@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { appAlert } from '../lib/appDialog';
-import { CheckCircle, FileText, Home, Share2, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, FileText, Home, Share2, XCircle } from 'lucide-react';
 import type { Verdict, TrialEvent, PlayerRole, CaseSession } from '../types';
 import { db } from '../lib/database';
 import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
@@ -26,11 +26,13 @@ interface VerdictDisplayProps {
   /** Cases won so far (after this one): shows rank progress and a NEW RANK badge. */
   wins?: number;
   onReturnHome: () => void;
+  /** Back arrow in the corner (goes where Return Home goes). */
+  onBack?: () => void;
   /** The judge granted an appeal and the case is back at the start of the pre-trial. */
   onReopenCase?: (session: CaseSession) => void;
 }
 
-export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playerRole, wins, onReturnHome, onReopenCase }: VerdictDisplayProps) {
+export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playerRole, wins, onReturnHome, onBack, onReopenCase }: VerdictDisplayProps) {
   const { user } = useAuth();
   // isWin reflects whether the PLAYER won their case, not the raw AI
   // outcome field (which is an absolute guilty/not-guilty call and means
@@ -118,6 +120,16 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
         style={{ paddingTop: 'max(env(safe-area-inset-top), 20px)', paddingBottom: 'max(env(safe-area-inset-bottom), 32px)' }}
       >
         <div className="max-w-2xl mx-auto space-y-5">
+          {(onBack ?? onReturnHome) && (
+            <button
+              type="button"
+              onClick={onBack ?? onReturnHome}
+              aria-label="Back"
+              className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white active:bg-white/15"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
           {/* result */}
           <section className="text-center">
             <div

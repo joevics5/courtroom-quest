@@ -20,16 +20,16 @@ type ButtonVariant = 'gold' | 'ghost' | 'danger' | 'outline';
 type ButtonSize = 'md' | 'sm';
 
 const BUTTON_BASE =
-  'inline-flex items-center justify-center gap-2 rounded-xl font-game leading-none transition-all active:translate-y-0.5 disabled:cursor-not-allowed';
+  'inline-flex items-center justify-center gap-2 rounded-xl text-center font-game leading-none transition-all active:translate-y-0.5 disabled:cursor-not-allowed';
 const BUTTON_SIZE: Record<ButtonSize, string> = {
   md: 'text-2xl px-5 py-3',
   sm: 'text-xl px-4 py-2.5'
 };
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  gold: 'bg-[#FFD43B] text-black border-b-4 border-[#B8860B] active:border-b-2 disabled:bg-white/15 disabled:text-white/40 disabled:border-white/10',
-  ghost: 'bg-white/10 text-white border border-white/20 disabled:text-white/35 disabled:bg-white/5',
-  danger: 'bg-[#E5484D] text-white border-b-4 border-[#9b1c22] active:border-b-2 disabled:bg-white/15 disabled:text-white/40 disabled:border-white/10',
-  outline: 'bg-transparent text-[#FFD43B] border-2 border-[#FFD43B]/70 disabled:text-white/35 disabled:border-white/15'
+  gold: 'bg-[#FFD43B] text-black border-b-4 border-[#B8860B] active:border-b-2 disabled:bg-[#2a2f42] disabled:text-white/80 disabled:border-white/25',
+  ghost: 'bg-white/10 text-white border border-white/20 disabled:text-white/75 disabled:bg-white/10',
+  danger: 'bg-[#E5484D] text-white border-b-4 border-[#9b1c22] active:border-b-2 disabled:bg-[#2a2f42] disabled:text-white/80 disabled:border-white/25',
+  outline: 'bg-transparent text-[#FFD43B] border-2 border-[#FFD43B]/70 disabled:text-white/75 disabled:border-white/30'
 };
 
 /** Class string for a game button: `className={gameButton('gold')}` */

@@ -792,7 +792,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     try {
       // If we're in a witness examination phase, treat input as a question
       if (turnState.current_witness_id && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect')) {
-        await handleAskQuestion(input, turnState.current_witness_id);
+        await handleAskQuestion(input, turnState.current_witness_id, sameDevicePlay ? (turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense') : playerRole);
         // handleAskQuestion re-opens awaitingUserInput itself (for the
         // human's own turn / pass & play) so a follow-up question can be
         // asked right away — don't clear it again here.
@@ -1345,7 +1345,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       case 'ask_question': {
         const question = (action.content || '').trim();
         if (!question || !turnState.current_witness_id) return false;
-        await handleAskQuestion(question, turnState.current_witness_id);
+        await handleAskQuestion(question, turnState.current_witness_id, aiRole);
         return true;
       }
 
@@ -1431,8 +1431,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         id: `temp-${Date.now()}`,
         session_id: session.id,
         event_type: 'opening',
-        speaker_role: 'prosecution',
-        speaker_name: plainLawyerName(prosecutorName || 'Prosecution'),
+        speaker_role: aiRole,
+        speaker_name: aiRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
         content: statement,
         timestamp: new Date().toISOString(),
         metadata: { phase: currentPhase },
@@ -1671,7 +1671,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const phaseAtStart = turnState.current_phase_number;
 
     const callerRole: 'prosecution' | 'defense' = turnState.current_turn === 'defense' ? 'defense' : 'prosecution';
-    const callerName = callerRole === 'prosecution' ? plainLawyerName(prosecutorName || 'Prosecution') : effectiveDefenseName;
+    const callerName = callerRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName;
 
     const event = await db.trialEvents.addEvent({
       session_id: session.id,
@@ -1727,7 +1727,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   };
 
   // Handle asking a question to witness
-  const handleAskQuestion = async (question: string, witnessId: string) => {
+  // `asker` is who actually sent the question. The caller knows (the human's own side, or the AI's side),
+  // so a question sent just as the turn flips is never filed under the other counsel.
+  const handleAskQuestion = async (question: string, witnessId: string, asker?: 'prosecution' | 'defense') => {
     if (!turnState) return;
     // Still inside the rest after the last answer, or in the break between counsel: nothing is asked.
     if (questionRestRef.current !== null || handoffRef.current !== null) return;
@@ -1742,9 +1744,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     // answer takes seconds to come back and the trial may have moved on by then.
     const phaseAtStart = turnState.current_phase_number;
     const examinationType = turnState.current_phase_type;
-    const askerRole: 'prosecution' | 'defense' = turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense';
-    const askerIsAi = turnState.current_turn === aiRole;
-    const humanAsking = turnState.current_turn === playerRole || sameDevicePlay;
+    const askerRole: 'prosecution' | 'defense' = asker ?? (turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense');
+    const askerIsAi = !isMultiplayer && askerRole === aiRole;
+    const humanAsking = !askerIsAi && (askerRole === playerRole || sameDevicePlay);
     const askedNow = (turnState.questions_asked ?? 0) + 1;
     // What this witness has already said, before this question joins the transcript.
     const earlierEvents = eventsRef.current;

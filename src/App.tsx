@@ -1078,6 +1078,7 @@ function AppContent() {
           sessionId={currentSession.id}
           playerWins={userProfile?.wins_count ?? 0}
           onComplete={handlePreTrialComplete}
+          onBack={handleBackFromCourtroom}
         />
       )}
 
@@ -1106,6 +1107,7 @@ function AppContent() {
           playerRole={getSessionPlayerRole(currentSession, user.id)}
           wins={userProfile?.wins_count}
           onReturnHome={handleReturnHome}
+          onBack={handleReturnHome}
           onReopenCase={handleReopenCase}
         />
       )}
