@@ -1,5 +1,7 @@
 import { useLockPageScroll } from '@/lib/useLockPageScroll';
 import { questionRestSeconds, questionRestLabel, OBJECTION_WINDOW_SECONDS } from '@/lib/questionRest';
+import { HANDOFF_SECONDS, statementGiven, legacyStatementMinutes } from '@/lib/witnessPool';
+import { planNextPhase as planNextPhasePure } from '@/lib/witnessPlan';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
 import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, Mic, Gavel, Shield, Landmark } from 'lucide-react';
@@ -269,6 +271,17 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
    const [aiHold, setAiHold] = useState(false);
    const answerHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
    const aiNoopTurnsRef = useRef(0);
+  // The witness-stage pool lives inside the phase clocks (reserved negative keys); this mirrors them so
+  // phase changes can read and update them straight away.
+  const phaseClocksRef = useRef<Record<number, number>>({});
+  phaseClocksRef.current = phaseTimeRemaining;
+  // The break at every change of counsel in the witness stage: clock stopped, nobody can send anything.
+  const [handoff, setHandoff] = useState<{ secondsLeft: number; label: string } | null>(null);
+  const handoffRef = useRef<number | null>(null);
+  // True from the moment a question is sent until its answer is in.
+  const questionInFlightRef = useRef(false);
+  // An opening or closing statement is due and has not been given: the clock stands still until it is.
+  const waitingForStatementRef = useRef(false);
    // Rest between questions: after each witness answer the questioning counsel must wait before the next
    // question (no question cap any more). Seconds left, or null when asking is allowed.
    const [questionRestLeft, setQuestionRestLeft] = useState<number | null>(null);
@@ -371,6 +384,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // doesn't get silently blocked forever; (2) it's the same "this
       // side is done" action the Rest button performs, so a timeout and a
       // manual Rest behave identically instead of diverging.
+      // An opening or closing statement that has not been given never times out: the clock stands still
+      // until the speaker says something (handleSubmit moves on once they do).
+      if (waitingForStatementRef.current) return;
       console.log('[Courtroom] Time ran out for phase', currentPhase, '- auto-resting');
       handleRestPhase();
     }
@@ -502,6 +518,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // until they start talking again.
       if (objectionPausedRef.current) return;
       if (freezeForAbsenceRef.current || shouldFreezeWhileHidden(onlineTwoPlayer, document.visibilityState === 'hidden')) return;
+      // Stopped while a witness answer is read out, during the break between counsel, and while a
+      // statement that is due has not been given.
+      if (questionRestRef.current !== null || handoffRef.current !== null || waitingForStatementRef.current) return;
       setPhaseTimeRemaining((prev: Record<number, number>) => {
         // Nothing left on this phase's clock: keep the same object. Returning a fresh copy every
         // second made the "time ran out" effect fire again and again until the phase changed.
@@ -756,8 +775,15 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   const handleSubmit = async () => {
     if (!input.trim() || !turnState || isProcessing || timerPaused) return;
+    // Nobody can send anything during the break between counsel.
+    if (handoffRef.current !== null) return;
     const witnessExamNow = !!turnState.current_witness_id &&
       (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect');
+    // Sending only works on your own turn, and only while your clock still has time.
+    if (witnessExamNow) {
+      if (!(turnState.current_turn === playerRole || sameDevicePlay)) return;
+      if (!practiceMode && (phaseClocksRef.current[currentPhase] ?? 1) <= 0) return;
+    }
     if (!awaitingUserInput && !witnessExamNow) return;
     // Between questions the examiner waits (the box stays open for drafting the next one).
     if (witnessExamNow && questionRestRef.current !== null) return;
@@ -780,6 +806,12 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         // out, which now auto-rests — see handleRestPhase) actually moves
         // on to the other side.
         await addEvent('counsel', input);
+        if (!practiceMode && (phaseClocksRef.current[currentPhase] ?? 1) <= 0) {
+          // Their time was up and the game was waiting for this: the statement is in, so their turn ends.
+          setInput('');
+          await handleRestPhaseRef.current();
+          return;
+        }
         if (turnState.current_turn === playerRole || sameDevicePlay) {
           setAwaitingUserInput(true);
         }
@@ -792,84 +824,93 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }
   };
 
+  // Works out where the trial goes next and what the witness-stage clocks look like once it gets there.
+  // Nothing is changed here, so the break between counsel can say where it is heading before anything moves.
+  const planNextPhase = (): { nextPhase: number; clocks: Record<number, number> } | 'verdict' =>
+    planNextPhasePure({
+      config: getTrialConfig(trialDuration!),
+      duration: trialDuration!,
+      currentPhase,
+      clocks: phaseClocksRef.current,
+      witnessCalledPhases: new Set(
+        eventsRef.current
+          .filter(e => e.event_type === 'witness_call')
+          .map(e => (e.metadata as any)?.phase)
+          .filter((n): n is number => typeof n === 'number')
+      )
+    });
+
+  // The side whose statement a phase is, or null when it is not an opening or closing statement.
+  const statementSideOf = (phase: { name: string } | undefined): 'prosecution' | 'defense' | null => {
+    const name = phase?.name.toLowerCase() ?? '';
+    if (!(name.includes('opening') || name.includes('closing'))) return null;
+    return name.includes('prosecution') ? 'prosecution' : name.includes('defense') ? 'defense' : null;
+  };
+
   const handleNextPhase = async () => {
     if (!trialDuration || !aliveRef.current) return;
 
-    // Opening AND closing statements are mandatory: don't let the timer
-    // (or any other trigger) advance past a statement phase until that
-    // side has actually given their statement. Matched by phase name
-    // rather than a hardcoded phase number, since closing phases are
-    // renumbered dynamically based on trial length (unlike opening,
-    // which is always 7/8) — this previously only covered opening,
-    // which let closing arguments be skipped entirely.
+    // Opening AND closing statements are mandatory: nothing moves past a statement phase until that side
+    // has actually said something. Anything they sent counts (even a single word); the automatic
+    // "rests" line written by the Rest button or the clock does not.
     const config = getTrialConfig(trialDuration);
     const currentPhaseInfo = config.phases.find(p => p.number === currentPhase);
-    const phaseNameLower = currentPhaseInfo?.name.toLowerCase() || '';
-    const isStatementPhase = phaseNameLower.includes('opening') || phaseNameLower.includes('closing');
-    const statementSpeaker: 'prosecution' | 'defense' | null = phaseNameLower.includes('prosecution')
-      ? 'prosecution'
-      : phaseNameLower.includes('defense')
-      ? 'defense'
-      : null;
-
-    if (isStatementPhase && statementSpeaker && !eventsRef.current.some(e => e.speaker_role === statementSpeaker && (e.metadata as any)?.phase === currentPhase)) {
-      console.log(`[Courtroom] Blocked advance from phase ${currentPhase} (${currentPhaseInfo?.name}) — ${statementSpeaker} has not given their statement yet`);
+    const statementSpeaker = statementSideOf(currentPhaseInfo);
+    if (statementSpeaker && !statementGiven(eventsRef.current, statementSpeaker, currentPhase)) {
+      console.log(`[Courtroom] Blocked advance from phase ${currentPhase} (${currentPhaseInfo?.name}) - ${statementSpeaker} has not given their statement yet`);
       return;
     }
 
-    const verdictPhase = config.phases.find(p => p.name === 'Verdict Delivery');
-    let nextPhase = currentPhase + 1;
-
-    // If a witness slot's Direct Examination never actually had a witness
-    // called during it, there's nothing to cross-examine or redirect —
-    // skip straight past those phases for that slot instead of sitting
-    // through an "examination" of a witness who was never called. This
-    // can skip more than one phase in a row (cross AND redirect for the
-    // same empty slot).
-    while (true) {
-      const candidatePhase = config.phases.find(p => p.number === nextPhase);
-      if (!candidatePhase) break;
-      const candidateNameLower = candidatePhase.name.toLowerCase();
-      const isCrossOrRedirect = candidateNameLower.includes('cross-examination') || candidateNameLower.includes('redirect');
-      if (!isCrossOrRedirect) break;
-
-      // e.g. "Prosecution Witness 1" from "Prosecution Witness 1 - Cross-Examination"
-      const slotPrefix = candidatePhase.name.split(' - ')[0];
-      const directPhase = config.phases.find(p => p.name === `${slotPrefix} - Direct Examination`);
-      const witnessWasCalled = !directPhase || eventsRef.current.some(
-        e => e.event_type === 'witness_call' && (e.metadata as any)?.phase === directPhase.number
-      );
-
-      if (witnessWasCalled) break;
-
-      console.log(`[Courtroom] Skipping phase ${nextPhase} (${candidatePhase.name}) — no witness was called during ${slotPrefix} - Direct Examination`);
-      nextPhase += 1;
-    }
-
-    // Check if next phase is verdict or beyond the last phase
-    // The "Judge Deliberation" phase used to just sit on a silent timer.
-    // Heading into it now starts the real deliberation (with an on-screen
-    // overlay) straight away, then delivers the verdict.
-    const deliberationPhase = config.phases.find(p => p.name === 'Judge Deliberation');
-    const endOfTrialPhase = deliberationPhase ?? verdictPhase;
-    if (endOfTrialPhase && nextPhase >= endOfTrialPhase.number) {
+    const plan = planNextPhase();
+    if (plan === 'verdict') {
       await handleVerdict();
       return;
     }
 
-    // Check if we've reached the end of all phases
-    const lastPhase = config.phases[config.phases.length - 1];
-    if (nextPhase > lastPhase.number) {
-      await handleVerdict();
-      return;
-    }
-
-    setCurrentPhase(nextPhase);
+    phaseClocksRef.current = plan.clocks;
+    setPhaseTimeRemaining(plan.clocks);
+    setCurrentPhase(plan.nextPhase);
     await db.sessions.updateSession(session.id, {
-      current_trial_phase: nextPhase
+      current_trial_phase: plan.nextPhase
     });
 
-    announcePhase(nextPhase);
+    announcePhase(plan.nextPhase);
+  };
+
+  // A short break at every change of counsel in the witness stage. The clock is stopped and nobody can send
+  // anything, so a question sent in the last second is answered inside it. Resolves when the break is over.
+  const runHandoffBreak = (label: string) =>
+    new Promise<void>(resolve => {
+      handoffRef.current = HANDOFF_SECONDS;
+      setHandoff({ secondsLeft: HANDOFF_SECONDS, label });
+      const id = setInterval(() => {
+        if (!aliveRef.current) {
+          clearInterval(id);
+          handoffRef.current = null;
+          setHandoff(null);
+          resolve();
+          return;
+        }
+        if (timerPausedRef.current || freezeForAbsenceRef.current) return;
+        const next = (handoffRef.current ?? 0) - 1;
+        if (next <= 0) {
+          clearInterval(id);
+          handoffRef.current = null;
+          setHandoff(null);
+          resolve();
+        } else {
+          handoffRef.current = next;
+          setHandoff({ secondsLeft: next, label });
+        }
+      }, 1000);
+    });
+
+  // Waits (briefly) until the question that was just sent has its answer.
+  const waitForQuestionAnswer = async (maxMs: number) => {
+    const until = Date.now() + maxMs;
+    while (questionInFlightRef.current && aliveRef.current && Date.now() < until) {
+      await new Promise(r => setTimeout(r, 250));
+    }
   };
 
   // Initialize turn state when phase changes
@@ -972,7 +1013,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     // A paused trial (including one just reopened) waits for the player to resume.
     if (timerPaused) return;
     // The witness is still answering: wait for the answer to finish before the next move.
-    if (aiHold) return;
+    if (aiHold || handoff) return; // nothing happens during the break between counsel
     // The rest between questions is still running, or the judge is ruling on an objection.
     if (questionRestLeft !== null || isProcessingObjection) return;
 
@@ -985,7 +1026,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole, timerPaused, aiHold, questionRestLeft, isProcessingObjection]);
+  }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole, timerPaused, aiHold, handoff, questionRestLeft, isProcessingObjection]);
 
   // Judge Instruction Sub-Phase Handler
   // Before entering any counsel action phase, show judge instruction first
@@ -1187,6 +1228,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // Handle prosecution AI turn
   const handleProsecutionTurn = async () => {
     if (!trialDuration || !turnState || !caseData || !aliveRef.current) return;
+    if (handoffRef.current !== null) return; // the break between counsel
     
     setIsProsecutionThinking(true);
     try {
@@ -1442,7 +1484,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // phase belongs to the side the AI is playing.
       const openingPhaseNumber = aiRole === 'prosecution' ? 7 : 8;
       const phase = config.phases.find(p => p.number === openingPhaseNumber);
-      const timeLimit = phase ? (config.phaseDurations[phase.number] || 0) : 0; // in minutes
+      const timeLimit = phase ? legacyStatementMinutes(trialDuration) : 0; // in minutes (what the AI's statement length is sized to)
 
       // Get investigation findings for comprehensive opening statement
       const { buildInvestigationFindings } = await import('../lib/trial/trialEngine');
@@ -1558,7 +1600,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // always 7/8), so resolve by name rather than a hardcoded number.
       const expectedName = aiRole === 'prosecution' ? 'Closing Statement - Prosecution' : 'Closing Statement - Defense';
       const phase = config.phases.find(p => p.name === expectedName);
-      const timeLimit = phase ? (config.phaseDurations[phase.number] || 0) : 0;
+      const timeLimit = phase ? legacyStatementMinutes(trialDuration) : 0;
 
       const transcriptSummary = buildTranscriptSummary(events, events.length);
       const evidenceSubmitted = evidence.filter(e => turnState?.evidence_submitted.includes(e.id) ?? false);
@@ -1677,32 +1719,18 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     setAiHold(false);
   };
 
-  // Gives a witness answer room before anything else happens. Spoken: wait for the voice to finish.
-  // Muted or no voice: a short pause sized to the answer so it can be read. `afterAnswer` runs once the
-  // answer is done (spoken) or straight away (nothing to wait for, the reading pause is separate).
-  const holdForAnswer = (text: string, afterAnswer?: () => void) => {
+  // The witness answer is read out loud (when the voice is on). How long nobody can ask anything, and the
+  // clock stands still, is the fixed read-out time (see questionRest.ts), not how long the voice takes.
+  const holdForAnswer = (text: string) => {
     releaseAnswerHold();
-    setAiHold(true);
-    if (canSpeak()) {
-      const finished = () => {
-        releaseAnswerHold();
-        afterAnswer?.();
-      };
-      speakAs('witness', text, finished);
-      // Safety net in case the browser never reports the end of the line.
-      answerHoldTimerRef.current = setTimeout(finished, 45000);
-    } else {
-      afterAnswer?.();
-      const words = text.trim().split(/\s+/).filter(Boolean).length;
-      answerHoldTimerRef.current = setTimeout(releaseAnswerHold, Math.min(6000, 1500 + words * 200));
-    }
+    if (canSpeak()) speakAs('witness', text);
   };
 
   // Handle asking a question to witness
   const handleAskQuestion = async (question: string, witnessId: string) => {
     if (!turnState) return;
-    // Still inside the rest after the last answer: the next question has to wait.
-    if (questionRestRef.current !== null) return;
+    // Still inside the rest after the last answer, or in the break between counsel: nothing is asked.
+    if (questionRestRef.current !== null || handoffRef.current !== null) return;
 
     const witness = witnesses.find(w => w.id === witnessId);
     if (!witness) return;
@@ -1723,6 +1751,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const base = earlierEvents.length;
 
     // Add the question to the transcript
+    questionInFlightRef.current = true;
     const questionEvent = await db.trialEvents.addEvent({
       session_id: session.id,
       event_type: 'witness_examination',
@@ -1735,7 +1764,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         examination_type: examinationType
       },
       event_order: base + 1
-    });
+    }).catch(err => { questionInFlightRef.current = false; throw err; });
 
     eventsRef.current = [...eventsRef.current, questionEvent];
     setEvents(prev => [...prev, questionEvent]);
@@ -1749,11 +1778,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       const response = await generateWitnessResponse(witness, question, previousInteractions);
 
-      // The answer is read out (or given time to be read) before anyone asks anything else. The rest
-      // before the next question starts now, and once the answer has been heard at least a short
-      // window is left for the other side to object.
-      if (currentPhaseRef.current === phaseAtStart) startQuestionRest(questionRestSeconds(trialDuration));
-      holdForAnswer(response, () => { if (currentPhaseRef.current === phaseAtStart) ensureQuestionRest(OBJECTION_WINDOW_SECONDS); });
+      // The answer is read out for a fixed 20 seconds with the clock stopped. (In the break between counsel
+      // the break itself is the time to read it.)
+      if (currentPhaseRef.current === phaseAtStart && handoffRef.current === null) startQuestionRest(questionRestSeconds(trialDuration));
+      holdForAnswer(response);
 
       // Add witness response to transcript
       const responseEvent = await db.trialEvents.addEvent({
@@ -1790,10 +1818,12 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     } catch (error) {
       console.error('Failed to get witness response:', error);
     } finally {
+      questionInFlightRef.current = false;
       setIsProcessing(false);
       // Re-open the human's text box for the next question (they asked this one). Even when the witness
-      // response failed the box stays open, so they can ask again.
-      if (humanAsking) {
+      // response failed the box stays open, so they can ask again. Only while it is still their phase:
+      // otherwise the box would open on the other side's turn.
+      if (humanAsking && currentPhaseRef.current === phaseAtStart) {
         setAwaitingUserInput(true);
       }
     }
@@ -2025,6 +2055,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     if (!turnState || !aliveRef.current) return;
     // One rest at a time: the phase clock, the countdown and the Rest button can all ask for it together.
     if (restInFlightRef.current) return;
+    // An opening or closing statement has to be given first: nothing to rest on yet, so nothing moves.
+    const restPhaseInfo = trialDuration ? getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase) : undefined;
+    const restStatementSide = statementSideOf(restPhaseInfo);
+    if (restStatementSide && !statementGiven(eventsRef.current, restStatementSide, currentPhase)) return;
     restInFlightRef.current = true;
 
     try {
@@ -2040,6 +2074,19 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       const config = trialDuration ? getTrialConfig(trialDuration) : null;
       const phaseInfo = config?.phases.find(p => p.number === currentPhase);
       const phaseNameLower = phaseInfo?.name.toLowerCase() || '';
+
+      // Changing counsel in the witness stage: a short break first. The clock is stopped and nobody can
+      // send anything, so a question sent in the last second is still answered inside it.
+      if (config && !practiceMode && isWitnessPhase(phaseInfo)) {
+        const planned = planNextPhase();
+        const nextName = planned === 'verdict'
+          ? 'the verdict'
+          : config.phases.find(p => p.number === planned.nextPhase)?.name ?? 'the next phase';
+        await runHandoffBreak(`Up next: ${nextName}`);
+        await waitForQuestionAnswer(30000);
+        if (!aliveRef.current) return;
+      }
+
       const eventType: EventType = phaseNameLower.includes('closing')
         ? 'closing'
         : phaseNameLower.includes('opening')
@@ -2258,12 +2305,22 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect');
   const phaseClockLeft = phaseTimeRemaining[currentPhase];
   const clockRunning = practiceMode || phaseClockLeft === undefined || phaseClockLeft > 0;
+  // An opening or closing statement is due: the clock stands still at zero until the speaker has sent anything.
+  const uiPhaseInfo = trialDuration ? getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase) : undefined;
+  const statementSide = statementSideOf(uiPhaseInfo);
+  const statementDone = !!statementSide && statementGiven(events, statementSide, currentPhase);
+  const waitingForStatement = !!statementSide && !statementDone && !practiceMode && phaseClockLeft !== undefined && phaseClockLeft <= 0;
+  waitingForStatementRef.current = waitingForStatement;
+  const handoffActive = handoff !== null;
   // The wait between questions: no question cap, but after each answer the examiner rests a few seconds.
   const restBlocked = inWitnessExam && questionRestLeft !== null;
   const restLabel = inWitnessExam ? questionRestLabel(questionRestLeft) : null;
   // Paused: the box stays open so a player can keep drafting, but nothing can be sent or called.
   const actionsPaused = timerPaused;
-  const inputOpen = (awaitingUserInput || (inWitnessExam && isPlayerTurn && !judgeInstructionPending && clockRunning)) && !pendingHandoff;
+  // Sending only works on your own turn: during witness examination the box closes the moment the turn
+  // (or the clock) is over, and during the break between counsel.
+  const inputOpen = (awaitingUserInput || (inWitnessExam && isPlayerTurn && !judgeInstructionPending && clockRunning)) && !pendingHandoff &&
+    !handoffActive && !(inWitnessExam && (!isPlayerTurn || !clockRunning));
 
   // Put the cursor back in the box after each question finishes so the
   // next one can be typed straight away (the keyboard stays up on mobile).
@@ -2508,6 +2565,22 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 </div>
               )}
 
+              {handoff && (
+                <div className="rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/85 tabular-nums">
+                  {handoff.label} · {formatTime(handoff.secondsLeft)}
+                </div>
+              )}
+
+              {waitingForStatement && (
+                <div className="rounded-full border border-amber-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-amber-200">
+                  {statementSide === playerRole || sameDevicePlay
+                    ? 'Time is up. Send your statement to continue.'
+                    : onlineTwoPlayer
+                      ? 'Waiting for opponent…'
+                      : "Waiting for opposing counsel's statement…"}
+                </div>
+              )}
+
               {objectionPaused && (
                 <div className="rounded-full border border-red-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-red-200">
                   Objection — clock paused until counsel speaks
@@ -2611,7 +2684,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                        </button>
                         <button
                            onClick={handleRestPhase}
-                           disabled={!isPlayerTurn || actionsPaused}
+                           disabled={!isPlayerTurn || actionsPaused || handoffActive || (!!statementSide && !statementDone)}
                            className={`flex-1 sm:flex-none ${gameButton('ghost', 'sm')}`}
                          >
                            <SkipForward className="w-5 h-5" />

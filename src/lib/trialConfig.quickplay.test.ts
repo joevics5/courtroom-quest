@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getTrialConfig } from './trialConfig';
+import { basePoolSeconds } from './witnessPool';
 
 describe('Quick Play (5 minute) trial', () => {
   const config = getTrialConfig(5);
@@ -21,9 +22,10 @@ describe('Quick Play (5 minute) trial', () => {
     expect(config.maxWitnesses).toBe(2);
   });
 
-  it('phase clocks add up to the five minutes', () => {
-    const total = Object.values(config.phaseDurations).reduce((a, b) => a + b, 0);
-    expect(total).toBe(5);
+  it('fixed clocks plus the shared witness pool add up to the five minutes', () => {
+    const fixed = Object.values(config.phaseDurations).reduce((a, b) => a + b, 0);
+    expect(fixed).toBe(2.5); // four 30-second statements and 30 seconds of deliberation
+    expect(fixed + basePoolSeconds(5) / 60).toBe(5);
   });
 
   it('numbers its phases without gaps, starting the trial at phase 7 like the others', () => {

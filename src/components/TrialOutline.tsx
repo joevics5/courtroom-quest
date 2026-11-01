@@ -148,13 +148,16 @@ export default function TrialOutline({
               }`}>
                 {phase.number}. {phase.name}
               </span>
-              {duration !== undefined && duration > 0 && (
+              {/* Witness phases have no fixed length (they draw on one shared pool), so only the one running now shows a clock. */}
+              {((duration !== undefined && duration > 0) || (status === 'current' && timeRemaining !== undefined)) && (
                 <span className="text-xs text-white/55 flex-shrink-0">
                   {practiceMode
                     ? '—'
                     : status === 'current' && timeRemaining !== undefined
                       ? formatTime(timeRemaining)
-                      : `${duration}m`}
+                      : duration !== undefined
+                        ? `${duration}m`
+                        : ''}
                 </span>
               )}
             </div>

@@ -1,4 +1,5 @@
 import type { TrialDuration } from '../types';
+import { statementMinutes, deliberationMinutes, witnessSlotsPerSide, basePoolSeconds } from './witnessPool';
 
 export interface TrialPhase {
   number: number;
@@ -48,54 +49,23 @@ const POST_TRIAL_PHASES: TrialPhase[] = [
 
 // Generate witness phases based on trial duration
 function generateWitnessPhases(duration: TrialDuration): TrialPhase[] {
+  // The witness stage runs on one shared pool of time (see witnessPool.ts), so these phases carry no fixed
+  // length: each gets its clock from the pool when it begins. Every side has a few witness slots; time, not
+  // the number of slots, is what limits how many witnesses actually get called.
   const phases: TrialPhase[] = [];
   let phaseNumber = 9; // Start after opening statements (phases 7, 8)
+  const slots = witnessSlotsPerSide(duration);
+  const withRedirect = duration === 60;
 
-  if (duration === 5) {
-    // Quick Play: 1 prosecution witness, 1 defense witness, direct + cross only, very short clocks
-    phases.push(
-      { number: phaseNumber++, name: 'Prosecution Witness 1 - Direct Examination', category: 'trial', duration: 0.75 },
-      { number: phaseNumber++, name: 'Prosecution Witness 1 - Cross-Examination', category: 'trial', duration: 0.5 },
-      { number: phaseNumber++, name: 'Defense Witness 1 - Direct Examination', category: 'trial', duration: 0.75 },
-      { number: phaseNumber++, name: 'Defense Witness 1 - Cross-Examination', category: 'trial', duration: 0.5 }
-    );
-  } else if (duration === 15) {
-    // 1 prosecution witness, 1 defense witness
-    phases.push(
-      { number: phaseNumber++, name: 'Prosecution Witness 1 - Direct Examination', category: 'trial', duration: 1.5 },
-      { number: phaseNumber++, name: 'Prosecution Witness 1 - Cross-Examination', category: 'trial', duration: 1.5 },
-      { number: phaseNumber++, name: 'Defense Witness 1 - Direct Examination', category: 'trial', duration: 1.5 },
-      { number: phaseNumber++, name: 'Defense Witness 1 - Cross-Examination', category: 'trial', duration: 1.5 }
-    );
-  } else if (duration === 30) {
-    // 2 prosecution witnesses, 2 defense witnesses
-    for (let i = 1; i <= 2; i++) {
+  for (const side of ['Prosecution', 'Defense']) {
+    for (let i = 1; i <= slots; i++) {
       phases.push(
-        { number: phaseNumber++, name: `Prosecution Witness ${i} - Direct Examination`, category: 'trial', duration: 2 },
-        { number: phaseNumber++, name: `Prosecution Witness ${i} - Cross-Examination`, category: 'trial', duration: 2 }
+        { number: phaseNumber++, name: `${side} Witness ${i} - Direct Examination`, category: 'trial' },
+        { number: phaseNumber++, name: `${side} Witness ${i} - Cross-Examination`, category: 'trial' }
       );
-    }
-    for (let i = 1; i <= 2; i++) {
-      phases.push(
-        { number: phaseNumber++, name: `Defense Witness ${i} - Direct Examination`, category: 'trial', duration: 2 },
-        { number: phaseNumber++, name: `Defense Witness ${i} - Cross-Examination`, category: 'trial', duration: 2 }
-      );
-    }
-  } else if (duration === 60) {
-    // 3 prosecution witnesses, 3 defense witnesses (with redirect)
-    for (let i = 1; i <= 3; i++) {
-      phases.push(
-        { number: phaseNumber++, name: `Prosecution Witness ${i} - Direct Examination`, category: 'trial', duration: 3 },
-        { number: phaseNumber++, name: `Prosecution Witness ${i} - Cross-Examination`, category: 'trial', duration: 2 },
-        { number: phaseNumber++, name: `Prosecution Witness ${i} - Redirect`, category: 'trial', duration: 0.5 }
-      );
-    }
-    for (let i = 1; i <= 3; i++) {
-      phases.push(
-        { number: phaseNumber++, name: `Defense Witness ${i} - Direct Examination`, category: 'trial', duration: 3 },
-        { number: phaseNumber++, name: `Defense Witness ${i} - Cross-Examination`, category: 'trial', duration: 2 },
-        { number: phaseNumber++, name: `Defense Witness ${i} - Redirect`, category: 'trial', duration: 0.5 }
-      );
+      if (withRedirect) {
+        phases.push({ number: phaseNumber++, name: `${side} Witness ${i} - Redirect`, category: 'trial' });
+      }
     }
   }
 
@@ -138,21 +108,11 @@ function generateTrialPhases(duration: TrialDuration): TrialPhase[] {
 function generatePhaseDurations(duration: TrialDuration, phases: TrialPhase[]): Record<number, number> {
   const durations: Record<number, number> = {};
   
-  // Opening statements
-  if (duration === 5) {
-    durations[7] = 0.5; // Opening - Prosecution
-    durations[8] = 0.5;
-  } else if (duration === 15) {
-    durations[7] = 2; // Opening - Prosecution
-    durations[8] = 2; // Opening - Defense
-  } else if (duration === 30) {
-    durations[7] = 3;
-    durations[8] = 3;
-  } else if (duration === 60) {
-    durations[7] = 5;
-    durations[8] = 5;
-  }
-  
+  // Opening statements: 30 seconds as the rule, longer only where the trial is long enough to afford it.
+  // The clock stops at zero until the speaker has actually said something (see Courtroom).
+  durations[7] = statementMinutes(duration); // Opening - Prosecution
+  durations[8] = statementMinutes(duration); // Opening - Defense
+
   // Witness phases (from generated phases)
   phases.forEach(phase => {
     if (phase.category === 'trial' && phase.duration && phase.number >= 9) {
@@ -167,13 +127,13 @@ function generatePhaseDurations(duration: TrialDuration, phases: TrialPhase[]): 
   const verdict = phases.find(p => p.name === 'Verdict Delivery');
   
   if (closingProsecution) {
-    durations[closingProsecution.number] = duration === 5 ? 0.5 : duration === 15 ? 2 : duration === 30 ? 3 : 5;
+    durations[closingProsecution.number] = statementMinutes(duration);
   }
   if (closingDefense) {
-    durations[closingDefense.number] = duration === 5 ? 0.5 : duration === 15 ? 2 : duration === 30 ? 3 : 5;
+    durations[closingDefense.number] = statementMinutes(duration);
   }
   if (deliberation) {
-    durations[deliberation.number] = duration === 5 ? 0.5 : duration === 15 ? 1 : duration === 30 ? 3 : 5;
+    durations[deliberation.number] = deliberationMinutes(duration);
   }
   if (verdict) {
     durations[verdict.number] = 0; // No strict limit
@@ -199,7 +159,7 @@ const TRIAL_CONFIGS_15 = (() => {
     duration: 15 as TrialDuration,
     phases,
     phaseDurations: generatePhaseDurations(15, phases),
-    maxWitnesses: 2 // Total witnesses: 1 prosecution + 1 defense
+    maxWitnesses: 4 // Witness slots: 2 prosecution + 2 defense (time limits how many are really called)
   };
 })();
 
@@ -209,7 +169,7 @@ const TRIAL_CONFIGS_30 = (() => {
     duration: 30 as TrialDuration,
     phases,
     phaseDurations: generatePhaseDurations(30, phases),
-    maxWitnesses: 4 // Total witnesses: 2 prosecution + 2 defense
+    maxWitnesses: 6 // Witness slots: 3 prosecution + 3 defense
   };
 })();
 
@@ -249,7 +209,8 @@ export function getPhaseInfo(phaseNumber: number, duration?: TrialDuration): Tri
 
 export function getTotalTrialTime(duration: TrialDuration): number {
   const config = TRIAL_CONFIGS[duration];
-  return Object.values(config.phaseDurations).reduce((sum, time) => sum + time, 0);
+  // Fixed phases plus the shared witness pool.
+  return Object.values(config.phaseDurations).reduce((sum, time) => sum + time, 0) + basePoolSeconds(duration) / 60;
 }
 
 export function formatTime(seconds: number): string {
