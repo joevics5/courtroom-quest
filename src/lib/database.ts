@@ -619,7 +619,12 @@ export const db = {
       // Every ongoing game, most recently played first. A player can have
       // several games of the same case running at once (e.g. one vs the AI
       // and one on the same device), so there is no per-case collapsing here.
-      return (data || []) as CaseSession[];
+      const sessions = (data || []) as CaseSession[];
+      // Each game's case card borrows the first evidence picture when the case has no thumbnail.
+      const embedded = sessions.map((row: any) => row.cases).filter(Boolean) as Case[];
+      const withThumbs = await withEvidenceThumbnails(embedded);
+      const byId = new Map(withThumbs.map((c) => [c.id, c]));
+      return sessions.map((row: any) => (row.cases && byId.has(row.cases.id) ? { ...row, cases: byId.get(row.cases.id) } : row)) as CaseSession[];
     },
 
     async getCompletedSessionForCase(userId: string, caseId: string): Promise<CaseSession | null> {
