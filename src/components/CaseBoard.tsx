@@ -297,7 +297,12 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   <div className="flex items-start gap-3 mb-3">
                     <CaseThumb src={ongoingCase.image_url} />
                     <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
-                    <h3 className="font-game text-3xl leading-none text-white">{ongoingCase.title}</h3>
+                    <h3 className="font-game text-3xl leading-none text-white">
+                      {ongoingCase.title}
+                      {ongoingCase.versus && (
+                        <span className="block mt-1 font-sans text-sm font-normal tracking-normal text-white/60">({ongoingCase.versus})</span>
+                      )}
+                    </h3>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -311,8 +316,6 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     </button>
                     </div>
                   </div>
-
-                  <p className="text-white/70 text-sm line-clamp-2 mb-3">"{ongoingCase.description}"</p>
 
                   <div className="text-xs text-white/50 mb-4">
                     {ongoingCase.last_played ? `Last played ${timeAgo(ongoingCase.last_played)}` : ''}
@@ -362,9 +365,12 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   </div>
                 </div>
 
-                <p className={`text-white/70 text-sm mb-4 ${onPick ? 'line-clamp-5' : 'line-clamp-2'}`}>
-                  "{caseItem.description}"
-                </p>
+                {/* The description only shows when choosing a case to read; the board stays easy to scan. */}
+                {onPick && (
+                  <p className="text-white/70 text-sm mb-4 line-clamp-5">
+                    "{caseItem.description}"
+                  </p>
+                )}
 
                 <div className="space-y-3 mb-4">
                   <div className="text-sm">
