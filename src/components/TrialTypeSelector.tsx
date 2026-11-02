@@ -112,7 +112,9 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
             );
           })}
 
-          <div className="rounded-3xl bg-black/60 backdrop-blur-sm border border-white/15 p-3 lg:col-span-2">
+          {/* No backdrop blur and no animated colour change here: some phone browsers stop painting the text of
+              tiles that change colour inside a blurred panel, which left the 15 and 30 tiles looking empty. */}
+          <div className="rounded-3xl bg-black/75 border border-white/15 p-3 lg:col-span-2">
             <h2 className="font-game text-2xl text-white/90 leading-none mb-2.5 px-1">HOW LONG?</h2>
             <div className="grid grid-cols-4 gap-2">
               {LENGTHS.map(len => {
@@ -120,15 +122,17 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
                 return (
                   <button
                     key={len.value}
+                    type="button"
                     onClick={() => setSelectedDuration(len.value)}
                     aria-pressed={selected}
-                    className={`rounded-2xl border-2 py-2 px-0.5 text-center transition-all active:translate-y-0.5 ${
-                      selected ? 'border-[#FFD43B] bg-[#FFD43B] text-black' : 'border-white/15 bg-white/5 text-white'
+                    data-testid={`length-${len.value}`}
+                    className={`rounded-2xl border-2 py-2 px-0.5 text-center active:translate-y-0.5 ${
+                      selected ? 'border-[#FFD43B] bg-[#FFD43B]' : 'border-white/20 bg-[#1b1e2b]'
                     }`}
                   >
-                    <span className="block font-game text-4xl leading-none">{len.big}</span>
-                    <span className="block text-[11px] font-black tracking-widest">{len.unit}</span>
-                    <span className={`block text-[11px] font-semibold whitespace-nowrap ${selected ? 'text-black/70' : 'text-white/55'}`}>{len.label}</span>
+                    <span className={`block font-game text-4xl leading-none ${selected ? 'text-black' : 'text-white'}`}>{len.big}</span>
+                    <span className={`block text-[11px] font-black tracking-widest ${selected ? 'text-black' : 'text-white'}`}>{len.unit}</span>
+                    <span className={`block text-[11px] font-semibold whitespace-nowrap ${selected ? 'text-black/75' : 'text-white/70'}`}>{len.label}</span>
                   </button>
                 );
               })}
