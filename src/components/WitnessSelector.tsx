@@ -8,6 +8,8 @@ interface WitnessSelectorProps {
   witnessesCalled: string[];
   onSelect: (witness: Witness) => void;
   onSkip: () => void;
+  /** Locked when it is not your turn or not a direct-examination phase (e.g. during cross-examination). */
+  disabled?: boolean;
   onClose?: () => void;
 }
 
@@ -16,6 +18,7 @@ export default function WitnessSelector({
   witnessesCalled,
   onSelect,
   onSkip,
+  disabled = false,
   onClose
 }: WitnessSelectorProps) {
   const availableWitnesses = witnesses.filter(w => !witnessesCalled.includes(w.id));
@@ -27,7 +30,7 @@ export default function WitnessSelector({
       ) : (
         <div className="space-y-3 mb-5">
           {availableWitnesses.map((witness) => (
-            <button key={witness.id} onClick={() => onSelect(witness)} className={CHOICE_ROW}>
+            <button key={witness.id} onClick={() => onSelect(witness)} disabled={disabled} className={`${CHOICE_ROW} disabled:opacity-50 disabled:cursor-not-allowed`}>
               <div className="font-semibold text-white">{witness.name}</div>
               <div className="text-sm text-[#FFD43B]/80 mt-0.5">{witness.role}</div>
               {witness.background && (
@@ -38,7 +41,10 @@ export default function WitnessSelector({
         </div>
       )}
 
-      <button onClick={onSkip} className={`w-full ${gameButton('ghost', 'sm')}`}>
+      {disabled && (
+        <p className="text-center text-white/60 text-sm mb-3">Witnesses can only be called on your own turn, during direct examination.</p>
+      )}
+      <button onClick={onSkip} disabled={disabled} className={`w-full ${gameButton('ghost', 'sm')}`}>
         Skip Calling Witness
       </button>
     </ModalSheet>

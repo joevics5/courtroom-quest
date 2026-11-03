@@ -638,12 +638,15 @@ RESPOND WITH VALID JSON ONLY:
  * Build recent transcript summary from trial events
  */
 export function buildTranscriptSummary(
-  events: Array<{ speaker_role: string; speaker_name?: string; content: string; timestamp: string }>,
+  events: Array<{ speaker_role: string; speaker_name?: string; content: string; timestamp: string; metadata?: Record<string, any> }>,
   maxEntries: number = 12
 ): string {
   if (events.length === 0) return 'No recent activity.';
 
   const recentEvents = events.slice(-maxEntries);
+  // On an appeal, the "APPEAL IN SESSION" line must never scroll out of what the AI is shown.
+  const appealMarker = [...events].reverse().find(e => e.metadata?.appeal_marker);
+  if (appealMarker && !recentEvents.includes(appealMarker)) recentEvents.unshift(appealMarker);
   return recentEvents
     .map(e => {
       const speaker = e.speaker_name || e.speaker_role;

@@ -4,7 +4,7 @@ import { HANDOFF_SECONDS, statementGiven, legacyStatementMinutes } from '@/lib/w
 import { planNextPhase as planNextPhasePure } from '@/lib/witnessPlan';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
-import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, Mic, Gavel, Shield, Landmark } from 'lucide-react';
+import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, Mic, Gavel, Shield, Landmark, ChevronDown } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import TrialOutline from './TrialOutline';
@@ -2294,6 +2294,16 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // Evidence can only be submitted while witnesses are called and examined (direct, cross, redirect),
   // never during opening or closing statements: there the Evidence tab is greyed out and does nothing.
   const evidenceAllowed = canSubmitEvidence(phase);
+  // Calling a witness is only possible on your own turn, in a direct-examination phase, with nobody on the
+  // stand. During cross-examination or redirect the other side is still questioning, so the list stays locked.
+  // After a granted appeal the earlier trial folds into an accordion; only the appeal hearing stays in view.
+  const appealSplit = (() => {
+    let at = -1;
+    for (let i = events.length - 1; i >= 0; i--) if (events[i].metadata?.appeal_marker) { at = i; break; }
+    if (at < 0) return { earlier: [] as typeof events, marker: null as (typeof events)[number] | null, current: events };
+    return { earlier: events.slice(0, at), marker: events[at], current: events.slice(at + 1) };
+  })();
+  const witnessCallAllowed = !!turnState && turnState.current_phase_type === 'direct' && !turnState.current_witness_id && isPlayerTurn && !timerPaused;
   const activeModalTab: 'witnesses' | 'evidence' = evidenceAllowed ? defenceModalTab : 'witnesses';
 
   // Witness examination (direct/cross/redirect) with a witness on the
@@ -2502,7 +2512,31 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
               {/* Transcript/Conversation Area - Expanded when video is hidden */}
               <div className="flex-1 overflow-y-auto p-3 sm:p-5 pb-20 space-y-3 min-h-0 border-t border-white/10">
-                {events.map((event) => (
+                {appealSplit.earlier.length > 0 && (
+                  <details className="group rounded-xl border border-white/15 bg-black/30">
+                    <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-semibold text-white/80">
+                      <span>Earlier trial transcript ({appealSplit.earlier.length} lines)</span>
+                      <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="space-y-3 p-3 pt-1">
+                      {appealSplit.earlier.map((event) => (
+                        <TranscriptMessage
+                          key={event.id}
+                          event={event}
+                          avatars={cast}
+                          prosecutorName={stageProsecutorName}
+                          playerRole={playerRole}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                )}
+                {appealSplit.marker && (
+                  <div className="rounded-xl border border-[#FFD43B]/50 bg-[#FFD43B]/10 px-3 py-2 text-center font-game text-lg tracking-wide text-[#FFD43B]">
+                    Appeal in session{appealSplit.marker.metadata?.appeal_round ? ` (appeal ${appealSplit.marker.metadata.appeal_round})` : ''}
+                  </div>
+                )}
+                {appealSplit.current.map((event) => (
                   <TranscriptMessage
                     key={event.id}
                     event={event}
@@ -2706,8 +2740,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                        {turnState && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect') && !turnState.current_witness_id && (
                          <button
                            onClick={() => setShowWitnessSelector(true)}
-                           disabled={!isPlayerTurn || actionsPaused}
-                           title={!isPlayerTurn ? "Not your turn to call a witness" : "Call Witness"}
+                           disabled={!witnessCallAllowed}
+                           title={witnessCallAllowed ? 'Call Witness' : "You can only call a witness on your own turn, during direct examination"}
                            className={`flex-1 sm:flex-none ${gameButton('outline', 'sm')}`}
                          >
                            <User className="w-4 h-4" />
@@ -2725,6 +2759,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           witnesses={witnesses}
           witnessesCalled={turnState?.witnesses_called || []}
           onSelect={handleCallWitness}
+          disabled={!witnessCallAllowed}
           onSkip={handleRestPhase}
           onClose={() => setShowWitnessSelector(false)}
         />
@@ -2781,7 +2816,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                       setShowDefenceModal(false);
                     }}
                     className={`${CHOICE_ROW} disabled:opacity-50 disabled:cursor-not-allowed`}
-                    disabled={!isWitnessPhase(phase) || turnState?.current_witness_id !== null || !isPlayerTurn}
+                    disabled={!witnessCallAllowed}
                   >
                     <div className="font-semibold text-white">{witness.name}</div>
                     <div className="text-sm text-white/60 mt-1">{witness.role}</div>
@@ -2799,6 +2834,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               {turnState?.current_witness_id !== null && (
                 <p className="text-center py-2 text-white/55 text-sm">
                   A witness is currently being examined. Rest first to call a new witness.
+                </p>
+              )}
+              {isWitnessPhase(phase) && turnState?.current_phase_type !== 'direct' && (
+                <p className="text-center py-2 text-white/55 text-sm">
+                  Witnesses can only be called during direct examination, not during cross-examination or redirect.
                 </p>
               )}
               {!isPlayerTurn && (

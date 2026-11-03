@@ -146,5 +146,22 @@ export async function reopenCase(sessionId: string): Promise<CaseSession> {
   if (error) throw error;
   const session = await db.sessions.getSession(sessionId);
   if (!session) throw new Error('This case could not be found.');
+  // Mark where the appeal starts in the transcript: the screen folds everything above it away, and the AI
+  // (which reads the transcript) is told this is the appeal, not the first trial.
+  try {
+    const round = ((session.session_state as Record<string, any> | null)?.appealRound as number | undefined) ?? 1;
+    const earlier = await db.trialEvents.getSessionEvents(sessionId);
+    await db.trialEvents.addEvent({
+      session_id: sessionId,
+      event_type: 'announcement',
+      speaker_role: 'judge',
+      speaker_name: 'Judge',
+      content: `APPEAL IN SESSION (appeal ${round}). The case has been reopened on appeal. Everything before this line is the record of the earlier trial, now under appeal; the trial that follows is the appeal hearing.`,
+      metadata: { appeal_marker: true, appeal_round: round },
+      event_order: earlier.length + 1
+    });
+  } catch (err) {
+    console.error('Could not add the appeal marker to the transcript:', err);
+  }
   return session;
 }
