@@ -40,8 +40,8 @@ export default function PlayModePopup({ onSelect, onClose, showMyGames = false, 
             onClick={() => onSelect('ai')}
             icon={<Bot className="w-7 h-7 text-white" />}
             iconBg="bg-blue-600"
-            title="VS AI"
-            subtitle="Play solo against an AI judge and opposing counsel."
+            title="SOLO"
+            subtitle="Play on your own against the judge and opposing counsel."
           />
           <PathTile
             onClick={() => onSelect('online')}

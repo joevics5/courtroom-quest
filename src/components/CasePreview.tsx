@@ -258,7 +258,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
 
         {onSwitchMode && (
           <div className="flex items-center justify-center gap-2 flex-wrap mb-3 text-xs text-white/50">
-            <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">Playing vs AI</span>
+            <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">Playing solo</span>
             <span>Switch to:</span>
             {!onlineDisabled && (
               <button onClick={() => onSwitchMode('online')} className="font-semibold text-[#FFD43B] underline underline-offset-2">

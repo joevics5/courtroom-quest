@@ -22,7 +22,7 @@ export default function CustomCasesIntro({ onClose }: Props) {
       <div className="space-y-5 text-sm text-white/85 pt-2">
         <p>
           Build a case from a real or made-up file, then step into court. Interview the witnesses, go to trial against
-          an AI opposing counsel, and find out where the other side is likely to hit you, so you can rehearse before it counts.
+          an opposing counsel, and find out where the other side is likely to hit you, so you can rehearse before it counts.
         </p>
 
         <section className="space-y-3">
@@ -36,8 +36,8 @@ export default function CustomCasesIntro({ onClose }: Props) {
         <section className="space-y-3">
           <h3 className={heading}>TWO WAYS TO CREATE</h3>
           <div className="rounded-2xl border border-[#FFD43B]/40 bg-[#FFD43B]/10 p-3 space-y-1.5">
-            <p className="flex items-center gap-2 font-bold text-[#FFD43B]"><Sparkles className="w-4 h-4" /> Parse with AI</p>
-            <p>Upload a case-file PDF (up to 10 MB) or paste your notes, and choose the side you will argue. The AI builds the witnesses, evidence and timeline, plus an
+            <p className="flex items-center gap-2 font-bold text-[#FFD43B]"><Sparkles className="w-4 h-4" /> Build from a case file</p>
+            <p>Upload a case-file PDF (up to 10 MB) or paste your notes, and choose the side you will argue. The game builds the witnesses, evidence and timeline, plus an
               <b className="text-white"> Opposing playbook</b>: where the other side will attack, the questions they could ask, and how you can answer.</p>
             <p className="flex items-start gap-2 text-xs text-white/60"><FileText className="w-3.5 h-3.5 mt-0.5 flex-none" /> Works best with clear facts, statements, exhibits and dates.</p>
           </div>
@@ -51,8 +51,8 @@ export default function CustomCasesIntro({ onClose }: Props) {
           <h3 className={heading}>GOOD TO KNOW</h3>
           <ul className="space-y-2">
             <li className="flex gap-2"><Users className="w-4 h-4 mt-0.5 flex-none text-white/45" /><span>Your cases are private to you. Use the pencil on a case to edit it later.</span></li>
-            <li className="flex gap-2"><Gavel className="w-4 h-4 mt-0.5 flex-none text-white/45" /><span>The AI can misread a file. Check what it built against your documents, especially names, dates and quotes.</span></li>
-            <li className="flex gap-2"><ShieldCheck className="w-4 h-4 mt-0.5 flex-none text-white/45" /><span>Uploaded PDFs are read by Google's Gemini AI and deleted from our storage once parsing finishes. Redact client names and anything privileged first. There is a daily limit on AI parsing.</span></li>
+            <li className="flex gap-2"><Gavel className="w-4 h-4 mt-0.5 flex-none text-white/45" /><span>The file reading can get things wrong. Check what it built against your documents, especially names, dates and quotes.</span></li>
+            <li className="flex gap-2"><ShieldCheck className="w-4 h-4 mt-0.5 flex-none text-white/45" /><span>Uploaded PDFs are processed by Google's Gemini and deleted from our storage once the case is built. Redact client names and anything privileged first. There is a daily limit on case building.</span></li>
           </ul>
         </section>
 

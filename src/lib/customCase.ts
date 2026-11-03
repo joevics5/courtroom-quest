@@ -50,7 +50,7 @@ export function validateCustomCase(
   const wi = witnesses.map((w, i) => ({ w, n: i + 1 })).filter(({ w }) => !isBlankWitness(w));
   wi.forEach(({ w, n }) => {
     if (!w.name.trim()) err('witnesses', `Witness ${n} has details but no name.`);
-    else if (!w.testimony.trim()) err('witnesses', `${w.name.trim()} needs testimony, or the AI witness will have nothing to say.`);
+    else if (!w.testimony.trim()) err('witnesses', `${w.name.trim()} needs testimony, or the witness will have nothing to say.`);
   });
   const wCount = wi.filter(({ w }) => w.name.trim()).length;
   if (wCount < MIN_WITNESSES) err('witnesses', `Add at least ${MIN_WITNESSES} witnesses (you have ${wCount}).`);

@@ -175,7 +175,7 @@ export default function LandingPage({
               icon={<Swords className="w-7 h-7 text-white" />}
               iconBg="bg-orange-600"
               title="CHALLENGE A PLAYER"
-              subtitle="Face a real opponent. No AI."
+              subtitle="Face a real opponent."
               badge={invites.length > 0 ? `${invites.length} INVITE${invites.length > 1 ? 'S' : ''} WAITING` : 'LIVE 1V1'}
             />
             {onNavigateToCaseHistory && (

@@ -86,9 +86,9 @@ describe('CustomCaseCreator save flow', () => {
 
   it('offers AI parsing or the form when starting a new case', () => {
     render(<CustomCaseCreator onComplete={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.getByText('Parse with AI')).toBeInTheDocument();
+    expect(screen.getByText('Build from a case file')).toBeInTheDocument();
     expect(screen.getByText('Fill in the form')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Parse with AI'));
+    fireEvent.click(screen.getByText('Build from a case file'));
     expect(screen.getByText('Which side will you argue?')).toBeInTheDocument();
   });
 });

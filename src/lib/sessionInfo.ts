@@ -38,7 +38,7 @@ export function getSessionMode(session: Pick<CaseSession, 'session_state'> | nul
   const state = (session?.session_state || {}) as { isMultiplayer?: boolean; sameDevicePlay?: boolean };
   if (state.sameDevicePlay) return { label: 'SAME DEVICE', badge: 'bg-purple-500/20 border-purple-400/60 text-purple-200' };
   if (state.isMultiplayer) return { label: 'VS PLAYER', badge: 'bg-rose-500/20 border-rose-400/60 text-rose-200' };
-  return { label: 'VS AI', badge: 'bg-slate-500/25 border-slate-400/50 text-slate-200' };
+  return { label: 'SOLO', badge: 'bg-slate-500/25 border-slate-400/50 text-slate-200' };
 }
 
 /** "5 min ago", "3 hours ago", "2 days ago" */

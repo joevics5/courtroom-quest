@@ -37,7 +37,7 @@ const analysis = {
 
 const notes = 'The defendant is charged with fraud after the company accounts showed missing funds across March. '.repeat(2);
 const type = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
-const parseBtn = () => screen.getByRole('button', { name: /parse with ai/i });
+const parseBtn = () => screen.getByRole('button', { name: /build the case/i });
 
 beforeEach(() => {
   vi.clearAllMocks();

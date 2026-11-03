@@ -130,6 +130,6 @@ describe('HomePage', () => {
     render(<HomePage {...props} />);
     fireEvent.click(screen.getByRole('button', { name: 'PLAY' }));
     expect(screen.queryByText('MY GAMES')).toBeNull();
-    expect(screen.getByText('VS AI')).toBeInTheDocument();
+    expect(screen.getByText('SOLO')).toBeInTheDocument();
   });
 });

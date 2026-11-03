@@ -22,7 +22,7 @@ const STEPS: Step[] = [
     accent: 'text-[#FFD43B]',
     ring: 'bg-[#FFD43B]/15 border-[#FFD43B]/50',
     title: 'Welcome to the Courtroom',
-    body: "You're about to argue a real case. A judge presides, an opposing counsel argues against you, and witnesses testify — all played by AI, reacting to what you actually say and do. Let's walk through the basics first."
+    body: "You're about to argue a real case. A judge presides, an opposing counsel argues against you, and witnesses testify, all reacting to what you actually say and do. Let's walk through the basics first."
   },
   {
     icon: Clock,

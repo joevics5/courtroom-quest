@@ -312,8 +312,8 @@ function LearnMore({ onClose }: { onClose: () => void }) {
 
         <h3 className="mt-7 mb-3 text-xs font-bold tracking-[0.25em] text-white/50">WAYS TO PLAY</h3>
         <div className="space-y-3 text-sm text-white/80 leading-relaxed">
-          <p><span className="font-bold text-white">Full AI courtroom.</span> A real judge rules on your objections, witnesses answer based on their actual testimony, and opposing counsel argues back — all reactive to what you actually say.</p>
-          <p><span className="font-bold text-white">Face a real opponent.</span> Open a live challenge, pick your side, and argue the case against another player — no AI counsel, just the two of you.</p>
+          <p><span className="font-bold text-white">Full courtroom.</span> A real judge rules on your objections, witnesses answer based on their actual testimony, and opposing counsel argues back — all reactive to what you actually say.</p>
+          <p><span className="font-bold text-white">Face a real opponent.</span> Open a live challenge, pick your side, and argue the case against another player, just the two of you.</p>
           <p><span className="font-bold text-white">Your own case.</span> Build a custom case with your own evidence and witnesses.</p>
         </div>
 

@@ -88,7 +88,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
       console.error('Failed to enable transcript sharing:', error);
     }
 
-    const shareText = `🏛️ CASE WON!\n\n${caseTitle}\nVerdict: ${verdictWord}\nRank Achieved: ${currentLevel}\nScore: ${verdict.score || 0}/100\n\nPlay AI Courtroom now!${shareUrl ? `\n\nSee the full trial: ${shareUrl}` : ''}`;
+    const shareText = `🏛️ CASE WON!\n\n${caseTitle}\nVerdict: ${verdictWord}\nRank Achieved: ${currentLevel}\nScore: ${verdict.score || 0}/100\n\nPlay Courtroom Quest now!${shareUrl ? `\n\nSee the full trial: ${shareUrl}` : ''}`;
 
     if (navigator.share) {
       try {

@@ -21,7 +21,7 @@ export default function OpposingPlaybook({ playbook }: { playbook: Playbook }) {
   if (p.isEmpty) {
     return (
       <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-200">
-        The AI did not find specific attack lines for the {sideLabel(p.opponent)} in this file. Check the Analysis tab, or add more detail to your notes and regenerate.
+        No specific attack lines were found for the {sideLabel(p.opponent)} in this file. Check the Analysis tab, or add more detail to your notes and regenerate.
       </div>
     );
   }
@@ -29,7 +29,7 @@ export default function OpposingPlaybook({ playbook }: { playbook: Playbook }) {
     <div className="space-y-6">
       <p className="text-sm text-slate-300">
         You argue the <b className="text-white">{sideLabel(p.userSide)}</b>. This is what the <b className="text-white">{sideLabel(p.opponent)}</b> is likely to
-        do with the file. It is the AI's reading of your documents, so check it against the file before relying on it.
+        do with the file. It is an automated reading of your documents, so check it against the file before relying on it.
       </p>
 
       {p.attacks.length > 0 && (

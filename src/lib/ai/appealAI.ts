@@ -188,7 +188,7 @@ ${response.explanation}
 
 async function ask(request: AIRequest): Promise<Record<string, any> | null> {
   const provider = getAIProvider();
-  if (!provider || !provider.isAvailable()) throw new Error('The AI is not available right now.');
+  if (!provider || !provider.isAvailable()) throw new Error('This is not available right now.');
   const reply = await provider.generate({ ...request, responseFormat: 'json' });
   return parseJsonObject(reply.text);
 }

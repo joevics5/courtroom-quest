@@ -369,9 +369,9 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
             onClick={() => setMode('ai')}
             className="w-full text-left rounded-2xl border border-[#FFD43B]/60 bg-[#FFD43B]/10 hover:bg-[#FFD43B]/20 p-4 transition-colors"
           >
-            <div className="flex items-center gap-2 text-[#FFD43B] font-bold"><Sparkles className="w-5 h-5" /> Parse with AI</div>
+            <div className="flex items-center gap-2 text-[#FFD43B] font-bold"><Sparkles className="w-5 h-5" /> Build from a case file</div>
             <p className="text-sm text-white/80 mt-1">
-              Upload a case-file PDF or paste your notes. The AI builds the witnesses, evidence and timeline, and shows where opposing counsel is likely to attack.
+              Upload a case-file PDF or paste your notes. The game builds the witnesses, evidence and timeline, and shows where opposing counsel is likely to attack.
             </p>
             <p className="text-xs text-white/55 mt-2 flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> You review and edit everything before saving.</p>
           </button>

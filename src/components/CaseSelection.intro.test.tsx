@@ -22,7 +22,7 @@ describe('My Cases intro', () => {
     render(<CaseSelection {...props} />);
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Welcome to My Cases')).toBeInTheDocument();
-    expect(screen.getByText(/Parse with AI/)).toBeInTheDocument();
+    expect(screen.getByText(/Build from a case file/)).toBeInTheDocument();
     expect(screen.getByText(/Fill in the form/)).toBeInTheDocument();
     expect(screen.getByText(/Go to trial\./)).toBeInTheDocument();
   });

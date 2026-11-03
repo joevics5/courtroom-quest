@@ -170,12 +170,12 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
   const working = busy === 'upload' || busy === 'core' || busy === 'analysis';
 
   return (
-    <ScreenShell title="AI CASE BUILDER" onBack={back} maxWidth="max-w-4xl">
+    <ScreenShell title="CASE BUILDER" onBack={back} maxWidth="max-w-4xl">
       <div className="rounded-2xl bg-black/55 border border-white/15 backdrop-blur-sm p-5 space-y-5">
         {!draft && (
           <>
             <p className="text-sm text-white/70">
-              Give the AI your case file. It builds a playable case from it and works out where opposing counsel is likely to attack,
+              Give us your case file. It builds a playable case from it and works out where opposing counsel is likely to attack,
               so you can rehearse before the real thing. You review and edit everything before it is saved.
             </p>
 
@@ -234,7 +234,7 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)} placeholder="Jurisdiction (optional)" className={field} />
               <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className={field}>
-                <option value="">Difficulty: let the AI decide</option>
+                <option value="">Difficulty: automatic</option>
                 <option value="easy">Easy</option>
                 <option value="medium">Medium</option>
                 <option value="hard">Hard</option>
@@ -244,7 +244,7 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={generate} disabled={!canGenerate} className={`${primary} flex-1`}>
                 {working ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                {busy === 'upload' ? 'Uploading PDF...' : busy === 'core' ? 'Step 1/2: reading the file...' : busy === 'analysis' ? 'Step 2/2: evidence and attacks...' : 'Parse with AI'}
+                {busy === 'upload' ? 'Uploading PDF...' : busy === 'core' ? 'Step 1/2: reading the file...' : busy === 'analysis' ? 'Step 2/2: evidence and attacks...' : 'Build the case'}
               </button>
               <button onClick={onManual} disabled={working} className="px-5 py-3 text-white/70 hover:text-white">Fill in manually instead</button>
             </div>
@@ -278,7 +278,7 @@ export default function AiCaseBuilder({ onComplete, onCancel, onManual }: Props)
                 <ul className="px-4 pb-3 text-xs space-y-1">
                   {check.errors.map((m, i) => <li key={`e${i}`} className="text-red-300">• {m}</li>)}
                   {check.warnings.map((m, i) => <li key={`w${i}`} className="text-amber-300">• {m}</li>)}
-                  {warnings.map((m, i) => <li key={`s${i}`} className="text-white/55">• AI note: {m}</li>)}
+                  {warnings.map((m, i) => <li key={`s${i}`} className="text-white/55">• Note: {m}</li>)}
                 </ul>
               </details>
             )}

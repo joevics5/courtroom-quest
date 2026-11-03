@@ -292,7 +292,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
   return (
     <ScreenShell
       title="CHALLENGE BOARD"
-      subtitle="No AI counsel — you against a real person. Match online, invite a friend, or share one device."
+      subtitle="You against a real person. Match online, invite a friend, or share one device."
       onBack={onBack}
     >
       <div>
