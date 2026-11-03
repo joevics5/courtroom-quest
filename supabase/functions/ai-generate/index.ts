@@ -36,6 +36,13 @@ interface AIRequest {
 // gemini-2.0-flash was retired by Google in 2026 — removed.
 const FALLBACK_MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview"];
 
+/** Removes the API key (and any key= query value) from text before it is logged. */
+function redact(text: string, secret?: string | null): string {
+  let out = text.replace(/([?&]key=)[^&\s"']+/gi, "$1[redacted]");
+  if (secret) out = out.split(secret).join("[redacted]");
+  return out;
+}
+
 Deno.serve(async (req: Request) => {
   const corsHeaders = corsFor(req);
   const reply = (body: unknown, status: number) =>
@@ -101,10 +108,11 @@ Deno.serve(async (req: Request) => {
       try {
         console.log(`[ai-generate] attempting model: ${model}`);
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            // Key goes in a header, never the URL: fetch errors can echo the URL (and the key) back.
+            headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
             signal: AbortSignal.timeout(isLast ? baseTimeoutMs * 2 : baseTimeoutMs),
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
@@ -120,8 +128,8 @@ Deno.serve(async (req: Request) => {
 
         if (!response.ok) {
           const errText = await response.text();
-          console.error(`[ai-generate] ${model} error body: ${errText}`);
-          lastError = `${model} (HTTP ${response.status}): ${errText}`;
+          console.error(`[ai-generate] ${model} error body: ${redact(errText, geminiKey)}`);
+          lastError = `${model} (HTTP ${response.status}): ${redact(errText, geminiKey)}`;
           continue; // try next fallback model
         }
 
@@ -144,18 +152,20 @@ Deno.serve(async (req: Request) => {
         );
       } catch (err) {
         const timedOut = err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError");
-        lastError = `${model}: ${timedOut ? "timed out" : err instanceof Error ? err.message : String(err)}`;
+        lastError = `${model}: ${timedOut ? "timed out" : redact(err instanceof Error ? err.message : String(err), geminiKey)}`;
         console.error(`[ai-generate] ${lastError}`);
         continue;
       }
     }
 
-    throw new Error(`All Gemini models failed. Last error: ${lastError}`);
+    // Details stay in the server logs; the browser only gets a generic message.
+    console.error(`[ai-generate] All Gemini models failed. Last error: ${lastError}`);
+    return reply({ error: "The AI is busy right now. Please try again in a moment.", text: "" }, 502);
   } catch (error) {
-    console.error("AI generation error:", error);
+    console.error("AI generation error:", error instanceof Error ? redact(error.message, Deno.env.get("GEMINI_API_KEY")) : "unknown");
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "AI generation failed",
+        error: "AI generation failed. Please try again.",
         text: "",
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

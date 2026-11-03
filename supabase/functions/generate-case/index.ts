@@ -73,6 +73,13 @@ async function sweepOldDocuments(caller: Caller, keep: string | null) {
   } catch (_) { /* ignore */ }
 }
 
+/** Removes the API key (and any key= query value) from text before it is logged. */
+function redact(text: string, secret?: string | null): string {
+  let out = text.replace(/([?&]key=)[^&\s"']+/gi, "$1[redacted]");
+  if (secret) out = out.split(secret).join("[redacted]");
+  return out;
+}
+
 async function callGemini(system: string, user: string, timeoutMs: number, pdfBase64?: string) {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY is not set as a Supabase secret.");
@@ -80,10 +87,11 @@ async function callGemini(system: string, user: string, timeoutMs: number, pdfBa
   for (const model of MODELS) {
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          // Key goes in a header, never the URL: fetch errors can echo the URL (and the key) back.
+          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
           signal: AbortSignal.timeout(timeoutMs),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
@@ -93,7 +101,7 @@ async function callGemini(system: string, user: string, timeoutMs: number, pdfBa
         },
       );
       if (!res.ok) {
-        lastError = `${model} (HTTP ${res.status}): ${(await res.text()).slice(0, 300)}`;
+        lastError = `${model} (HTTP ${res.status}): ${redact((await res.text()).slice(0, 300), key)}`;
         continue;
       }
       const data = await res.json();
@@ -102,10 +110,12 @@ async function callGemini(system: string, user: string, timeoutMs: number, pdfBa
       if (!text) { lastError = `${model}: empty response (${cand?.finishReason ?? "no candidate"})`; continue; }
       return { text, model, finishReason: cand?.finishReason as string | undefined };
     } catch (err) {
-      lastError = `${model}: ${err instanceof Error ? err.message : String(err)}`;
+      lastError = `${model}: ${redact(err instanceof Error ? err.message : String(err), key)}`;
     }
   }
-  throw new Error(`All Gemini models failed. Last error: ${lastError}`);
+  // Details stay in the server logs; the browser only gets a generic message.
+  console.error(`[generate-case] All Gemini models failed. Last error: ${lastError}`);
+  throw new Error("The AI is busy or unavailable right now. Please try again in a moment.");
 }
 
 function parseJson(text: string): unknown {
