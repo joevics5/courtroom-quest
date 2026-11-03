@@ -1767,7 +1767,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // The last few real question-and-answer pairs with this witness.
       const previousInteractions = buildWitnessHistory(earlierEvents, witnessId);
 
-      const response = await generateWitnessResponse(witness, question, previousInteractions);
+      // Cross-examination comes from the other side; direct and redirect come from the counsel who called the witness.
+      const response = await generateWitnessResponse(witness, question, previousInteractions, examinationType === 'cross' ? 'opposing_counsel' : 'own_counsel');
 
       // The answer is read out for a fixed 20 seconds with the clock stopped. (In the break between counsel
       // the break itself is the time to read it.)

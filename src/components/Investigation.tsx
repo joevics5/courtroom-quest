@@ -109,7 +109,8 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
       const response = await generateAIWitnessResponse(
         selectedWitness,
         question.trim(),
-        previousInteractions
+        previousInteractions,
+        'interview'
       );
       
       console.log('Received response:', response.substring(0, 100) + '...');

@@ -259,10 +259,14 @@ export async function generateProsecutionAction(
 // WITNESS AI AGENT — Natural, personality-driven, variable temperature
 // ============================================================================
 
+/** Who is putting the question: the counsel who called the witness, the other side, or a pre-trial interview. */
+export type WitnessExaminer = 'own_counsel' | 'opposing_counsel' | 'interview';
+
 export interface WitnessContext {
   witness: Witness;
   question: string;
   previousInteractions: Array<{ question: string; response: string }>;
+  examiner?: WitnessExaminer;
 }
 
 /**
@@ -274,22 +278,26 @@ export async function generateWitnessResponse(
 export async function generateWitnessResponse(
   witness: Witness,
   question: string,
-  previousInteractions?: Array<{ question: string; response: string }>
+  previousInteractions?: Array<{ question: string; response: string }>,
+  examiner?: WitnessExaminer
 ): Promise<string>;
 export async function generateWitnessResponse(
   contextOrWitness: WitnessContext | Witness,
   question?: string,
-  previousInteractions?: Array<{ question: string; response: string }>
+  previousInteractions?: Array<{ question: string; response: string }>,
+  examiner?: WitnessExaminer
 ): Promise<string> {
   // Handle both call signatures
   let witness: Witness;
   let q: string;
   let prev: Array<{ question: string; response: string }>;
+  let who: WitnessExaminer | undefined = examiner;
 
   if ('witness' in contextOrWitness && 'question' in contextOrWitness) {
     witness = contextOrWitness.witness;
     q = contextOrWitness.question;
     prev = contextOrWitness.previousInteractions;
+    who = contextOrWitness.examiner ?? examiner;
   } else {
     witness = contextOrWitness;
     q = question!;
@@ -301,7 +309,8 @@ export async function generateWitnessResponse(
   const prompt = buildWitnessPrompt({
     witness,
     question: q,
-    previousInteractions: prev.slice(-MAX_WITNESS_HISTORY).map(i => ({ ...i, response: stripStageDirections(i.response) }))
+    previousInteractions: prev.slice(-MAX_WITNESS_HISTORY).map(i => ({ ...i, response: stripStageDirections(i.response) })),
+    examiner: who
   });
   
   // Adjust temperature based on witness personality
@@ -1036,8 +1045,15 @@ ${witness.base_testimony}\n\n`;
     prompt += '\n';
   }
 
+  const manner: Record<WitnessExaminer, string> = {
+    own_counsel: `WHO IS QUESTIONING YOU: the lawyer who called you to testify, so you are on their side. Answer plainly and helpfully with what you know, and be willing to explain when asked. Do not gush, and do not volunteer more than the question calls for.`,
+    opposing_counsel: `WHO IS QUESTIONING YOU: the opposing lawyer, who is cross-examining you. Be guarded but civil, not hostile. Answer only what is asked, keep it short, offer nothing extra, and do not help them build their case. Give a direct answer to a direct question; you simply don't hand them more.`,
+    interview: `WHO IS QUESTIONING YOU: a lawyer interviewing you before trial. Answer plainly and responsively with what you know. Less guarded than under cross-examination, but not eager either: do not volunteer more than you are asked.`
+  };
+  if (context.examiner) prompt += `${manner[context.examiner]}\n(How forthcoming you are changes only the manner of your answers. It never changes what you know, and it never lets you invent facts or lie.)\n\n`;
+
   prompt += `CRITICAL INSTRUCTIONS:
-1. ONLY answer based on the knowledge above. No new facts, ever — not even small, plausible-sounding filler details.
+1. ONLY answer from the knowledge above about this case and about yourself. Never invent case facts, names, dates, amounts or events, not even small, plausible-sounding filler. One exception, in rule 10: everyday general knowledge.
 2. Match your answer to the RIGHT category above — don't treat hidden knowledge or secrets as freely offerable, and don't treat something you only partly know as something you know in full.
 3. "I don't know" / "I don't recall" is ONLY the honest answer for things in your genuinely-unknown category. It is NOT a catch-all for anything inconvenient or anything not explicitly listed — for hidden knowledge or secrets, evade or deflect in character instead of flatly denying knowledge; for things outside your knowledge entirely, say plainly that you can't speak to that and why (wasn't there, not your area, etc.).
 4. If a question contains a false premise or misstates a fact, correct the premise rather than answering as if it were true.
@@ -1046,7 +1062,9 @@ ${isDeceptive ? '6. You are willing to actively mislead, not just withhold, when
 7. Stay in character with your personality traits throughout.
 8. Be consistent with your own previous answers in this trial.
 9. Keep responses concise and natural, as if speaking in court — not a list, a spoken answer.
-10. Reply with ONLY the words you say out loud. No body language, gestures, actions, facial expressions, tone descriptions or stage directions of any kind, and nothing in asterisks or brackets.`;
+10. EVERYDAY COMMON SENSE: if the question is about ordinary, generally accepted things that anyone knows (for example whether people use social media to communicate, whether phones take photos, whether people sleep at night), answer it plainly and briefly like a normal person, then stop. Do not steer the answer back to your own story. This covers general knowledge only. Facts about YOU or THIS CASE (where you work, who you know, what you did, what happened) still come only from the knowledge above; if it isn't there, say plainly that you can't speak to that.
+11. ANSWER THE QUESTION ASKED. Do not fall back on the same stock line or favourite point whenever a topic comes near it. Make a point you have already made only if the question asks for it. If the very same question is asked again, you may give the same substance, but in different words, not a word-for-word repeat.
+12. Reply with ONLY the words you say out loud. No body language, gestures, actions, facial expressions, tone descriptions or stage directions of any kind, and nothing in asterisks or brackets.`;
 
   return prompt;
 }
