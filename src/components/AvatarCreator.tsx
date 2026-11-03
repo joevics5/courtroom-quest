@@ -477,10 +477,20 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
         </div>
 
         {saveError && <div className="rounded-xl bg-red-500/10 border border-red-500/50 p-3 text-red-300 text-sm">{saveError}</div>}
+      </div>
 
-        <button type="button" onClick={save} disabled={saving} className={`${GOLD_BUTTON} w-full`}>
-          {saving ? 'SAVING...' : mode === 'signup' ? 'ENTER COURT' : 'SAVE AVATAR'}
-        </button>
+      {/* Pinned to the bottom of the screen so it is always visible, however far the options are scrolled.
+          It sits outside the panel (which blurs its background) so it stays fixed to the screen. */}
+      <div aria-hidden className="h-28" />
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 px-4 pt-6 bg-gradient-to-t from-black via-black/85 to-transparent"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
+      >
+        <div className="max-w-md mx-auto">
+          <button type="button" onClick={save} disabled={saving} className={`${GOLD_BUTTON} w-full`}>
+            {saving ? 'SAVING...' : mode === 'signup' ? 'ENTER COURT' : 'SAVE AVATAR'}
+          </button>
+        </div>
       </div>
     </ScreenShell>
   );
