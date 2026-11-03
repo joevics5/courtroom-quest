@@ -68,6 +68,7 @@ Deno.serve(async (req: Request) => {
     if (qErr) return reply({ error: "Could not check your usage limit. Please try again.", text: "" }, 500);
     if (quota === "minute") return reply({ error: "Slow down a little and try again in a moment.", text: "" }, 429);
     if (quota === "day") return reply({ error: "Daily AI limit reached. Please try again tomorrow.", text: "" }, 429);
+    if (quota === "global") return reply({ error: "The AI is very busy right now. Please try again in a few minutes.", text: "" }, 503);
     if (quota !== "ok") return reply({ error: "Not signed in", text: "" }, 401);
 
     // 3. Validate and clamp the input.

@@ -169,7 +169,24 @@ async function runStage(
   return { data: best.data, warnings: best.errors, model: best.model };
 }
 
+// Optional secret ALLOWED_ORIGINS (comma separated site URLs) locks browsers to your site; unset = any origin.
+// Real protection is the sign-in + quota checks below, not CORS. The header is set once on the final
+// response (below), so concurrent requests from different origins can never mix up.
+const ALLOWED = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+function allowOrigin(req: Request): string {
+  const origin = req.headers.get("Origin") ?? "";
+  return ALLOWED.length === 0 ? "*" : ALLOWED.includes(origin) ? origin : ALLOWED[0];
+}
+
 Deno.serve(async (req: Request) => {
+  const res = await handle(req);
+  const headers = new Headers(res.headers);
+  headers.set("Access-Control-Allow-Origin", allowOrigin(req));
+  headers.set("Vary", "Origin");
+  return new Response(res.body, { status: res.status, headers });
+});
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: cors });
   try {
     const caller = await authorize(req);
@@ -220,4 +237,4 @@ Deno.serve(async (req: Request) => {
     console.error("generate-case error:", error);
     return json({ error: error instanceof Error ? error.message : "Generation failed" }, 500);
   }
-});
+}
