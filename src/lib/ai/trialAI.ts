@@ -4,6 +4,7 @@
  * with distinct personality, temperature, and system prompt.
  */
 
+import { stripStageDirections } from './stripStageDirections';
 import { MAX_WITNESS_HISTORY } from '../witnessHistory';
 import { getAIProvider } from './providerFactory';
 import type { AIRequest, AIResponse } from './types';
@@ -296,7 +297,12 @@ export async function generateWitnessResponse(
   }
 
   // Only the most recent exchanges go into the prompt (keeps it short and the witness consistent).
-  const prompt = buildWitnessPrompt({ witness, question: q, previousInteractions: prev.slice(-MAX_WITNESS_HISTORY) });
+  // Earlier answers (possibly saved with stage directions) are cleaned so the witness does not copy them.
+  const prompt = buildWitnessPrompt({
+    witness,
+    question: q,
+    previousInteractions: prev.slice(-MAX_WITNESS_HISTORY).map(i => ({ ...i, response: stripStageDirections(i.response) }))
+  });
   
   // Adjust temperature based on witness personality
   const personality = witness.personality_traits as any;
@@ -312,7 +318,8 @@ export async function generateWitnessResponse(
     maxTokens: 800
   });
 
-  return response.text;
+  // Just the answer as spoken: any body language the model adds anyway is removed.
+  return stripStageDirections(response.text);
 }
 
 // ============================================================================
@@ -956,7 +963,7 @@ PERSONALITY: `;
   if (personality.defensive) traits.push('defensive and guarded');
   if (personality.detail_oriented) traits.push('precise and detail-oriented');
   if (personality.helpful) traits.push('helpful and forthcoming');
-  if (personality.nervous) traits.push('nervous and fidgety');
+  if (personality.nervous) traits.push('nervous');
   if (personality.hostile) traits.push('hostile and reluctant');
   const isDeceptive = personality.deceptive === true;
   prompt += traits.length > 0 ? traits.join(', ') : 'neutral';
@@ -1038,7 +1045,8 @@ ${witness.base_testimony}\n\n`;
 ${isDeceptive ? '6. You are willing to actively mislead, not just withhold, when it serves you — but stay internally consistent with anything you\'ve already said.' : '6. You may be reluctant or evasive about secrets and hidden knowledge, but you do not state things you know to be false.'}
 7. Stay in character with your personality traits throughout.
 8. Be consistent with your own previous answers in this trial.
-9. Keep responses concise and natural, as if speaking in court — not a list, a spoken answer.`;
+9. Keep responses concise and natural, as if speaking in court — not a list, a spoken answer.
+10. Reply with ONLY the words you say out loud. No body language, gestures, actions, facial expressions, tone descriptions or stage directions of any kind, and nothing in asterisks or brackets.`;
 
   return prompt;
 }
