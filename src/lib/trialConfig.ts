@@ -1,5 +1,5 @@
 import type { TrialDuration } from '../types';
-import { statementMinutes, deliberationMinutes, witnessSlotsPerSide, basePoolSeconds } from './witnessPool';
+import { statementMinutes, openingMinutes, deliberationMinutes, witnessSlotsPerSide, basePoolSeconds } from './witnessPool';
 
 export interface TrialPhase {
   number: number;
@@ -110,8 +110,9 @@ function generatePhaseDurations(duration: TrialDuration, phases: TrialPhase[]): 
   
   // Opening statements: 30 seconds as the rule, longer only where the trial is long enough to afford it.
   // The clock stops at zero until the speaker has actually said something (see Courtroom).
-  durations[7] = statementMinutes(duration); // Opening - Prosecution
-  durations[8] = statementMinutes(duration); // Opening - Defense
+  // Openings get one minute more than that.
+  durations[7] = openingMinutes(duration); // Opening - Prosecution
+  durations[8] = openingMinutes(duration); // Opening - Defense
 
   // Witness phases (from generated phases)
   phases.forEach(phase => {

@@ -93,19 +93,26 @@ describe('statement gate', () => {
 import { getTrialConfig, getTotalTrialTime } from './trialConfig';
 
 describe('trial lengths still add up', () => {
-  it.each([5, 15, 30, 60] as const)('%i minute trial: fixed clocks + pool = the trial length', d => {
+  it.each([5, 15, 30, 60] as const)('%i minute trial: fixed clocks + pool = the trial length plus the two extra opening minutes', d => {
     const config = getTrialConfig(d);
     const fixed = Object.values(config.phaseDurations).reduce((a, b) => a + b, 0);
-    expect(fixed + basePoolSeconds(d) / 60).toBeCloseTo(d, 5);
-    expect(getTotalTrialTime(d)).toBeCloseTo(d, 5);
+    expect(fixed + basePoolSeconds(d) / 60).toBeCloseTo(d + 2, 5);
+    expect(getTotalTrialTime(d)).toBeCloseTo(d + 2, 5);
   });
 
-  it('statements are 30 seconds (longer only on 30 and 60 minute trials)', () => {
-    for (const [d, mins] of [[5, 0.5], [15, 0.5], [30, 1.5], [60, 3]] as const) {
+  it('the witness pool is not shortened by the longer openings', () => {
+    expect([5, 15, 30, 60].map(basePoolSeconds)).toEqual([150, 720, 1260, 2580]);
+  });
+
+  it('openings are one minute more than the closing statements in every mode', () => {
+    for (const [d, closing] of [[5, 0.5], [15, 0.5], [30, 1.5], [60, 3]] as const) {
       const cfg = getTrialConfig(d);
-      const names = cfg.phases.filter(p => /opening|closing/i.test(p.name));
-      expect(names).toHaveLength(4);
-      names.forEach(p => expect(cfg.phaseDurations[p.number]).toBe(mins));
+      const open = cfg.phases.filter(p => /opening/i.test(p.name));
+      const close = cfg.phases.filter(p => /closing/i.test(p.name));
+      expect(open).toHaveLength(2);
+      expect(close).toHaveLength(2);
+      open.forEach(p => expect(cfg.phaseDurations[p.number]).toBe(closing + 1));
+      close.forEach(p => expect(cfg.phaseDurations[p.number]).toBe(closing));
     }
   });
 

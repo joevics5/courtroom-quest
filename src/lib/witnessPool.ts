@@ -25,6 +25,8 @@ export const CROSS_RESERVE_KEY = -3;
 
 /** Pause at every change of counsel, so a question sent at the last second can still be answered. */
 export const HANDOFF_SECONDS = 10;
+/** Fixed read time after every opening and closing statement. Like the witness read-out, the clock is stopped. */
+export const STATEMENT_READ_SECONDS = 60;
 /** Pause after each witness answer while it is read out. The clock does not run during it. */
 export const READOUT_SECONDS = 20;
 
@@ -35,6 +37,14 @@ export function statementMinutes(duration: number): number {
   return 0.5;
 }
 
+/**
+ * Minutes each opening statement gets: the standard statement time plus one more minute. The extra minute
+ * is added to the trial, it does not come out of the witness pool.
+ */
+export function openingMinutes(duration: number): number {
+  return statementMinutes(duration) + 1;
+}
+
 /** Minutes of judge deliberation. */
 export function deliberationMinutes(duration: number): number {
   if (duration === 5) return 0.5;
@@ -43,7 +53,10 @@ export function deliberationMinutes(duration: number): number {
   return 5;
 }
 
-/** The witness stage's pool in seconds, before any time saved in the openings is added. */
+/**
+ * The witness stage's pool in seconds, before any time saved in the openings is added. It is sized from the
+ * standard statement time, so the extra opening minute leaves the witness stage exactly as long as before.
+ */
 export function basePoolSeconds(duration: number): number {
   return Math.round((duration - 4 * statementMinutes(duration) - deliberationMinutes(duration)) * 60);
 }

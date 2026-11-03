@@ -1,7 +1,8 @@
 import { useLockPageScroll } from '@/lib/useLockPageScroll';
 import { questionRestSeconds, questionRestLabel, OBJECTION_WINDOW_SECONDS } from '@/lib/questionRest';
-import { HANDOFF_SECONDS, statementGiven, legacyStatementMinutes } from '@/lib/witnessPool';
+import { HANDOFF_SECONDS, STATEMENT_READ_SECONDS, statementGiven, legacyStatementMinutes } from '@/lib/witnessPool';
 import { planNextPhase as planNextPhasePure } from '@/lib/witnessPlan';
+import { usedBySide, usedByEither } from '@/lib/usedBySide';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
 import { Scale, Send, ArrowLeft, Pause, Play, FileText, User, SkipForward, AlertCircle, RotateCcw, Mic, Gavel, Shield, Landmark, ChevronDown } from 'lucide-react';
@@ -24,11 +25,12 @@ import ModalSheet, { CHOICE_ROW } from './ModalSheet';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
 import ObjectionSelector from './ObjectionSelector';
-import { getTrialConfig, BAILIFF_PROMPTS, JUDGE_PROMPTS, getPhaseInfo, getRandomJudgeName, getRandomProsecutorName, formatTime, aiDefenseName, plainLawyerName } from '../lib/trialConfig';
+import { getTrialConfig, getTotalTrialTime, BAILIFF_PROMPTS, JUDGE_PROMPTS, getPhaseInfo, getRandomJudgeName, getRandomProsecutorName, formatTime, aiDefenseName, plainLawyerName } from '../lib/trialConfig';
 import {
   getAllowedActions,
   initializeTurnState,
   isWitnessPhase,
+  getTurnForPhase,
   canSubmitEvidence,
   getExaminationType,
   type TurnState
@@ -48,22 +50,6 @@ import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { canSpeak, enterSpeechScope, speakAs, stopSpeaking, stopSpeakingRole } from '../lib/speech';
 import SpeechToggle from './SpeechToggle';
 import type { CaseSession, Evidence, Witness, TrialEvent, Verdict, TrialDuration, TrialType, Case, EventType } from '../types';
-
-// Roughly how long it'd take to read a statement aloud, used to size the
-// auto-rest countdown to the actual statement instead of one flat
-// duration for every opening/closing regardless of length. ~150 words per
-// minute is a typical spoken pace for formal courtroom delivery. Clamped
-// so a very short statement still gives the human a moment to read it,
-// and a very long one doesn't stall for several minutes.
-const READ_WORDS_PER_MINUTE = 150;
-const MIN_AUTO_REST_SECONDS = 25;
-const MAX_AUTO_REST_SECONDS = 150;
-
-function estimateReadTimeSeconds(text: string): number {
-  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-  const seconds = Math.round((wordCount / READ_WORDS_PER_MINUTE) * 60);
-  return Math.max(MIN_AUTO_REST_SECONDS, Math.min(seconds, MAX_AUTO_REST_SECONDS));
-}
 
 interface CourtroomProps {
   session: CaseSession;
@@ -353,7 +339,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       });
       setPhaseTimeRemaining(initialTimes);
       if (totalTimeRemaining === 0) {
-        setTotalTimeRemaining(trialDuration * 60);
+        setTotalTimeRemaining(Math.round(getTotalTrialTime(trialDuration) * 60));
       }
     }
   }, [session]);
@@ -706,9 +692,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     setAutoRestPaused(false);
   };
 
-  // seconds should be an estimated read time (see estimateReadTimeSeconds)
-  // for the statement that was just generated — sized to the actual
-  // content instead of one flat duration for every statement.
+  // (no longer started for statements: they get a fixed read time in handleRestPhase)
   const startAutoRestCountdown = (seconds: number) => {
     cancelAutoRestCountdown();
     setAutoRestSecondsLeft(seconds);
@@ -879,10 +863,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   // A short break at every change of counsel in the witness stage. The clock is stopped and nobody can send
   // anything, so a question sent in the last second is answered inside it. Resolves when the break is over.
-  const runHandoffBreak = (label: string) =>
+  const runHandoffBreak = (label: string, seconds: number = HANDOFF_SECONDS) =>
     new Promise<void>(resolve => {
-      handoffRef.current = HANDOFF_SECONDS;
-      setHandoff({ secondsLeft: HANDOFF_SECONDS, label });
+      handoffRef.current = seconds;
+      setHandoff({ secondsLeft: seconds, label });
       const id = setInterval(() => {
         if (!aliveRef.current) {
           clearInterval(id);
@@ -936,12 +920,20 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       const targetPhaseType = getExaminationType(phase);
       const carriesForwardWitness = targetPhaseType === 'cross' || targetPhaseType === 'redirect';
 
+      // Both counsel can call the same witnesses and submit the same exhibits, so what counts as "already
+      // used" is what the counsel whose turn this is has used, not what either side used. (If the trial
+      // history has not loaded yet, the saved lists stand in until the next phase.)
+      const sideThisPhase = getTurnForPhase(phase);
+      const usedThisSide = eventsRef.current.length > 0 && (sideThisPhase === 'prosecution' || sideThisPhase === 'defense')
+        ? usedBySide(eventsRef.current, sideThisPhase)
+        : null;
+
       const newTurnState = initializeTurnState(
         phase,
         trialDuration,
         savedTurnState || turnState ? {
-          witnesses_called: savedTurnState?.witnesses_called || turnState?.witnesses_called || [],
-          evidence_submitted: savedTurnState?.evidence_submitted || turnState?.evidence_submitted || [],
+          witnesses_called: usedThisSide?.witnesses ?? (savedTurnState?.witnesses_called || turnState?.witnesses_called || []),
+          evidence_submitted: usedThisSide?.evidence ?? (savedTurnState?.evidence_submitted || turnState?.evidence_submitted || []),
           current_witness_id: carriesForwardWitness ? (savedTurnState?.current_witness_id || turnState?.current_witness_id || null) : null,
           current_witness_name: carriesForwardWitness ? (savedTurnState?.current_witness_name || turnState?.current_witness_name || null) : null
         } : undefined
@@ -1471,7 +1463,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     // Tracked here (not scoped inside try/catch) so the finally block can
     // size the auto-rest countdown off whatever statement actually ended
     // up in the transcript, real or fallback.
-    let finalStatementText = '';
     
     // Add timeout to prevent infinite hanging
     const timeoutPromise = new Promise((_, reject) => {
@@ -1529,7 +1520,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       console.log('[Courtroom] ✅ Opening statement received, length:', openingStatement.length);
       console.log('[Courtroom] 📢 Calling handleMakeStatement...');
-      finalStatementText = openingStatement;
       
       // Also add timeout for handleMakeStatement
       await Promise.race([
@@ -1546,7 +1536,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       const fallback = aiRole === 'prosecution'
         ? `Good morning, Your Honor. The prosecution is ready to present its case. We will show that the defendant is guilty beyond a reasonable doubt.`
         : `Good morning, Your Honor. The defense is ready to present its case. We will show that the evidence does not support a finding of guilt beyond a reasonable doubt.`;
-      finalStatementText = fallback;
       try {
         // Use a simpler version that doesn't require DB
         const fallbackEvent: TrialEvent = {
@@ -1560,6 +1549,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           metadata: { phase: currentPhase },
           event_order: events.length + 1
         };
+        eventsRef.current = [...eventsRef.current, fallbackEvent];
         setEvents([...events, fallbackEvent]);
         speakAs('counsel', fallback);
         setLastProsecutionEvent(fallbackEvent);
@@ -1569,7 +1559,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     } finally {
       setIsProsecutionThinking(false);
       console.log('[Courtroom] ✅ Opening statement generation complete (finally block executed)');
-      startAutoRestCountdown(estimateReadTimeSeconds(finalStatementText));
+      void handleRestPhaseRef.current(); // the fixed read time in handleRestPhase is the time to read it
     }
   };
 
@@ -1588,7 +1578,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }
 
     setIsProsecutionThinking(true);
-    let finalStatementText = '';
 
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Closing argument generation timeout after 60 seconds')), 60000);
@@ -1603,8 +1592,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       const timeLimit = phase ? legacyStatementMinutes(trialDuration) : 0;
 
       const transcriptSummary = buildTranscriptSummary(events, events.length);
-      const evidenceSubmitted = evidence.filter(e => turnState?.evidence_submitted.includes(e.id) ?? false);
-      const witnessesCalled = witnesses.filter(w => turnState?.witnesses_called.includes(w.id) ?? false);
+      const usedInTrial = usedByEither(eventsRef.current);
+      const evidenceSubmitted = evidence.filter(e => usedInTrial.evidence.includes(e.id));
+      const witnessesCalled = witnesses.filter(w => usedInTrial.witnesses.includes(w.id));
 
       const closingArgument = await Promise.race([
         generateClosingArgument({
@@ -1628,13 +1618,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           setTimeout(() => reject(new Error('handleMakeStatement timeout after 30 seconds')), 30000);
         })
       ]);
-      finalStatementText = closingArgument;
     } catch (error) {
       console.error('[Courtroom] ❌ Failed to generate closing argument:', error);
       const fallback = aiRole === 'prosecution'
         ? `Your Honor, members of the jury — the evidence and testimony you've heard today prove beyond a reasonable doubt that the defendant is guilty. We ask you to return a guilty verdict.`
         : `Your Honor, members of the jury — the prosecution has not met its burden of proof. The evidence and testimony leave real, reasonable doubt, and we ask you to return a verdict of not guilty.`;
-      finalStatementText = fallback;
       try {
         const fallbackEvent: TrialEvent = {
           id: `temp-${Date.now()}`,
@@ -1647,6 +1635,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           metadata: { phase: currentPhase, statement_type: 'closing' },
           event_order: events.length + 1
         };
+        eventsRef.current = [...eventsRef.current, fallbackEvent];
         setEvents(prev => [...prev, fallbackEvent]);
         speakAs('counsel', fallback);
         setLastProsecutionEvent(fallbackEvent);
@@ -1655,7 +1644,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       }
     } finally {
       setIsProsecutionThinking(false);
-      startAutoRestCountdown(estimateReadTimeSeconds(finalStatementText));
+      void handleRestPhaseRef.current(); // the fixed read time in handleRestPhase is the time to read it
     }
   };
 
@@ -2111,8 +2100,15 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // re-rendered, so the new "rests" line has to be in it already or the phase could never advance.
       eventsRef.current = [...eventsRef.current, event];
       setEvents(prev => [...prev, event]);
-      // Resting hands off to the next phase immediately, with no time-based condition. Whoever was
-      // speaking stops: it is no longer their turn.
+
+      // An opening or closing statement is read for a fixed minute before anything else happens, like a
+      // witness answer is. The clock is stopped and nobody can send anything until it is over.
+      if (config && restStatementSide && !practiceMode) {
+        await runHandoffBreak(`Reading the ${eventType === 'closing' ? 'closing' : 'opening'} statement`, STATEMENT_READ_SECONDS);
+        if (!aliveRef.current) return;
+      }
+
+      // Whoever was speaking stops: it is no longer their turn.
       stopSpeakingRole('counsel');
       await handleNextPhase();
     } finally {
@@ -2155,7 +2151,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       setIsProcessing(true);
 
       const trialType = session.trial_type || 'judge';
-      const submittedEvidence = evidence.filter(e => turnState?.evidence_submitted.includes(e.id) || false);
+      const submittedEvidence = evidence.filter(e => usedByEither(eventsRef.current).evidence.includes(e.id));
 
       let juryResult: Awaited<ReturnType<typeof generateJuryDeliberation>> | undefined;
       if (trialType === 'jury') {
