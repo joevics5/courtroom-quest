@@ -896,6 +896,13 @@ function AppContent() {
           dismissChallengeLink();
           setShowHome(false);
         }}
+        onViewGames={() => {
+          dismissChallengeLink();
+          setShowHome(false);
+          setCaseBoardFromHome(false);
+          setCaseBoardFilter('ongoing');
+          setView('case-board');
+        }}
       />
     );
   }

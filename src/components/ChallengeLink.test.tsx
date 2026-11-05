@@ -20,7 +20,7 @@ const preview = (over: Record<string, unknown> = {}) => ({
 });
 
 const setup = () => {
-  const props = { challengeId: 'c1', userId: 'me', onPlayAsGuest: vi.fn(), onSignIn: vi.fn(), onAccepted: vi.fn(), onDismiss: vi.fn() };
+  const props = { challengeId: 'c1', userId: 'me', onPlayAsGuest: vi.fn(), onSignIn: vi.fn(), onAccepted: vi.fn(), onDismiss: vi.fn(), onViewGames: vi.fn() };
   render(<ChallengeLink {...props} />);
   return props;
 };
@@ -75,7 +75,11 @@ describe('ChallengeLink', () => {
 
   it('shows the creator their own waiting link', async () => {
     getChallengePreview.mockResolvedValue(preview({ is_mine: true }));
-    setup();
+    const props = setup();
     await screen.findByText(/your own challenge link, still waiting/);
+    expect(screen.queryByText('OK')).toBeNull();
+    fireEvent.click(screen.getByText('VIEW MY GAMES'));
+    expect(props.onViewGames).toHaveBeenCalled();
+    expect(props.onDismiss).not.toHaveBeenCalled();
   });
 });

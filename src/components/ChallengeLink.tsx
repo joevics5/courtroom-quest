@@ -13,6 +13,8 @@ interface Props {
   onSignIn: () => void;
   onAccepted: (session: CaseSession) => void;
   onDismiss: () => void;
+  /** Go to the case file section (My games), where waiting and running challenges live */
+  onViewGames?: () => void;
 }
 
 const BIG_GOLD =
@@ -31,7 +33,7 @@ function SideBadge({ role }: { role: PlayerRole }) {
  * Where a challenge link lands. Anyone with the link can accept, as a guest or with an account,
  * so there is no email step. Shows the case and which side you would play, then joins.
  */
-export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSignIn, onAccepted, onDismiss }: Props) {
+export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSignIn, onAccepted, onDismiss, onViewGames }: Props) {
   const [preview, setPreview] = useState<ChallengePreview | null>(null);
   const [loading, setLoading] = useState(!!userId);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSi
   // Not signed in yet: explain, and offer the quickest way in.
   if (!userId) {
     return (
-      <ScreenShell title="YOU'VE BEEN CHALLENGED" subtitle="A friend wants to face you in court." onBack={onDismiss}>
+      <ScreenShell wrapTitle title="YOU'VE BEEN CHALLENGED" subtitle="A friend wants to face you in court." onBack={onDismiss}>
         <div className={PANEL}>
           <p className="text-white/80 mb-5">
             Accept the challenge and you'll take the opposite side in a real two-player trial. No email needed: play as a guest
@@ -123,7 +125,7 @@ export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSi
   const opponentRole: PlayerRole | null = preview ? (preview.creator_role === 'defense' ? 'prosecution' : 'defense') : null;
 
   return (
-    <ScreenShell title="YOU'VE BEEN CHALLENGED" subtitle="Accept to start a two-player trial." onBack={onDismiss}>
+    <ScreenShell wrapTitle title="YOU'VE BEEN CHALLENGED" subtitle="Accept to start a two-player trial." onBack={onDismiss}>
       <div className={PANEL}>
         {loading ? (
           <p className="flex items-center gap-2 text-white/70"><Loader2 className="w-4 h-4 animate-spin" /> Opening the challenge…</p>
@@ -150,7 +152,7 @@ export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSi
                   {working ? 'Opening…' : 'OPEN THE CASE'}
                 </button>
                 <button
-                  onClick={onDismiss}
+                  onClick={onViewGames || onDismiss}
                   className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold transition-colors"
                 >
                   Not now
@@ -175,7 +177,7 @@ export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSi
             <p className="text-white/70 text-sm mb-4">
               This is your own challenge link, still waiting. Send it to your friend; they'll be the one to accept it. You'll find the game under My games once they do.
             </p>
-            <button onClick={onDismiss} className={`w-full px-4 py-3 ${BIG_GOLD}`}>OK</button>
+            <button onClick={onViewGames || onDismiss} className={`w-full px-4 py-3 ${BIG_GOLD}`}>VIEW MY GAMES</button>
           </>
         ) : (
           <>

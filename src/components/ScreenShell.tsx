@@ -10,6 +10,8 @@ interface ScreenShellProps {
   right?: ReactNode;
   /** Tailwind max-width class for the content column */
   maxWidth?: string;
+  /** Let a long title wrap onto two lines at a smaller size instead of being cut off */
+  wrapTitle?: boolean;
   children: ReactNode;
 }
 
@@ -18,7 +20,7 @@ interface ScreenShellProps {
  * forms, challenge board): same dimmed video/poster background, round back
  * button and gold comic-font title — body content keeps the normal font.
  */
-export default function ScreenShell({ title, subtitle, onBack, right, maxWidth = 'max-w-3xl lg:max-w-5xl', children }: ScreenShellProps) {
+export default function ScreenShell({ title, subtitle, onBack, right, maxWidth = 'max-w-3xl lg:max-w-5xl', wrapTitle, children }: ScreenShellProps) {
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-[#0b0d14]">
       <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
@@ -37,7 +39,7 @@ export default function ScreenShell({ title, subtitle, onBack, right, maxWidth =
                 <ArrowLeft className="w-5 h-5" />
               </button>
             )}
-            <h1 className="logo-gold font-game text-4xl lg:text-5xl leading-none flex-1 min-w-0 truncate">{title}</h1>
+            <h1 className={`logo-gold font-game leading-none flex-1 min-w-0 ${wrapTitle ? 'text-3xl sm:text-4xl lg:text-5xl break-words' : 'text-4xl lg:text-5xl truncate'}`}>{title}</h1>
             {right}
           </header>
           {subtitle && <p className="text-white/60 text-sm mb-5 ml-1">{subtitle}</p>}
