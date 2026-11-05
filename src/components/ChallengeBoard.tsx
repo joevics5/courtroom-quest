@@ -59,6 +59,9 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
   // --- Quick match (open lobby) state ---
   const [openChallenges, setOpenChallenges] = useState<CaseChallenge[]>([]);
   const [myChallenges, setMyChallenges] = useState<CaseChallenge[]>([]);
+  // Games from accepted challenges that are still being played
+  const [activeGameIds, setActiveGameIds] = useState<Set<string>>(new Set());
+  const [openingGameId, setOpeningGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(!!initialCase && (initialTab ?? 'quick') === 'quick');
   const [selectedCaseId, setSelectedCaseId] = useState<string>(initialCase?.id ?? '');
@@ -100,6 +103,8 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       ]);
       setOpenChallenges(open.filter((c: CaseChallenge) => c.creator_user_id !== userId));
       setMyChallenges(mine);
+      const sessionIds = mine.filter((c: CaseChallenge) => c.status === 'matched' && c.session_id).map((c: CaseChallenge) => c.session_id as string);
+      setActiveGameIds(new Set(await db.challenges.getActiveSessionIds(sessionIds).catch(() => [])));
     } catch (err) {
       console.error('Failed to refresh challenge board:', err);
     } finally {
@@ -189,7 +194,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
     setJoiningId(challengeId);
     setError(null);
     try {
-      const session = await db.challenges.joinChallenge(challengeId, userId);
+      const session = await db.challenges.joinChallenge(challengeId);
       onMatched(session);
     } catch (err: any) {
       console.error('Failed to join challenge:', err);
@@ -197,6 +202,22 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       await refresh();
     } finally {
       setJoiningId(null);
+    }
+  };
+
+  // An accepted challenge: both players go into the case (evidence, witnesses) from here.
+  const handleOpenGame = async (sessionId: string) => {
+    setOpeningGameId(sessionId);
+    setError(null);
+    try {
+      const session = await db.sessions.getSession(sessionId);
+      if (!session) throw new Error('missing');
+      onMatched(session);
+    } catch (err) {
+      console.error('Failed to open the accepted game:', err);
+      setError('Could not open the game. Try again.');
+    } finally {
+      setOpeningGameId(null);
     }
   };
 
@@ -287,6 +308,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
   // Waiting challenges of mine, split by how they're shared: public ones are on the board, private ones go by link.
   const myOpenChallenges = myChallenges.filter(c => c.status === 'open' && c.creator_user_id === userId && c.is_public !== false);
   const myPrivateOpen = myChallenges.filter(c => c.status === 'open' && c.creator_user_id === userId && c.is_public === false);
+  const myAcceptedChallenges = myChallenges.filter(c => c.status === 'matched' && c.session_id && activeGameIds.has(c.session_id));
   const pendingSentInvites = sentInvites.filter(i => i.status === 'pending');
 
   return (
@@ -322,6 +344,27 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
           </button>
         </div>
 
+        {myAcceptedChallenges.map(game => {
+          const iAmCreator = game.creator_user_id === userId;
+          const myRole: PlayerRole = iAmCreator ? game.creator_role : (game.creator_role === 'defense' ? 'prosecution' : 'defense');
+          return (
+            <div key={game.id} className={`${CARD} !border-emerald-400/60 mb-3 flex items-center justify-between gap-3`}>
+              <div className="min-w-0">
+                <p className="text-emerald-300 text-[11px] font-black tracking-wider">CHALLENGE ACCEPTED</p>
+                <p className="text-white font-semibold text-sm truncate">{game.case_title || 'Case'}</p>
+                <p className="text-white/50 text-xs">You're playing the {myRole}. Review the evidence and question witnesses.</p>
+              </div>
+              <button
+                onClick={() => handleOpenGame(game.session_id as string)}
+                disabled={openingGameId === game.session_id}
+                className={`shrink-0 px-4 py-2 ${SMALL_GOLD} text-sm`}
+              >
+                {openingGameId === game.session_id ? 'Opening…' : 'Open case'}
+              </button>
+            </div>
+          );
+        })}
+
         {tab === 'quick' && (
           <>
             {error && (
@@ -355,6 +398,30 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 >
                   <X className="w-5 h-5" />
                 </button>
+              </div>
+            ))}
+
+            {myPrivateOpen.map(waiting => (
+              <div key={waiting.id} className={`${CARD} !border-[#F2B705]/60 mb-3`}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <p className="text-white font-semibold text-sm truncate flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-[#FFD43B] shrink-0" /> Private — {waiting.case_title || 'Case'}
+                    </p>
+                    <p className="text-white/50 text-xs">You're playing {waiting.creator_role}. Only someone with this link can accept it.</p>
+                  </div>
+                  <button
+                    onClick={() => handleCancel(waiting.id)}
+                    className="text-white/40 hover:text-white transition-colors shrink-0"
+                    title="Cancel challenge"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <ShareLinkBox
+                  link={buildChallengeLink(waiting.id, window.location.origin)}
+                  shareText={challengeShareText(waiting.case_title, waiting.creator_role)}
+                />
               </div>
             ))}
 

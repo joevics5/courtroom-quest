@@ -42,6 +42,8 @@ interface WaitingGame {
   title: string;
   role: string;
   created_at?: string;
+  /** A challenge only reachable through its link */
+  isPrivate?: boolean;
 }
 
 export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onOpenAppeal, onPick, initialFilter = 'all' }: CaseBoardProps) {
@@ -87,7 +89,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
       setWaitingGames([
         ...challenges
           .filter((c: any) => c.status === 'open' && c.creator_user_id === user.id)
-          .map((c: any): WaitingGame => ({ key: `challenge-${c.id}`, kind: 'challenge', id: c.id, title: c.case_title || 'Challenge', role: c.creator_role, created_at: c.created_at })),
+          .map((c: any): WaitingGame => ({ key: `challenge-${c.id}`, kind: 'challenge', id: c.id, title: c.case_title || 'Challenge', role: c.creator_role, created_at: c.created_at, isPrivate: c.is_public === false })),
         ...invitations
           .filter(i => i.status === 'pending' && i.inviter_user_id === user.id)
           .map((i): WaitingGame => ({ key: `invite-${i.id}`, kind: 'invite', id: i.id, title: i.case_title || 'Invitation', role: i.inviter_role || 'defense', created_at: (i as any).created_at }))
@@ -260,6 +262,11 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-amber-500/20 border-amber-400/60 text-amber-300">
                     {game.kind === 'challenge' ? 'WAITING FOR OPPONENT' : 'WAITING FOR FRIEND'}
                   </span>
+                  {game.isPrivate && (
+                    <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-white/10 border-white/25 text-white/80">
+                      PRIVATE LINK
+                    </span>
+                  )}
                   <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-rose-500/20 border-rose-400/60 text-rose-200">
                     VS PLAYER
                   </span>

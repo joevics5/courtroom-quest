@@ -35,6 +35,11 @@ export interface ChallengePreview {
   status: 'open' | 'matched' | 'cancelled';
   is_public: boolean;
   is_mine: boolean;
+  /** You are the person who accepted it. */
+  is_opponent?: boolean;
+  opponent_name?: string | null;
+  /** The game, only given to the two players once it exists. */
+  session_id?: string | null;
 }
 
 
@@ -450,54 +455,27 @@ export const db = {
       if (error) throw error;
     },
 
-    // Joins an open challenge: claims it (optimistic concurrency via the
-    // status='open' guard, so two people can't join the same challenge),
-    // creates the shared session with both users and their assigned
-    // roles recorded, and links the session back to the challenge.
-    // Multiplayer sessions skip role/difficulty selection (already
-    // decided by the challenge) and go straight to investigation.
-    async joinChallenge(challengeId: string, joinerUserId: string) {
-      // The seat is taken in one step inside the database (works for public challenges and for private
-      // ones reached by link, and two people can never take the same seat).
-      const { data: claimedRow, error: claimError } = await (supabase as any).rpc('claim_challenge', { p_id: challengeId });
-      if (claimError || !claimedRow) {
-        throw new Error(claimError?.message || 'This challenge was just taken by someone else. Try another one.');
+    // Accepts a challenge, once. The database takes the open seat, creates the shared game and links it
+    // in one step (so a challenge can never end up accepted with no game), and calling it again as the
+    // same person just hands the game back. Anyone else is told it was already accepted.
+    async joinChallenge(challengeId: string) {
+      const { data, error } = await (supabase as any).rpc('accept_challenge', { p_id: challengeId });
+      if (error || !data) {
+        throw new Error(error?.message || 'This challenge was just taken by someone else. Try another one.');
       }
-      const claimed = claimedRow as any;
+      return data as CaseSession;
+    },
 
-      const joinerRole: 'defense' | 'prosecution' = claimed.creator_role === 'defense' ? 'prosecution' : 'defense';
-      const prosecutionUserId = claimed.creator_role === 'prosecution' ? claimed.creator_user_id : joinerUserId;
-      const defenseUserId = claimed.creator_role === 'defense' ? claimed.creator_user_id : joinerUserId;
-
-      const { data: session, error: sessionError } = await supabase
+    /** Which of these games are still being played (not finished). */
+    async getActiveSessionIds(sessionIds: string[]): Promise<string[]> {
+      if (!sessionIds.length) return [];
+      const { data, error } = await supabase
         .from('case_sessions')
-        .insert([{
-          case_id: claimed.case_id,
-          user_id: claimed.creator_user_id,
-          opposing_counsel_user_id: joinerUserId,
-          current_phase: 'investigation',
-          evidence_filed: false,
-          witnesses_locked: false,
-          // Public matches are already visible to anyone on the open board, so spectating defaults
-          // on there; a private challenge only allows it when its creator chose so.
-          allow_spectators: claimed.allow_spectators ?? true,
-          session_state: {
-            isMultiplayer: true,
-            prosecutionUserId,
-            defenseUserId
-          }
-        }])
-        .select()
-        .single();
-      if (sessionError) throw sessionError;
-
-      const { error: linkError } = await supabase
-        .from('case_challenges')
-        .update({ session_id: session.id })
-        .eq('id', challengeId);
-      if (linkError) throw linkError;
-
-      return session as CaseSession;
+        .select('id')
+        .in('id', sessionIds)
+        .is('completed_at', null);
+      if (error) throw error;
+      return (data || []).map((r: any) => r.id as string);
     }
   },
 

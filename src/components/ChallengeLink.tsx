@@ -58,11 +58,28 @@ export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSi
     setWorking(true);
     setError(null);
     try {
-      const session = await db.challenges.joinChallenge(challengeId, userId);
+      const session = await db.challenges.joinChallenge(challengeId);
       onAccepted(session);
     } catch (err: any) {
       console.error('Failed to accept the challenge:', err);
       setError(err?.message || 'Could not accept this challenge.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  // The challenge is already accepted and I'm one of the two players: go into the game.
+  const openGame = async () => {
+    if (!preview?.session_id) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const session = await db.sessions.getSession(preview.session_id);
+      if (!session) throw new Error('missing');
+      onAccepted(session);
+    } catch (err) {
+      console.error('Failed to open the accepted game:', err);
+      setError('We could not open the game. Find it under My games.');
     } finally {
       setWorking(false);
     }
@@ -101,6 +118,8 @@ export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSi
   }
 
   const open = preview?.status === 'open';
+  const accepted = preview?.status === 'matched';
+  const isPlayer = !!preview && (preview.is_mine || !!preview.is_opponent);
   const opponentRole: PlayerRole | null = preview ? (preview.creator_role === 'defense' ? 'prosecution' : 'defense') : null;
 
   return (
@@ -113,18 +132,49 @@ export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSi
             <p className="text-white mb-4">{error || "This challenge couldn't be found. The link may be wrong or incomplete."}</p>
             <button onClick={onDismiss} className={`w-full px-4 py-3 ${BIG_GOLD}`}>OK</button>
           </>
-        ) : preview.is_mine ? (
+        ) : accepted ? (
           <>
+            <p className="text-emerald-300 text-xs font-black tracking-wider mb-1">CHALLENGE ACCEPTED</p>
             <p className="text-white font-semibold mb-1">{preview.case_title || 'Case'}</p>
-            <p className="text-white/70 text-sm mb-4">
-              This is your own challenge link. Send it to your friend; they'll be the one to accept it. You'll find the game under My games once they do.
-            </p>
-            <button onClick={onDismiss} className={`w-full px-4 py-3 ${BIG_GOLD}`}>OK</button>
+            {isPlayer ? (
+              <>
+                <p className="text-white/70 text-sm mb-4">
+                  {preview.is_mine
+                    ? `${preview.opponent_name || 'Your opponent'} accepted your challenge. The case is ready: review the evidence and question witnesses.`
+                    : `You accepted this challenge. The case is ready: review the evidence and question witnesses.`}
+                </p>
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm rounded-lg p-3 mb-4">{error}</div>
+                )}
+                <button onClick={openGame} disabled={working || !preview.session_id} className={`w-full px-4 py-3 mb-3 ${BIG_GOLD}`}>
+                  {working ? 'Opening…' : 'OPEN THE CASE'}
+                </button>
+                <button
+                  onClick={onDismiss}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold transition-colors"
+                >
+                  Not now
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-white/70 text-sm mb-4">This challenge has already been accepted by another player, so it can't be accepted again.</p>
+                <button onClick={onDismiss} className={`w-full px-4 py-3 ${BIG_GOLD}`}>OK</button>
+              </>
+            )}
           </>
         ) : !open ? (
           <>
             <p className="text-white font-semibold mb-1">{preview.case_title || 'Case'}</p>
-            <p className="text-white/70 text-sm mb-4">This challenge is no longer open: it was already accepted or cancelled.</p>
+            <p className="text-white/70 text-sm mb-4">This challenge was cancelled by its creator.</p>
+            <button onClick={onDismiss} className={`w-full px-4 py-3 ${BIG_GOLD}`}>OK</button>
+          </>
+        ) : preview.is_mine ? (
+          <>
+            <p className="text-white font-semibold mb-1">{preview.case_title || 'Case'}</p>
+            <p className="text-white/70 text-sm mb-4">
+              This is your own challenge link, still waiting. Send it to your friend; they'll be the one to accept it. You'll find the game under My games once they do.
+            </p>
             <button onClick={onDismiss} className={`w-full px-4 py-3 ${BIG_GOLD}`}>OK</button>
           </>
         ) : (
