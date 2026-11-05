@@ -521,15 +521,26 @@ interface AvatarFaceProps {
   rank?: number;
   /** Draw only the person, with no backdrop behind them. For placing on top of a scene. */
   transparent?: boolean;
+  /**
+   * Just the face: skin, brows, eyes, nose, mouth, beard, glasses and age lines. No hair, ears, neck, clothes
+   * or backdrop, and a flat skin colour so it blends into whatever it is wrapped around. Used to put the
+   * player's real face on the 3D characters.
+   */
+  faceOnly?: boolean;
+  /** Hold the mouth open (still, no animation). For the "speaking" picture of a face. */
+  mouthOpen?: boolean;
   className?: string;
 }
+
+/** The part of the 200x200 drawing a face-only picture covers. A square, so it maps cleanly onto a head. */
+export const FACE_VIEWBOX = '48 54 104 104';
 
 /**
  * A shaded, colourful bust drawn as layered SVG. Scales to its container.
  * The mouth is its own layer so it can move while the character is speaking;
  * with reduced motion on it opens and holds instead.
  */
-export default function AvatarFace({ config, speaking = false, label, crop = 'full', rank = 1, transparent = false, className = '' }: AvatarFaceProps) {
+export default function AvatarFace({ config, speaking = false, label, crop = 'full', rank = 1, transparent = false, faceOnly = false, mouthOpen = false, className = '' }: AvatarFaceProps) {
   const tier = Math.min(10, Math.max(1, Math.round(rank) || 1));
   const reducedMotion = usePrefersReducedMotion();
   const uid = `av${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -563,7 +574,7 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
   const old = config.age >= 2;
   const mid = config.age >= 1;
   const glassesColor = GLASSES[config.attireColor % GLASSES.length];
-  const viewBox = crop === 'face' ? '40 22 120 120' : '0 0 200 200';
+  const viewBox = faceOnly ? FACE_VIEWBOX : crop === 'face' ? '40 22 120 120' : '0 0 200 200';
   const mouthW = mouth.w;
   const beard = fem ? 'none' : config.beard;
 
@@ -571,12 +582,13 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
 
   return (
     <svg
+      xmlns="http://www.w3.org/2000/svg"
       viewBox={viewBox}
       role="img"
       aria-label={label ?? 'Avatar'}
       className={className}
       // own compositing layer: avoids a phone GPU glitch where the wig drew as a flat rectangle
-      style={{ display: 'block', width: '100%', height: '100%', transform: 'translateZ(0)', isolation: 'isolate' }}
+      style={faceOnly ? undefined : { display: 'block', width: '100%', height: '100%', transform: 'translateZ(0)', isolation: 'isolate' }}
       preserveAspectRatio="xMidYMid slice"
     >
       <defs>
@@ -629,7 +641,7 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       </defs>
 
       {/* backdrop */}
-      {!transparent && (
+      {!transparent && !faceOnly && (
         <>
           <rect width="200" height="200" fill={`url(#${uid}-bg)`} />
           <circle cx="30" cy="40" r="22" fill={accent} opacity="0.14" />
@@ -639,7 +651,7 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
         </>
       )}
 
-      {tier >= 10 && (
+      {tier >= 10 && !faceOnly && (
         <g data-gear="aura">
           <circle cx="100" cy="92" r="84" fill={`url(#${uid}-aura)`} />
           <Sparkle x={38} y={52} s={1.1} />
@@ -650,11 +662,14 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       )}
 
       {/* hair behind */}
+      {!faceOnly && (
       <g fill={`url(#${uid}-hair)`}>
         <HairBack style={config.hairStyle} fill={`url(#${uid}-hair)`} light={hairLight} tw={tw} />
       </g>
+      )}
 
       {/* neck and outfit */}
+      {!faceOnly && (<>
       <path
         d={fem ? 'M87 118 L87 158 C93 165 107 165 113 158 L113 118 Z' : 'M82 118 L82 158 C90 168 110 168 118 158 L118 118 Z'}
         fill={`url(#${uid}-neck)`}
@@ -669,27 +684,30 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
         fem={fem}
         body={fem ? 'M26 200 C26 168 60 153 100 153 C140 153 174 168 174 200 Z' : 'M12 200 C12 164 52 152 100 152 C148 152 188 164 188 200 Z'}
       />
+      </>)}
 
       {/* ears */}
+      {!faceOnly && (
       <g>
         <ellipse cx={100 - tw} cy="98" rx={fem ? 5.6 : 7} ry={fem ? 8 : 9.6} fill={skin} />
         <ellipse cx={100 + tw} cy="98" rx={fem ? 5.6 : 7} ry={fem ? 8 : 9.6} fill={skin} />
         <ellipse cx={100 - tw} cy="99" rx="3" ry="5" fill={skinLo} opacity="0.55" />
         <ellipse cx={100 + tw} cy="99" rx="3" ry="5" fill={skinLo} opacity="0.55" />
       </g>
+      )}
 
-      {/* head */}
-      <path d={headPath(head)} fill={`url(#${uid}-face)`} />
+      {/* head (face-only pictures use one flat skin colour so they blend into the 3D head they are wrapped on) */}
+      <path d={headPath(head)} fill={faceOnly ? skin : `url(#${uid}-face)`} />
       <g clipPath={`url(#${uid}-head)`}>
-        <rect x="0" y="0" width="200" height="200" fill={`url(#${uid}-rim)`} />
+        {!faceOnly && <rect x="0" y="0" width="200" height="200" fill={`url(#${uid}-rim)`} />}
         <ellipse cx="78" cy="119" rx="10" ry="6.5" fill="#e0556a" opacity={(config.skin >= 4 ? 0.1 : 0.17) * (fem ? 1.5 : 0.8)} />
         <ellipse cx="122" cy="119" rx="10" ry="6.5" fill="#e0556a" opacity={(config.skin >= 4 ? 0.1 : 0.17) * (fem ? 1.5 : 0.8)} />
-        <ellipse cx="94" cy="72" rx="16" ry="7" fill="#fff" opacity="0.1" />
-        <ellipse cx="100" cy={chin + 2} rx={jw + 6} ry="9" fill={lid} opacity="0.18" />
+        {!faceOnly && <ellipse cx="94" cy="72" rx="16" ry="7" fill="#fff" opacity="0.1" />}
+        {!faceOnly && <ellipse cx="100" cy={chin + 2} rx={jw + 6} ry="9" fill={lid} opacity="0.18" />}
       </g>
 
       {/* earrings */}
-      {fem && (
+      {fem && !faceOnly && (
         <g fill={accent} stroke={darken(accent, 0.3)} strokeWidth="0.8">
           <circle cx={100 - tw - 0.5} cy="107" r="2.8" />
           <circle cx={100 + tw + 0.5} cy="107" r="2.8" />
@@ -697,7 +715,7 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
       )}
 
       {/* hair front */}
-      <HairFront style={config.hairStyle} fill={`url(#${uid}-hair)`} light={hairLight} tw={tw} />
+      {!faceOnly && <HairFront style={config.hairStyle} fill={`url(#${uid}-hair)`} light={hairLight} tw={tw} />}
 
       {/* age lines */}
       {mid && (
@@ -772,10 +790,10 @@ export default function AvatarFace({ config, speaking = false, label, crop = 'fu
 
       {/* mouth */}
       <g transform="translate(100 127)">
-        {speaking ? (
+        {speaking || mouthOpen ? (
           <g>
             <g>
-              <animateTransform attributeName="transform" type="scale" values={speakValues} dur="0.6s" repeatCount={reducedMotion ? '1' : 'indefinite'} />
+              {!mouthOpen && <animateTransform attributeName="transform" type="scale" values={speakValues} dur="0.6s" repeatCount={reducedMotion ? '1' : 'indefinite'} />}
               <ellipse cx="0" cy="4" rx={mouthW * 0.78} ry="6.5" fill="#4a1414" stroke={lip} strokeWidth="2.6" />
               <g clipPath={`url(#${uid}-mouth)`}>
                 <path d={`M${-mouthW * 0.6} -2 Q0 -4 ${mouthW * 0.6} -2 L${mouthW * 0.56} 2 Q0 0 ${-mouthW * 0.56} 2 Z`} fill="#fff" />

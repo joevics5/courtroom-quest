@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ACCENT_COLORS, ATTIRE_COLORS, HAIR_COLORS, SKIN_TONES, type AvatarConfig } from '../../lib/avatars';
+import { facePatchGeometry } from './faceMap';
 
 /**
  * Procedural 3D people. Soft ellipsoid bodies, a layered walk, blinking, breathing, gaze,
@@ -69,6 +70,10 @@ export interface Character {
   mouth: THREE.Mesh;
   gavelProp: THREE.Group;
   label: THREE.Sprite | null;
+  /** The plain 3D face bits (eyes, brows, smile, beard, glasses) that the player's real face replaces. */
+  faceParts: THREE.Object3D[];
+  /** The player's real avatar face, once it has loaded. */
+  face: { mat: THREE.MeshLambertMaterial; neutral: THREE.Texture; talk: THREE.Texture; open: boolean } | null;
   /** Walk cycle phase and random per-person offset. */
   ph: number;
   po: number;
@@ -157,6 +162,7 @@ export function makeCharacter(o: Look): Character {
   el(H, 0.035, 0.05, 0.025, sk, 0.2, 0.2, 0);
   el(H, 0.03, 0.04, 0.035, sk, 0, 0.18, 0.2);
   const eyes: Character['eyes'] = [];
+  const faceParts: THREE.Object3D[] = [];
   [-1, 1].forEach(sd => {
     const e = new THREE.Group(); e.position.set(sd * 0.082, 0.235, 0.178); H.add(e);
     el(e, 0.046, 0.05, 0.03, 0xf4f0ea, 0, 0, 0, undefined, false);
@@ -164,10 +170,12 @@ export function makeCharacter(o: Look): Character {
     const lid = el(e, 0.052, 0.056, 0.036, sk, 0, 0, 0.004, undefined, false);
     lid.scale.y = 0.001;
     eyes.push({ lid, pu });
+    faceParts.push(e);
   });
   const brows = [-1, 1].map(sd => bx(H, 0.08, 0.016, 0.02, hc, sd * 0.082, 0.315, 0.185) as THREE.Mesh);
   const smile = new THREE.Mesh(SMILE_GEO, MB(0x7a3a3a));
   smile.position.set(0, 0.105, 0.2); smile.rotation.z = Math.PI; H.add(smile);
+  faceParts.push(...brows, smile);
   const mouth = el(H, 0.04, 0.03, 0.02, 0x4a1a1a, 0, 0.1, 0.2, MB(0x4a1a1a), false); mouth.visible = false;
 
   // hair
@@ -180,8 +188,8 @@ export function makeCharacter(o: Look): Character {
     if (st === 'curly') for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; el(H, 0.085, 0.085, 0.085, hc, Math.cos(a) * 0.17, 0.4 + Math.sin(i * 2) * 0.02, Math.sin(a) * 0.17 - 0.05); }
     if (st === 'wig') { for (let i = -2; i <= 2; i++) { el(H, 0.07, 0.07, 0.07, hc, -0.2, 0.1 - i * 0.07, -0.04); el(H, 0.07, 0.07, 0.07, hc, 0.2, 0.1 - i * 0.07, -0.04); } bx(H, 0.38, 0.4, 0.12, hc, 0, 0.12, -0.17); }
   }
-  if (o.beard) el(H, 0.15, 0.085, 0.11, hc, 0, 0.04, 0.1);
-  if (o.glasses) { bx(H, 0.3, 0.015, 0.015, 0x222222, 0, 0.235, 0.205); bx(H, 0.1, 0.075, 0.012, 0x222222, -0.082, 0.235, 0.205); bx(H, 0.1, 0.075, 0.012, 0x222222, 0.082, 0.235, 0.205); }
+  if (o.beard) faceParts.push(el(H, 0.15, 0.085, 0.11, hc, 0, 0.04, 0.1));
+  if (o.glasses) faceParts.push(bx(H, 0.3, 0.015, 0.015, 0x222222, 0, 0.235, 0.205), bx(H, 0.1, 0.075, 0.012, 0x222222, -0.082, 0.235, 0.205), bx(H, 0.1, 0.075, 0.012, 0x222222, 0.082, 0.235, 0.205));
 
   const sx = wm ? 0.23 : 0.29;
   const sleeve = o.robe ? sh : sh;
@@ -211,7 +219,7 @@ export function makeCharacter(o: Look): Character {
   aR.k.add(gavelProp);
 
   const c: Character = {
-    g, b, P, C, H, lL: leg(-1), lR: leg(1), aL: arm(-1), aR, eyes, brows, smile, mouth, gavelProp, label: null,
+    g, b, P, C, H, lL: leg(-1), lR: leg(1), aL: arm(-1), aR, eyes, brows, smile, mouth, gavelProp, label: null, faceParts, face: null,
     ph: Math.random() * 6, po: Math.random() * 6, sa: 0, sitTarget: 0, wk: 0, look: null,
     nb: 1 + Math.random() * 3, bt: 0, hy: 0, hp: 0, mood: 0.1, moodT: 0.1, mo: 0, gavelT: -1, height: o.height,
     s: { al: 0, ar: 0, alz: -0.06, arz: 0.06, el: -0.1, er: -0.1, hpS: 0, lean: 0, cy: 0 }
@@ -324,12 +332,34 @@ export function pose(c: Character, st: PoseName, dt: number, dist: number, t: nu
   c.mood += (c.moodT - c.mood) * Math.min(1, dt * 3);
   const m = c.mood;
   c.mo += (mo - c.mo) * Math.min(1, dt * 18);
-  c.mouth.visible = c.mo > 0.1; c.mouth.scale.y = 0.012 + c.mo * 0.04; c.smile.visible = c.mo < 0.35;
-  c.smile.rotation.z = m >= 0 ? Math.PI : 0; c.smile.scale.y = 0.2 + Math.abs(m) * 0.9; c.smile.position.y = m >= 0 ? 0.112 : 0.095;
-  const dn = Math.max(0, -m);
-  c.brows[0].position.y = c.brows[1].position.y = 0.315 + m * 0.012;
-  c.brows[0].rotation.z = -dn * 0.35; c.brows[1].rotation.z = dn * 0.35;
+  if (c.face) {
+    // the player's real face: the picture with the mouth open while they talk
+    const open = c.mo > 0.35;
+    if (open !== c.face.open) { c.face.open = open; c.face.mat.map = open ? c.face.talk : c.face.neutral; }
+  } else {
+    c.mouth.visible = c.mo > 0.1; c.mouth.scale.y = 0.012 + c.mo * 0.04; c.smile.visible = c.mo < 0.35;
+    c.smile.rotation.z = m >= 0 ? Math.PI : 0; c.smile.scale.y = 0.2 + Math.abs(m) * 0.9; c.smile.position.y = m >= 0 ? 0.112 : 0.095;
+    const dn = Math.max(0, -m);
+    c.brows[0].position.y = c.brows[1].position.y = 0.315 + m * 0.012;
+    c.brows[0].rotation.z = -dn * 0.35; c.brows[1].rotation.z = dn * 0.35;
+  }
   c.gavelProp.visible = gavel;
+}
+
+/**
+ * Puts the player's real avatar face on a character. The plain 3D eyes, brows, smile, beard and glasses are
+ * hidden, because the picture carries them; the 3D hair, ears, nose and skin stay, in the same colours.
+ */
+export function applyFace(c: Character, neutral: THREE.Texture, talk: THREE.Texture) {
+  if (c.face) return;
+  const mat = new THREE.MeshLambertMaterial({ map: neutral, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const mesh = new THREE.Mesh(facePatchGeometry(), mat);
+  mesh.castShadow = false;
+  mesh.renderOrder = 1;
+  c.H.add(mesh);
+  c.faceParts.forEach(p => { p.visible = false; });
+  c.mouth.visible = false;
+  c.face = { mat, neutral, talk, open: false };
 }
 
 /** Small floating card above a head (e.g. a juror's vote). */

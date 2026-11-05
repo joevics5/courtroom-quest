@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { randomAvatar, type AvatarConfig } from '../../lib/avatars';
 import type { StageSpeaker } from '../../lib/stageSpeaker';
-import { headPos, lookFromAvatar, makeCharacter, makeLabel, pose, type Character, type PoseName } from './character';
+import { applyFace, headPos, lookFromAvatar, makeCharacter, makeLabel, pose, type Character, type PoseName } from './character';
+import { makeFaceTextures } from './faceTexture';
 import { buildCourtroom, type Box2D, type RoomInfo, type Spot } from './room';
 
 export type ShotName = 'wide' | 'judge' | 'prosecution' | 'defense' | 'witness' | 'jury' | 'audience' | 'bailiff' | 'player';
@@ -161,7 +162,20 @@ export class CourtStage {
   }
 
   // ------------------------------------------------------------------ building people
-  private mk(p: Person, role: Parameters<typeof lookFromAvatar>[1]) { const c = makeCharacter(lookFromAvatar(p.avatar, role)); this.everyone.push(c); return c; }
+  private mk(p: Person, role: Parameters<typeof lookFromAvatar>[1]) {
+    const c = makeCharacter(lookFromAvatar(p.avatar, role));
+    this.everyone.push(c);
+    // The people you can actually see up close get their real avatar face. Jurors and the audience are too small
+    // to show one and stay as they are.
+    if (role === 'judge' || role === 'counsel' || role === 'bailiff' || role === 'witness') this.dressFace(c, p.avatar);
+    return c;
+  }
+  /** Draws the person's face in the background and puts it on once it is ready. Until then (or if it fails) the plain 3D face stays. */
+  private dressFace(c: Character, avatar: Person['avatar']) {
+    makeFaceTextures(avatar)
+      .then(t => { if (!this.disposed && this.everyone.includes(c)) applyFace(c, t.neutral, t.talk); })
+      .catch(() => { /* keep the plain 3D face */ });
+  }
   private drop(c: Character | null | undefined) { if (!c) return; this.scene.remove(c.g); this.everyone = this.everyone.filter(x => x !== c); this.movers = this.movers.filter(m => m.c !== c); }
   private place(c: Character, s: Spot, sit: boolean) {
     c.g.position.set(s.x, s.y, s.z); c.g.rotation.y = s.yaw; c.sitTarget = sit ? 1 : 0; c.sa = sit ? 1 : 0;
