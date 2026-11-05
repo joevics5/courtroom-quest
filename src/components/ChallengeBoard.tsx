@@ -359,7 +359,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 disabled={openingGameId === game.session_id}
                 className={`shrink-0 px-4 py-2 ${SMALL_GOLD} text-sm`}
               >
-                {openingGameId === game.session_id ? 'Opening…' : 'Open case'}
+                {openingGameId === game.session_id ? 'Opening…' : 'Continue'}
               </button>
             </div>
           );

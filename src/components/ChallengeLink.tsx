@@ -149,7 +149,7 @@ export default function ChallengeLink({ challengeId, userId, onPlayAsGuest, onSi
                   <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm rounded-lg p-3 mb-4">{error}</div>
                 )}
                 <button onClick={openGame} disabled={working || !preview.session_id} className={`w-full px-4 py-3 mb-3 ${BIG_GOLD}`}>
-                  {working ? 'Opening…' : 'OPEN THE CASE'}
+                  {working ? 'Opening…' : 'CONTINUE'}
                 </button>
                 <button
                   onClick={onViewGames || onDismiss}

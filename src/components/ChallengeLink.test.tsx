@@ -43,7 +43,7 @@ describe('ChallengeLink', () => {
     const props = setup();
     await screen.findByText('CHALLENGE ACCEPTED');
     expect(screen.queryByText('ACCEPT CHALLENGE')).toBeNull();
-    fireEvent.click(screen.getByText('OPEN THE CASE'));
+    fireEvent.click(screen.getByText('CONTINUE'));
     await waitFor(() => expect(props.onAccepted).toHaveBeenCalledWith({ id: 's1' }));
     expect(getSession).toHaveBeenCalledWith('s1');
   });
@@ -53,7 +53,7 @@ describe('ChallengeLink', () => {
     setup();
     await screen.findByText('CHALLENGE ACCEPTED');
     expect(screen.getByText(/Bo accepted your challenge/)).toBeTruthy();
-    expect(screen.getByText('OPEN THE CASE')).toBeTruthy();
+    expect(screen.getByText('CONTINUE')).toBeTruthy();
     expect(screen.queryByText(/your own challenge link/)).toBeNull();
   });
 
@@ -63,7 +63,7 @@ describe('ChallengeLink', () => {
     await screen.findByText('CHALLENGE ACCEPTED');
     expect(screen.getByText(/already been accepted by another player/)).toBeTruthy();
     expect(screen.queryByText('ACCEPT CHALLENGE')).toBeNull();
-    expect(screen.queryByText('OPEN THE CASE')).toBeNull();
+    expect(screen.queryByText('CONTINUE')).toBeNull();
   });
 
   it('says so when the challenge was cancelled', async () => {
