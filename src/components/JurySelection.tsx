@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { db } from '../lib/database';
 import HeroBackground from './HeroBackground';
 import JurorAvatar from './avatars/JurorAvatar';
 import { describeJurorTraits } from '../lib/jurorProfile';
+import { LIVE_POLL_MS, jurorTurn, otherSide, type PlayMode, type Side } from '../lib/liveGame';
 import type { Juror, JurySelection as JurySelectionType } from '../types';
 
 interface Props {
@@ -11,19 +12,58 @@ interface Props {
   maxJurors: number;
   onComplete: () => void;
   onBack?: () => void;
+  /** Which side this player picks for. Defaults to the defense (older callers). */
+  mySide?: Side;
+  /** ai: the computer picks for the other side. online: a real opponent does, live. device: one phone, both sides. */
+  mode?: PlayMode;
+  /** Online: only the host draws the pool, so both players choose from the same people. */
+  isHost?: boolean;
+  opponentName?: string;
 }
 
-export default function JurySelection({ sessionId, maxJurors, onComplete, onBack }: Props) {
+const sameSelections = (a: JurySelectionType[], b: JurySelectionType[]) =>
+  a.length === b.length && a.every((x, i) => x.id === b[i].id);
+
+export default function JurySelection({ sessionId, maxJurors, onComplete, onBack, mySide = 'defense', mode = 'ai', isHost = true, opponentName }: Props) {
   const [jurorPool, setJurorPool] = useState<Juror[]>([]);
   const [selectedJurors, setSelectedJurors] = useState<JurySelectionType[]>([]);
-  const [currentSide, setCurrentSide] = useState<'prosecution' | 'defense'>('defense');
   const [loading, setLoading] = useState(true);
-  const [isAutoSelecting, setIsAutoSelecting] = useState(false);
+  const [isPicking, setIsPicking] = useState(false);
+  const aiBusy = useRef(false);
+  const perSide = maxJurors / 2;
+  const aiSide = otherSide(mySide);
+  const turn = jurorTurn(selectedJurors, perSide);
+  const online = mode === 'online';
 
   useEffect(() => {
     loadJurors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Online: keep both players' boards identical. The other player's picks appear on their own,
+  // without reloading, and it becomes my turn the moment they have picked.
+  useEffect(() => {
+    if (!online || loading) return;
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const fresh = await db.jurySelections.getSessionJurySelections(sessionId);
+        if (!alive) return;
+        setSelectedJurors(prev => (sameSelections(prev, fresh) ? prev : fresh));
+        // A juror the other player picked might not be in my pool yet (it is shared, so it normally is).
+        const missing = fresh.map(f => f.juror_id).filter(id => !jurorPoolRef.current.some(j => j.id === id));
+        if (missing.length > 0) {
+          const extra = await db.jurors.getJurorsByIds(missing);
+          if (alive && extra.length > 0) setJurorPool(prev => [...prev, ...extra.filter(e => !prev.some(j => j.id === e.id))]);
+        }
+      } catch { /* try again on the next tick */ }
+    };
+    const id = window.setInterval(refresh, LIVE_POLL_MS);
+    return () => { alive = false; window.clearInterval(id); };
+  }, [online, loading, sessionId]);
+
+  const jurorPoolRef = useRef<Juror[]>([]);
+  jurorPoolRef.current = jurorPool;
 
   const loadJurors = async () => {
     try {
@@ -32,19 +72,34 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
       // would show empty seats for people it had already chosen.
       const existing = await db.jurySelections.getSessionJurySelections(sessionId);
       const pickedIds = existing.map(s => s.juror_id);
-      const [picked, random] = await Promise.all([
-        pickedIds.length > 0 ? db.jurors.getJurorsByIds(pickedIds) : Promise.resolve([] as Juror[]),
-        db.jurors.getRandomJurors(30)
-      ]);
-      const pool = [...random, ...picked.filter(p => !random.some(r => r.id === p.id))];
-      setJurorPool(pool);
-      setSelectedJurors(existing);
 
-      if (existing.length > 0) {
-        const prosCount = existing.filter(j => j.selected_by === 'prosecution').length;
-        const defCount = existing.filter(j => j.selected_by === 'defense').length;
-        setCurrentSide(defCount < prosCount ? 'defense' : 'prosecution');
+      let poolIds: string[] | null = null;
+      if (online) {
+        // Both players must choose from the SAME pool: the host draws it once and saves it with the game.
+        // The other player waits for it to appear.
+        for (let attempt = 0; attempt < 60 && !poolIds; attempt++) {
+          const session = await db.sessions.getSession(sessionId);
+          const saved = (session?.session_state as any)?.jurorPoolIds;
+          if (Array.isArray(saved) && saved.length > 0) { poolIds = saved as string[]; break; }
+          if (isHost) break;
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
       }
+
+      if (poolIds) {
+        setJurorPool(await db.jurors.getJurorsByIds(Array.from(new Set([...poolIds, ...pickedIds]))));
+      } else {
+        const [picked, random] = await Promise.all([
+          pickedIds.length > 0 ? db.jurors.getJurorsByIds(pickedIds) : Promise.resolve([] as Juror[]),
+          db.jurors.getRandomJurors(30)
+        ]);
+        const pool = [...random, ...picked.filter(p => !random.some(r => r.id === p.id))];
+        setJurorPool(pool);
+        if (online && isHost) {
+          await db.sessions.mergeState(sessionId, { jurorPoolIds: pool.map(j => j.id) });
+        }
+      }
+      setSelectedJurors(existing);
     } catch (error) {
       console.error('Error loading jurors:', error);
     } finally {
@@ -52,82 +107,75 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
     }
   };
 
-  const handleSelectJuror = async (juror: Juror) => {
-    if (selectedJurors.some(s => s.juror_id === juror.id)) return;
-    if (currentSide !== 'defense') return;
-    if (isAutoSelecting) return;
-
-    const defCount = selectedJurors.filter(j => j.selected_by === 'defense').length;
-    if (defCount >= maxJurors / 2) return;
-
+  /** Seats a juror for a side. Returns false if someone else got there first. */
+  const seat = async (juror: Juror, side: Side, current: JurySelectionType[]) => {
     try {
       const selection = await db.jurySelections.addJurySelection({
         session_id: sessionId,
         juror_id: juror.id,
-        selected_by: 'defense',
-        selection_order: selectedJurors.length + 1
+        selected_by: side,
+        selection_order: current.length + 1
       });
-
-      const newSelections = [...selectedJurors, selection];
-      setSelectedJurors(newSelections);
-
-      const prosCount = newSelections.filter(j => j.selected_by === 'prosecution').length;
-      if (prosCount < maxJurors / 2) {
-        await autoSelectForProsecution(newSelections);
-      }
+      setSelectedJurors(prev => (prev.some(p => p.id === selection.id) ? prev : [...prev, selection]));
+      return true;
     } catch (error) {
       console.error('Error selecting juror:', error);
+      return false;
     }
   };
 
-  const autoSelectForProsecution = async (currentSelections: JurySelectionType[]) => {
-    setIsAutoSelecting(true);
-    setCurrentSide('prosecution');
+  // The side I pick for right now: my own side, or whoever's turn it is when one phone is shared.
+  const pickingSide: Side | null = turn === null ? null : mode === 'device' ? turn : turn === mySide ? mySide : null;
 
-    await new Promise(resolve => setTimeout(resolve, 800));
-
+  const handleSelectJuror = async (juror: Juror) => {
+    if (!pickingSide || isPicking) return;
+    if (selectedJurors.some(s => s.juror_id === juror.id)) return;
+    setIsPicking(true);
     try {
-      const availableJurors = jurorPool.filter(
-        juror => !currentSelections.some(s => s.juror_id === juror.id)
-      );
-
-      if (availableJurors.length === 0) return;
-
-      const randomJuror = availableJurors[Math.floor(Math.random() * availableJurors.length)];
-
-      const selection = await db.jurySelections.addJurySelection({
-        session_id: sessionId,
-        juror_id: randomJuror.id,
-        selected_by: 'prosecution',
-        selection_order: currentSelections.length + 1
-      });
-
-      setSelectedJurors([...currentSelections, selection]);
-      setCurrentSide('defense');
-    } catch (error) {
-      console.error('Error auto-selecting for prosecution:', error);
+      await seat(juror, pickingSide, selectedJurors);
     } finally {
-      setIsAutoSelecting(false);
+      setIsPicking(false);
     }
   };
 
+  // Against the computer, it picks for the other side whenever it is that side's turn
+  // (including right at the start, when the player is the prosecution and the defense picks first).
+  useEffect(() => {
+    if (mode !== 'ai' || loading || turn !== aiSide || aiBusy.current) return;
+    aiBusy.current = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const available = jurorPoolRef.current.filter(j => !selectedJurors.some(s => s.juror_id === j.id));
+        if (available.length > 0) {
+          await seat(available[Math.floor(Math.random() * available.length)], aiSide, selectedJurors);
+        }
+      } finally {
+        aiBusy.current = false;
+      }
+    }, 800);
+    return () => { window.clearTimeout(timer); aiBusy.current = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, loading, turn, aiSide, selectedJurors.length]);
+
+  const canRemove = (side: string) => mode === 'device' || side === mySide;
   const handleRemoveJuror = async (selectionId: string) => {
     try {
       await db.jurySelections.removeJurySelection(selectionId);
-      setSelectedJurors(selectedJurors.filter(s => s.id !== selectionId));
+      setSelectedJurors(prev => prev.filter(s => s.id !== selectionId));
     } catch (error) {
       console.error('Error removing juror:', error);
     }
   };
 
-  const perSide = maxJurors / 2;
   const prosecutionJurors = selectedJurors.filter(j => j.selected_by === 'prosecution');
   const defenseJurors = selectedJurors.filter(j => j.selected_by === 'defense');
   const isComplete = prosecutionJurors.length === perSide && defenseJurors.length === perSide;
-  const defenseFull = defenseJurors.length >= perSide;
-  const remaining = perSide - defenseJurors.length;
+  const mineFull = (mySide === 'defense' ? defenseJurors : prosecutionJurors).length >= perSide;
+  const remaining = perSide - (mySide === 'defense' ? defenseJurors : prosecutionJurors).length;
   const available = jurorPool.filter(j => !selectedJurors.some(s => s.juror_id === j.id));
-  const canPick = currentSide === 'defense' && !isAutoSelecting && !defenseFull;
+  const canPick = pickingSide !== null && !isPicking;
+  const opponentLabel = online ? opponentName || 'Your opponent' : 'The ' + aiSide;
+  const waitingOnOther = !isComplete && mode !== 'device' && turn !== null && turn !== mySide;
 
   if (loading) {
     return (
@@ -144,11 +192,12 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
   /** One row of seats for a side; filled seats show the juror, tap to strike them */
   const renderSeats = (side: 'prosecution' | 'defense', picks: JurySelectionType[]) => {
     const isDefense = side === 'defense';
+    const label = mode === 'device' ? side.toUpperCase() : side === mySide ? 'YOUR PICKS' : online ? (opponentName || 'OPPONENT').toUpperCase() : side.toUpperCase();
     return (
       <div className="flex items-center gap-2">
         <div className="w-[88px] flex-none">
-          <div className={`text-[11px] font-black tracking-wider ${isDefense ? 'text-blue-300' : 'text-red-300'}`}>
-            {isDefense ? 'YOUR PICKS' : 'PROSECUTION'}
+          <div className={`text-[11px] font-black tracking-wider truncate ${isDefense ? 'text-blue-300' : 'text-red-300'}`}>
+            {label}
           </div>
           <div className="font-game text-2xl text-white leading-none">
             {picks.length}/{perSide}
@@ -163,24 +212,30 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
                 <span
                   key={i}
                   className={`w-10 h-10 rounded-full border-2 border-dashed ${isDefense ? 'border-blue-400/40' : 'border-red-400/40'} ${
-                    !isDefense && isAutoSelecting && i === picks.length ? 'animate-pulse bg-red-500/20' : ''
+                    turn === side && waitingOnOther && i === picks.length ? 'animate-pulse ' + (isDefense ? 'bg-blue-500/20' : 'bg-red-500/20') : ''
                   }`}
                 />
               );
             }
             return (
-              <button
-                key={pick.id}
-                onClick={() => handleRemoveJuror(pick.id)}
-                aria-label={`Remove ${juror.name}`}
-                title={`${juror.name} — tap to remove`}
-                className={`relative rounded-full ring-2 ${isDefense ? 'ring-blue-400' : 'ring-red-400'}`}
-              >
-                <JurorAvatar seed={juror.id} name={juror.name} size="sm" />
-                <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-black border border-white/40">
-                  <X className="w-2.5 h-2.5 text-white" />
+              canRemove(side) ? (
+                <button
+                  key={pick.id}
+                  onClick={() => handleRemoveJuror(pick.id)}
+                  aria-label={`Remove ${juror.name}`}
+                  title={`${juror.name} — tap to remove`}
+                  className={`relative rounded-full ring-2 ${isDefense ? 'ring-blue-400' : 'ring-red-400'}`}
+                >
+                  <JurorAvatar seed={juror.id} name={juror.name} size="sm" />
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-black border border-white/40">
+                    <X className="w-2.5 h-2.5 text-white" />
+                  </span>
+                </button>
+              ) : (
+                <span key={pick.id} title={juror.name} className={`rounded-full ring-2 ${isDefense ? 'ring-blue-400' : 'ring-red-400'}`}>
+                  <JurorAvatar seed={juror.id} name={juror.name} size="sm" />
                 </span>
-              </button>
+              )
             );
           })}
         </div>
@@ -212,27 +267,27 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
           </header>
 
           <div className="mt-3 rounded-3xl bg-black/65 border border-white/15 backdrop-blur-sm p-3 space-y-2.5">
-            {renderSeats('defense', defenseJurors)}
+            {mySide === 'prosecution' ? renderSeats('prosecution', prosecutionJurors) : renderSeats('defense', defenseJurors)}
             <div className="h-px bg-white/10" />
-            {renderSeats('prosecution', prosecutionJurors)}
+            {mySide === 'prosecution' ? renderSeats('defense', defenseJurors) : renderSeats('prosecution', prosecutionJurors)}
           </div>
 
           <div
             className={`mt-2.5 rounded-full px-4 py-2 text-center text-sm font-bold ${
               isComplete
                 ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-300'
-                : isAutoSelecting
+                : waitingOnOther
                   ? 'bg-red-500/15 border border-red-400/40 text-red-200 animate-pulse'
                   : 'bg-[#FFD43B]/15 border border-[#FFD43B]/50 text-[#FFD43B]'
             }`}
           >
             {isComplete
               ? 'The jury is seated.'
-              : isAutoSelecting
-                ? 'The prosecution is choosing a juror…'
-                : defenseFull
-                  ? 'Waiting for the prosecution to finish…'
-                  : `Your pick — ${remaining} more for the defense`}
+              : waitingOnOther
+                ? `${opponentLabel} is choosing a juror…`
+                : mode === 'device'
+                  ? `${turn === 'prosecution' ? 'Prosecution' : 'Defense'}: your pick — ${perSide - (turn === 'prosecution' ? prosecutionJurors : defenseJurors).length} more`
+                  : `Your pick — ${remaining} more for the ${mySide}`}
           </div>
         </div>
 
@@ -277,7 +332,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
             disabled={!isComplete}
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale"
           >
-            {isComplete ? 'PROCEED TO TRIAL' : defenseFull ? 'WAITING…' : `PICK ${remaining} MORE JUROR${remaining === 1 ? '' : 'S'}`}
+            {isComplete ? 'PROCEED TO TRIAL' : waitingOnOther || mineFull ? 'WAITING…' : `PICK ${mode === 'device' ? perSide - (turn === 'prosecution' ? prosecutionJurors : defenseJurors).length : remaining} MORE JUROR${(mode === 'device' ? 1 : remaining) === 1 ? '' : 'S'}`}
             {isComplete && <ArrowRight className="w-6 h-6" />}
           </button>
         </div>

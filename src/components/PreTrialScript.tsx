@@ -17,6 +17,7 @@ import type { StageSpeaker } from '../lib/stageSpeaker';
 import { pickStageScene } from '../lib/stageScene';
 import { db } from '../lib/database';
 import type { ShotName } from './court3d/stage';
+import { drivesPretrial, seatedKey, type PlayMode, type PretrialLive } from '../lib/liveGame';
 
 const Court3D = lazy(() => import('./court3d/Court3D'));
 
@@ -33,6 +34,14 @@ interface PreTrialScriptProps {
   onComplete: (pleaGuilty: boolean, judgeName: string, prosecutorName: string) => void;
   /** Leave the pre-trial (the session is kept; it can be continued later). */
   onBack?: () => void;
+  /** ai: against the computer. online: two people on two devices, kept in step live. device: one phone, two people. */
+  mode?: PlayMode;
+  /** Online: the shared pre-trial progress (seats, script, plea), refreshed every couple of seconds. */
+  live?: PretrialLive;
+  /** Online: writes my part of the shared progress (seated, started, step, plea). */
+  onLivePatch?: (patch: Record<string, unknown>) => void;
+  /** Online: the other player, so the scene shows their name, rank and the avatar they chose. */
+  opponent?: { name: string; avatar: AvatarConfig | null; rank: number | null };
 }
 
 type PreTrialPhase =
@@ -44,7 +53,14 @@ type PreTrialPhase =
   | 'plea_complete'
   | 'start_trial';
 
-export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, playerRole = 'defense', sessionId = '', playerWins = 0, onComplete, onBack }: PreTrialScriptProps) {
+export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, playerRole = 'defense', sessionId = '', playerWins = 0, onComplete, onBack, mode = 'ai', live, onLivePatch, opponent }: PreTrialScriptProps) {
+  const online = mode === 'online';
+  /** Online, the defense runs the bailiff's script and enters the plea; the prosecution watches it live. */
+  const iDrive = !online || drivesPretrial(playerRole);
+  /** Who may answer the plea: the defense; on a shared phone, whoever is holding it. */
+  const canPlead = mode === 'device' || playerRole === 'defense';
+  const patchLive = (patch: Record<string, unknown>) => { if (online) onLivePatch?.(patch); };
+  const opponentName = opponent?.name || 'Your opponent';
   const [phase, setPhase] = useState<PreTrialPhase>('idle');
   // Fall back to a fresh random pick only if a caller doesn't supply one
   // (e.g. an old session created before this was lifted to App.tsx).
@@ -56,8 +72,12 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const [npcProsecutorName] = useState(prosecutorNameProp || getRandomProsecutorName());
   // The human is announced with their rank and own name, e.g. "Junior Counsel Victor Joshua".
   const myAnnouncedName = `${getLevelForWins(playerWins).title} ${userName}`;
-  const prosecutorDisplayName = playerRole === 'prosecution' ? myAnnouncedName : plainLawyerName(npcProsecutorName);
-  const defenseDisplayName = playerRole === 'defense' ? myAnnouncedName : aiDefenseName(sessionId);
+  // Online, the other side is a real person with their own name and rank, not a made-up attorney.
+  const opponentAnnounced = opponent?.name
+    ? `${opponent.rank ? LEVELS[opponent.rank - 1].title + ' ' : ''}${opponent.name}`
+    : 'Opposing Counsel';
+  const prosecutorDisplayName = playerRole === 'prosecution' ? myAnnouncedName : online ? opponentAnnounced : plainLawyerName(npcProsecutorName);
+  const defenseDisplayName = playerRole === 'defense' ? myAnnouncedName : online ? opponentAnnounced : aiDefenseName(sessionId);
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
   const [pleaGuilty, setPleaGuilty] = useState<boolean | null>(null);
   const [isLoadingJudgeRequest] = useState(false);
@@ -155,10 +175,11 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
     const step = steps[index];
     setPhase(step.phase);
     addTranscript('Bailiff', step.text);
+    patchLive({ pretrialStep: index });
     say(step.text, () => {
       if (index + 1 < steps.length) {
         playStep(index + 1);
-      } else if (playerRole !== 'defense') {
+      } else if (mode === 'ai' && playerRole !== 'defense') {
         // The human is the prosecution, so the AI defense enters the plea.
         const guilty = AI_DEFENSE_PLEA === 'guilty';
         const line = aiPleaLine(guilty);
@@ -170,6 +191,8 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   };
 
   const handleStart = () => {
+    // Online: publish the lines first, so the prosecution reads and hears exactly what is read here.
+    patchLive({ pretrialStarted: true, pretrialStep: -1, pretrialScript: steps.map(({ phase, text }) => ({ phase, text })) });
     playStep(0);
   };
 
@@ -179,6 +202,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
     addTranscript('Defendant', pleaText);
     setPleaGuilty(guilty);
     setPhase('plea_complete');
+    patchLive({ pretrialPlea: guilty ? 'guilty' : 'not_guilty' });
   };
 
   const handleStartTrial = () => {
@@ -203,8 +227,8 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const { user } = useAuth();
   const myAvatar = useMemo(() => getUserAvatar(user), [user]);
   const faces = useMemo(
-    () => castAvatars({ judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, playerRole, myAvatar, sessionId }),
-    [judgeNameProp, prosecutorNameProp, playerRole, myAvatar, sessionId]
+    () => castAvatars({ judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, playerRole, myAvatar, sessionId, opponentAvatar: online ? opponent?.avatar : null }),
+    [judgeNameProp, prosecutorNameProp, playerRole, myAvatar, sessionId, online, opponent?.avatar]
   );
   const myRank = getLevelForWins(playerWins).level;
   const cast: Record<'bailiff' | 'judge' | 'prosecution' | 'defense', { name: string; role: string; avatar: AvatarConfig; rank: number }> = {
@@ -214,13 +238,13 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
       name: prosecutorDisplayName,
       role: 'Prosecution',
       avatar: faces.prosecution,
-      rank: playerRole === 'prosecution' ? myRank : aiRank(prosecutorNameProp || 'Prosecution')
+      rank: playerRole === 'prosecution' ? myRank : online && opponent?.rank ? opponent.rank : aiRank(prosecutorNameProp || 'Prosecution')
     },
     defense: {
       name: defenseDisplayName,
       role: 'Defense',
       avatar: faces.defense,
-      rank: playerRole === 'defense' ? myRank : aiRank(`${sessionId}-Defense Counsel`)
+      rank: playerRole === 'defense' ? myRank : online && opponent?.rank ? opponent.rank : aiRank(`${sessionId}-Defense Counsel`)
     }
   };
   const roleOf = (speaker: string): StageSpeaker =>
@@ -243,6 +267,65 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const [failed3D, setFailed3D] = useState(false);
   const show3D = wants3D && !failed3D;
   const [seated, setSeated] = useState(false);
+  // Without the 3D courtroom there is no chair to walk to: being on the screen is being seated.
+  const mySeated = show3D ? seated : true;
+  const mySeatKey = seatedKey(playerRole);
+  const iHaveToldThem = live ? (live as any)[mySeatKey] === true : false;
+  useEffect(() => {
+    if (online && mySeated && !iHaveToldThem) patchLive({ [mySeatKey]: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, mySeated, iHaveToldThem]);
+  const opponentSeated = live ? (playerRole === 'prosecution' ? live.seatedDefense : live.seatedProsecution) : false;
+  const bothSeated = !online || (mySeated && !!live?.bothSeated);
+
+  // ---- online, the player who is only watching: follow the script and the plea as they happen ----
+  const seenStepRef = useRef(-1);
+  const seenPleaRef = useRef<string | null>(null);
+  const firstLookRef = useRef(true);
+  useEffect(() => {
+    if (!online || iDrive || !live) return;
+    const script = live.script;
+    const silent = firstLookRef.current; // arrived late: show what was already said without reading it all out
+    if (script && live.step > seenStepRef.current) {
+      const lines = script.slice(seenStepRef.current + 1, live.step + 1);
+      setTranscript(prev => [...prev, ...lines.map(l => ({ speaker: 'Bailiff', text: l.text }))]);
+      setPhase((script[live.step]?.phase as PreTrialPhase) || 'bailiff_call');
+      seenStepRef.current = live.step;
+      const latestLine = script[live.step];
+      if (!silent && latestLine && canSpeak()) speakAs('recorder', latestLine.text);
+    }
+    if (live.plea && seenPleaRef.current !== live.plea) {
+      seenPleaRef.current = live.plea;
+      stopSpeaking('discard');
+      setTranscript(prev => [...prev, { speaker: 'Defendant', text: live.plea === 'guilty' ? 'Guilty, Your Honor.' : 'Not guilty, Your Honor.' }]);
+      setPleaGuilty(live.plea === 'guilty');
+      setPhase('plea_complete');
+    }
+    firstLookRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, iDrive, live?.step, live?.plea, live?.script]);
+
+  // ---- online, the player running the script: pick up where they left off after a reload ----
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (!online || !iDrive || !live || resumedRef.current) return;
+    resumedRef.current = true;
+    if (!live.started) return;
+    if (live.plea) {
+      setPleaGuilty(live.plea === 'guilty');
+      setPhase('plea_complete');
+      return;
+    }
+    if (live.step >= 0) {
+      const said = live.script && live.script.length > live.step ? live.script : steps;
+      setTranscript(said.slice(0, live.step + 1).map(st => ({ speaker: 'Bailiff', text: st.text })));
+      setPhase((said[live.step].phase as PreTrialPhase) || steps[live.step].phase);
+      if (live.step + 1 < steps.length) playStep(live.step + 1);
+    } else {
+      playStep(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, iDrive, live?.started]);
   const [jurorIds, setJurorIds] = useState<string[]>([]);
   useEffect(() => {
     if (!show3D || !sessionId) return;
@@ -282,7 +365,11 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const stageJurors = useMemo(() => jurorIds.map(id => ({ id })), [jurorIds]);
 
   // Once the bailiff has announced the case and the plea is asked, the text area goes away so the plea buttons rise (no scrolling).
-  const pleaPrompt = phase === 'defendant_plea' && playerRole === 'defense' && !canSkip && transcript.length > 0;
+  const pleaPrompt = phase === 'defendant_plea' && canPlead && !canSkip && transcript.length > 0;
+  /** Online prosecution: the defense is still entering the plea. */
+  const awaitingPlea = online && !iDrive && phase === 'defendant_plea';
+  /** Who may press START TRIAL / CONTINUE once the plea is in: the prosecution online; the one holding the phone otherwise. */
+  const canStartTrial = !online || playerRole === 'prosecution';
   const star = cast[activeRole];
   const speakerTone: Record<string, string> = {
     bailiff: 'text-white',
@@ -452,7 +539,29 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
 
           {/* what the player does now */}
           <div className="w-full lg:col-start-2 lg:row-start-2">
-            {phase === 'idle' && (
+            {phase === 'idle' && online && (
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={handleStart}
+                  disabled={!iDrive || !bothSeated}
+                  className={`${gameButton('gold', 'md')} w-full`}
+                >
+                  <Gavel className="w-6 h-6" />
+                  {!iDrive ? 'WAITING FOR COURT TO OPEN' : show3D ? 'START' : 'ENTER COURT'}
+                </button>
+                <p className="text-white/60 text-xs text-center" aria-live="polite">
+                  {!mySeated
+                    ? 'Walk to your chair at the counsel table to begin.'
+                    : !opponentSeated
+                      ? `Waiting for ${opponentName} to take their seat…`
+                      : iDrive
+                        ? 'Both counsel are seated. Press Start when you are ready.'
+                        : `Both counsel are seated. Waiting for ${opponentName} to open court…`}
+                </p>
+              </div>
+            )}
+
+            {phase === 'idle' && !online && (
               show3D ? (
                 <div className="flex flex-col items-center gap-2">
                   <button onClick={handleStart} disabled={!seated} className={`${gameButton('gold', 'md')} w-full`}>
@@ -467,6 +576,10 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                 ENTER COURT
               </button>
               )
+            )}
+
+            {awaitingPlea && (
+              <p className="text-center text-white/70 text-sm" aria-live="polite">Waiting for {opponentName} to enter the plea…</p>
             )}
 
             {pleaPrompt && (
@@ -486,11 +599,18 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
             {phase === 'plea_complete' && (
               <div className="flex flex-col items-center gap-4">
                 <p className="text-white/85 text-center">
-                  {pleaGuilty
-                    ? 'The Court accepts your guilty plea. The case will proceed to sentencing.'
-                    : 'The Court notes your plea of not guilty. The trial will now begin.'}
+                  {online && !canPlead
+                    ? pleaGuilty
+                      ? 'The Court accepts the defendant\'s guilty plea. The case will proceed to sentencing.'
+                      : 'The Court notes the defendant\'s plea of not guilty. The trial will now begin.'
+                    : pleaGuilty
+                      ? 'The Court accepts your guilty plea. The case will proceed to sentencing.'
+                      : 'The Court notes your plea of not guilty. The trial will now begin.'}
                 </p>
-                {!pleaGuilty && (
+                {online && !canStartTrial && (
+                  <p className="text-white/60 text-sm text-center" aria-live="polite">Waiting for {opponentName} to start the trial…</p>
+                )}
+                {canStartTrial && !pleaGuilty && (
                   <button onClick={handleStartTrial} disabled={isLoadingJudgeRequest} className={`${gameButton('gold', 'md')} w-full`}>
                     {isLoadingJudgeRequest ? (
                       <>
@@ -505,7 +625,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                     )}
                   </button>
                 )}
-                {pleaGuilty && (
+                {canStartTrial && pleaGuilty && (
                   <button onClick={() => onComplete(true, judgeName, npcProsecutorName)} className={`${gameButton('ghost', 'md')} w-full`}>
                     CONTINUE
                   </button>

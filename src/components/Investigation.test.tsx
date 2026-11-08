@@ -100,3 +100,25 @@ describe('Investigation', () => {
     expect(onReviewAccept).toHaveBeenCalled();
   });
 });
+
+describe('Investigation, two players', () => {
+  it('tells me when my opponent is ready for trial, and lets me proceed', async () => {
+    const { onProceedToTrial } = await open({ liveReady: { iAmReady: false, opponentReady: true, opponentName: 'Chidi' } });
+    expect(screen.getByRole('status')).toHaveTextContent('Chidi is ready for trial. Proceed to trial.');
+    fireEvent.click(screen.getByRole('button', { name: /PROCEED TO TRIAL/ }));
+    expect(onProceedToTrial).toHaveBeenCalledTimes(1);
+  });
+
+  it('once I am ready, I wait for my opponent instead of proceeding alone', async () => {
+    await open({ liveReady: { iAmReady: true, opponentReady: false, opponentName: 'Chidi' } });
+    expect(screen.getByRole('button', { name: /WAITING FOR CHIDI/ })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /^PROCEED TO TRIAL/ })).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('shows no live banner when nobody is ready yet', async () => {
+    await open({ liveReady: { iAmReady: false, opponentReady: false, opponentName: 'Chidi' } });
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('button', { name: /PROCEED TO TRIAL/ })).toBeEnabled();
+  });
+});

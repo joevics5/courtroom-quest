@@ -16,13 +16,15 @@ interface InvestigationProps {
   session: CaseSession | null;
   onProceedToTrial: () => void;
   onBack: () => void;
+  /** Two players: whether each of us has pressed Proceed. Absent against the computer or on one phone. */
+  liveReady?: { iAmReady: boolean; opponentReady: boolean; opponentName: string };
   showCaseReview?: boolean;
   caseForReview?: Case | null;
   onReviewAccept?: () => void;
   onReviewReject?: () => void;
 }
 
-export default function Investigation({ session, onProceedToTrial, onBack, showCaseReview = false, caseForReview, onReviewAccept, onReviewReject }: InvestigationProps) {
+export default function Investigation({ session, onProceedToTrial, onBack, liveReady, showCaseReview = false, caseForReview, onReviewAccept, onReviewReject }: InvestigationProps) {
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
   const [selectedTab, setSelectedTab] = useState<'overview' | 'evidence' | 'witnesses'>('overview');
@@ -521,6 +523,19 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
           <p className="text-center text-[11px] font-bold tracking-wider text-white/45 mb-1.5">
             {witnesses.length > 0 ? `${interviewedCount}/${witnesses.length} WITNESSES INTERVIEWED · ${totalQuestions} QUESTION${totalQuestions === 1 ? '' : 'S'} ASKED` : 'READY WHEN YOU ARE'}
           </p>
+          {liveReady?.opponentReady && !liveReady.iAmReady && (
+            <p role="status" className="mb-2 rounded-full bg-emerald-500/20 border border-emerald-400/50 px-4 py-1.5 text-center text-sm font-bold text-emerald-300">
+              {liveReady.opponentName} is ready for trial. Proceed to trial.
+            </p>
+          )}
+          {liveReady?.iAmReady && !liveReady.opponentReady ? (
+            <button
+              disabled
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-2xl py-3 border-b-[6px] border-[#B8860B] opacity-60 grayscale"
+            >
+              WAITING FOR {liveReady.opponentName.toUpperCase()}…
+            </button>
+          ) : (
           <button
             onClick={onProceedToTrial}
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
@@ -528,6 +543,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, showC
             PROCEED TO TRIAL
             <ArrowRight className="w-6 h-6" />
           </button>
+          )}
         </div>
       </div>
 

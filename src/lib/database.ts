@@ -531,6 +531,21 @@ export const db = {
       return data as CaseSession;
     },
 
+    /**
+     * Merges a few keys into the shared game state (and can move the game to the next phase) in one
+     * atomic step, so two players writing at the same moment never overwrite each other.
+     */
+    async mergeState(sessionId: string, patch: Record<string, unknown>, phase?: string, trialPhase?: number): Promise<CaseSession> {
+      const { data, error } = await (supabase as any).rpc('merge_session_state', {
+        p_session: sessionId,
+        p_patch: patch,
+        p_phase: phase ?? null,
+        p_trial_phase: trialPhase ?? null
+      });
+      if (error || !data) throw new Error(error?.message || 'Could not update the game.');
+      return data as CaseSession;
+    },
+
     async getSession(sessionId: string): Promise<CaseSession | null> {
       const { data, error } = await supabase
         .from('case_sessions')

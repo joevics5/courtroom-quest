@@ -17,6 +17,9 @@ import { getLevelForWins, STARTING_RANK } from './lib/levels';
 import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import { getSessionPlayerRole } from './lib/verdictUtils';
+import { LIVE_POLL_MS, isAhead, isOnlineTwoPlayer, isSessionHost, mySideIn, opponentUserIdIn, playMode, pretrialLive, readyKey, readyState } from './lib/liveGame';
+import { fetchPublicProfile } from './lib/publicProfile';
+import type { AvatarConfig } from './lib/avatars';
 import type { HistoryEntry } from './lib/caseHistory';
 import { appealsEnabled } from './lib/appeals';
 import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
@@ -36,6 +39,7 @@ const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const TrialTypeSelector = lazy(() => import('./components/TrialTypeSelector'));
 const JurySelection = lazy(() => import('./components/JurySelection'));
 const PreTrialScript = lazy(() => import('./components/PreTrialScript'));
+const WaitingRoom = lazy(() => import('./components/WaitingRoom'));
 const CasePreview = lazy(() => import('./components/CasePreview'));
 const ChallengeBoard = lazy(() => import('./components/ChallengeBoard'));
 const Tutorial = lazy(() => import('./components/Tutorial'));
@@ -217,6 +221,81 @@ function AppContent() {
       setView('tutorial');
     }
   }, [view, needsTutorial]);
+
+  // ---- two players, two devices: keep both screens in step ----
+  const liveOnline = isOnlineTwoPlayer(currentSession);
+  const liveSessionId = currentSession?.id;
+  const opponentId = user ? opponentUserIdIn(currentSession, user.id) : null;
+  const [opponent, setOpponent] = useState<{ name: string; avatar: AvatarConfig | null; rank: number | null } | null>(null);
+  useEffect(() => {
+    if (!opponentId) { setOpponent(null); return; }
+    let cancelled = false;
+    fetchPublicProfile(opponentId).then(p => {
+      if (!cancelled) setOpponent({ name: p?.username || 'Opposing Counsel', avatar: p?.avatar ?? null, rank: p?.rank ?? null });
+    });
+    return () => { cancelled = true; };
+  }, [opponentId]);
+
+  /** Writes my part of the shared game state (and can move the game on), then shows the result at once. */
+  const patchLive = async (patch: Record<string, unknown>, phase?: string, trialPhase?: number): Promise<CaseSession | null> => {
+    if (!currentSession) return null;
+    try {
+      const updated = await db.sessions.mergeState(currentSession.id, patch, phase, trialPhase);
+      setCurrentSession(updated);
+      return updated;
+    } catch (error) {
+      console.error('Failed to update the shared game:', error);
+      return null;
+    }
+  };
+
+  // While the setup screens are open, follow the other player: their changes show up on their own, and
+  // when the game moves to the next stage (they proceeded, set the trial up, chose the last juror…) so do I.
+  useEffect(() => {
+    const phaseOfView: Partial<Record<AppView, string>> = {
+      investigation: 'investigation',
+      'trial-type-selection': 'trial-type-selection',
+      'jury-selection': 'jury-selection',
+      'pre-trial': 'pre-trial'
+    };
+    const myPhase = phaseOfView[view];
+    if (!user || !liveSessionId || !liveOnline || !myPhase) return;
+    let alive = true;
+    const tick = async () => {
+      if (document.visibilityState === 'hidden') return;
+      try {
+        let fresh = await db.sessions.getSession(liveSessionId);
+        if (!alive || !fresh) return;
+        // Both players are ready for trial but nobody has moved the game on yet (they pressed at the same moment).
+        const st = (fresh.session_state || {}) as Record<string, unknown>;
+        if (fresh.current_phase === 'investigation' && st[readyKey('prosecution')] && st[readyKey('defense')]) {
+          fresh = await db.sessions.mergeState(liveSessionId, {}, 'trial-type-selection');
+          if (!alive) return;
+        }
+        const latest = fresh;
+        setCurrentSession(prev => {
+          if (!prev || prev.id !== latest.id) return prev;
+          const same = prev.current_phase === latest.current_phase && JSON.stringify(prev.session_state) === JSON.stringify(latest.session_state);
+          return same ? prev : latest;
+        });
+        if (isAhead(latest.current_phase, myPhase)) {
+          switch (latest.current_phase) {
+            case 'trial-type-selection': case 'difficulty-selection': setView('trial-type-selection'); break;
+            case 'jury-selection': setView('jury-selection'); break;
+            case 'pre-trial': setView('pre-trial'); break;
+            case 'trial': setView('courtroom'); break;
+            case 'completed': setView('landing'); break;
+          }
+        }
+      } catch { /* try again on the next tick */ }
+    };
+    const id = window.setInterval(tick, LIVE_POLL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') void tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    void tick();
+    return () => { alive = false; window.clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, liveSessionId, liveOnline, view]);
 
   // Instant play: tapping a button on the home screen starts a guest
   // account when nobody is signed in. If guest sign-in isn't available
@@ -564,6 +643,17 @@ function AppContent() {
       });
     }
 
+    // Two players: pressing Proceed says "I'm ready". The game moves on once BOTH are ready; until then
+    // the other player sees that I am waiting for them.
+    if (isOnlineTwoPlayer(currentSession)) {
+      const mine = mySideIn(currentSession, user.id);
+      const latest = (await db.sessions.getSession(currentSession.id)) || currentSession;
+      const { opponentReady } = readyState(latest, mine);
+      const updated = await patchLive({ [readyKey(mine)]: true }, opponentReady ? 'trial-type-selection' : undefined);
+      if (updated?.current_phase === 'trial-type-selection') setView('trial-type-selection');
+      return;
+    }
+
     // Save progress - user has completed investigation and is proceeding to trial
     try {
       await db.sessions.updateSession(currentSession.id, {
@@ -655,19 +745,36 @@ function AppContent() {
       const judgeName = getRandomJudgeName();
       const prosecutorName = getRandomProsecutorName();
 
-      await db.sessions.updateSession(currentSession.id, {
-        trial_type: trialType,
-        trial_duration: duration,
-        evidence_filed: true,
-        witnesses_locked: true,
-        current_phase: trialType === 'jury' ? 'jury-selection' : 'pre-trial',
-        session_state: {
-          ...currentSession.session_state,
-          judgeName,
-          prosecutorName,
-          difficulty: userProfile?.difficulty || 'medium'
-        }
-      });
+      const nextPhase = trialType === 'jury' ? 'jury-selection' : 'pre-trial';
+      if (isOnlineTwoPlayer(currentSession)) {
+        // Two players: only the host gets here. Their settings are merged in (never written over the whole
+        // state), and the move to the next stage is what takes the other player there too.
+        await db.sessions.updateSession(currentSession.id, {
+          trial_type: trialType,
+          trial_duration: duration,
+          evidence_filed: true,
+          witnesses_locked: true
+        });
+        await db.sessions.mergeState(
+          currentSession.id,
+          { judgeName, prosecutorName, difficulty: userProfile?.difficulty || 'medium' },
+          nextPhase
+        );
+      } else {
+        await db.sessions.updateSession(currentSession.id, {
+          trial_type: trialType,
+          trial_duration: duration,
+          evidence_filed: true,
+          witnesses_locked: true,
+          current_phase: nextPhase,
+          session_state: {
+            ...currentSession.session_state,
+            judgeName,
+            prosecutorName,
+            difficulty: userProfile?.difficulty || 'medium'
+          }
+        });
+      }
 
       const updatedSession = await db.sessions.getSession(currentSession.id);
       if (updatedSession) {
@@ -1001,6 +1108,11 @@ function AppContent() {
           session={currentSession}
           onProceedToTrial={handleProceedToTrial}
           onBack={handleBackFromInvestigation}
+          liveReady={
+            liveOnline && user
+              ? { ...readyState(currentSession, mySideIn(currentSession, user.id)), opponentName: opponent?.name || 'Opposing Counsel' }
+              : undefined
+          }
           showCaseReview={showCaseReview}
           caseForReview={currentCase}
           onReviewAccept={async () => {
@@ -1059,7 +1171,15 @@ function AppContent() {
         />
       )}
 
-      {view === 'trial-type-selection' && currentSession && (
+      {view === 'trial-type-selection' && currentSession && liveOnline && !isSessionHost(currentSession, user.id) && (
+        <WaitingRoom
+          title="SETTING UP THE TRIAL"
+          message={`${opponent?.name || 'Your opponent'} is choosing the trial type and length. You'll move on together.`}
+          onBack={handleBackFromInvestigation}
+        />
+      )}
+
+      {view === 'trial-type-selection' && currentSession && !(liveOnline && !isSessionHost(currentSession, user.id)) && (
         <TrialTypeSelector
           onSelect={handleTrialTypeSelect}
           onCancel={handleBackFromInvestigation}
@@ -1072,6 +1192,10 @@ function AppContent() {
           maxJurors={12}
           onComplete={handleJurySelectionComplete}
           onBack={handleBackFromInvestigation}
+          mySide={mySideIn(currentSession, user.id)}
+          mode={playMode(currentSession)}
+          isHost={isSessionHost(currentSession, user.id)}
+          opponentName={opponent?.name}
         />
       )}
 
@@ -1081,7 +1205,11 @@ function AppContent() {
           userName={getUserDisplayName(user)}
           judgeName={(currentSession.session_state as any)?.judgeName || ''}
           prosecutorName={(currentSession.session_state as any)?.prosecutorName || ''}
-          playerRole={(currentSession.session_state as any)?.playerRole || 'defense'}
+          playerRole={getSessionPlayerRole(currentSession, user.id)}
+          mode={playMode(currentSession)}
+          live={liveOnline ? pretrialLive(currentSession) : undefined}
+          onLivePatch={patch => { void patchLive(patch); }}
+          opponent={liveOnline ? opponent ?? { name: 'Opposing Counsel', avatar: null, rank: null } : undefined}
           sessionId={currentSession.id}
           playerWins={userProfile?.wins_count ?? 0}
           onComplete={handlePreTrialComplete}
