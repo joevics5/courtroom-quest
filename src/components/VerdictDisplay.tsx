@@ -17,6 +17,7 @@ import AppealResponseForm from './AppealResponseForm';
 import { getUserAvatar } from '../lib/avatars';
 import { LEVELS, getLevelForWins, getNextLevel, getRankProgress } from '../lib/levels';
 import type { JuryRound } from '../lib/ai/trialAI';
+import { renderVerdictCard, shareVerdictCard } from '../lib/shareVerdictImage';
 
 interface VerdictDisplayProps {
   verdict: Verdict;
@@ -77,29 +78,30 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
     }
   };
 
+  const [sharing, setSharing] = useState(false);
+
   const handleShare = async () => {
-    // Mark the session shared so the public /share/:id route can read it —
-    // best-effort; if it fails we still share the text-only summary.
-    let shareUrl = '';
+    if (sharing) return;
+    setSharing(true);
     try {
-      await db.sessions.updateSession(verdict.session_id, { is_shared: true });
-      shareUrl = `${window.location.origin}/share/${verdict.session_id}`;
-    } catch (error) {
-      console.error('Failed to enable transcript sharing:', error);
-    }
-
-    const shareText = `🏛️ CASE WON!\n\n${caseTitle}\nVerdict: ${verdictWord}\nRank Achieved: ${currentLevel}\nScore: ${verdict.score || 0}/100\n\nPlay Courtroom Quest now!${shareUrl ? `\n\nSee the full trial: ${shareUrl}` : ''}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ text: shareText, url: shareUrl || undefined });
-      } catch (err) {
-        console.log('Share cancelled');
+      const blob = await renderVerdictCard({
+        won: isWin,
+        caseTitle,
+        verdictWord,
+        roleLabel: playerRole === 'prosecution' ? 'Prosecution' : 'Defense',
+        rankTitle: wins !== undefined ? getLevelForWins(wins).title : currentLevel,
+        score: appeal.gated ? null : verdict.score
+      });
+      const result = await shareVerdictCard(blob);
+      if (result === 'downloaded') {
+        setShareMessage('Image saved, caption copied!');
+        setTimeout(() => setShareMessage(''), 3000);
       }
-    } else {
-      navigator.clipboard.writeText(shareText);
-      setShareMessage('Copied to clipboard!');
-      setTimeout(() => setShareMessage(''), 2000);
+    } catch (error) {
+      console.error('Failed to share verdict:', error);
+      void appAlert({ title: "COULDN'T SHARE", message: 'Please try again.', tone: 'error' });
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -286,9 +288,9 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
             )}
             <div className={`grid gap-3 ${isWin ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {isWin && (
-                <button onClick={handleShare} className={gameButton('outline', 'sm')}>
+                <button onClick={handleShare} disabled={sharing} className={gameButton('outline', 'sm')}>
                   <Share2 className="w-5 h-5" />
-                  SHARE VICTORY
+                  {sharing ? 'MAKING IMAGE...' : 'SHARE VICTORY'}
                 </button>
               )}
               <button onClick={loadTranscript} disabled={loadingTranscript} className={gameButton('ghost', 'sm')}>

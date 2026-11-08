@@ -145,6 +145,17 @@ export const db = {
       }, cacheOpts);
     },
 
+    /** Plays per case (all time and last 7 days) for the Trendy / Popular tabs. Empty if the database function is missing. */
+    async getPlayStats(): Promise<Record<string, { plays: number; week: number }>> {
+      const { data, error } = await (supabase as any).rpc('case_play_stats');
+      if (error || !Array.isArray(data)) return {};
+      const out: Record<string, { plays: number; week: number }> = {};
+      for (const row of data as { case_id: string; plays: number; plays_7d: number }[]) {
+        out[row.case_id] = { plays: Number(row.plays) || 0, week: Number(row.plays_7d) || 0 };
+      }
+      return out;
+    },
+
     async getUserCases(userId: string): Promise<Case[]> {
       const { data, error } = await supabase
         .from('cases')

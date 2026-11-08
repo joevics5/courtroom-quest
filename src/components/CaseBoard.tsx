@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, Trophy, RefreshCw, Briefcase, Play } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/database';
@@ -9,6 +9,8 @@ import { getPhaseBadge, getSessionMode, timeAgo } from '../lib/sessionInfo';
 import { boardSessions } from '../lib/gameCounts';
 import { activeAppeal, appealsEnabled } from '../lib/appeals';
 import type { Case, CaseSession } from '../types';
+
+type BoardTab = 'ongoing' | 'new' | 'trendy' | 'popular' | 'easy';
 
 interface CaseBoardProps {
   onBack: () => void;
@@ -24,7 +26,7 @@ interface CaseBoardProps {
    */
   onPick?: (caseItem: Case) => void;
   /** Which tab to open on (My games when arriving from Play → My games) */
-  initialFilter?: 'all' | 'new' | 'ongoing';
+  initialFilter?: BoardTab | 'all';
 }
 
 interface OngoingCase extends Case {
@@ -57,7 +59,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
   const [loading, setLoading] = useState(false);
   // Two tabs: My games and New cases. With no tab asked for, open on My games when there is something to
   // continue, otherwise on New cases (decided once, after the first load).
-  const [sortBy, setSortBy] = useState<'new' | 'ongoing'>(initialFilter === 'ongoing' ? 'ongoing' : 'new');
+  const [sortBy, setSortBy] = useState<BoardTab>(initialFilter === 'all' ? 'new' : initialFilter);
+  const [stats, setStats] = useState<Record<string, { plays: number; week: number }>>({});
   const autoPickRef = useRef(initialFilter === 'all' && !onPick);
   const [showWinnersModal, setShowWinnersModal] = useState(false);
   const [selectedCaseForWinners, setSelectedCaseForWinners] = useState<Case | null>(null);
@@ -110,6 +113,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
           + invitations.filter(i => i.status === 'pending' && i.inviter_user_id === user.id).length + appealRows.length;
         setSortBy(myGames > 0 ? 'ongoing' : 'new');
       }
+
+      db.cases.getPlayStats().then(setStats).catch(() => undefined);
 
       setCases(preset);
       setOngoingCases(presetOngoingSessions.map(session => ({
@@ -168,6 +173,15 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
     };
   }, []);
 
+  const visibleCases = useMemo(() => {
+    const plays = (c: Case) => stats[c.id]?.plays ?? 0;
+    const week = (c: Case) => stats[c.id]?.week ?? 0;
+    if (sortBy === 'popular') return [...cases].sort((a, b) => plays(b) - plays(a));
+    if (sortBy === 'trendy') return [...cases].sort((a, b) => week(b) - week(a) || plays(b) - plays(a));
+    if (sortBy === 'easy') return cases.filter(c => c.difficulty === 'easy');
+    return cases;
+  }, [cases, stats, sortBy]);
+
   const getDifficultyColor = (difficulty?: string) => {
     switch (difficulty) {
       case 'easy': return 'text-green-400 bg-green-500/20 border-green-500/30';
@@ -201,21 +215,28 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
       }
     >
       <div>
-        <div className={`flex gap-2 flex-wrap mb-6 ${onPick ? 'hidden' : ''}`}>
-          {([
-            ['ongoing', `My games (${ongoingCases.length + waitingGames.length + appealRequests.length})`],
-            ['new', `New cases (${cases.length})`]
-          ] as const).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setSortBy(key)}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${
-                sortBy === key ? 'bg-[#FFD43B] text-black' : 'bg-white/10 text-white/70 hover:bg-white/15'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className={`sticky top-0 z-20 -mx-4 px-4 py-2 mb-5 bg-[#0b0d14]/90 backdrop-blur-md ${onPick ? 'hidden' : ''}`}>
+          <div role="tablist" className="flex gap-2 overflow-x-auto no-scrollbar">
+            {([
+              ['ongoing', `Ongoing (${ongoingCases.length + waitingGames.length + appealRequests.length})`],
+              ['new', 'New'],
+              ['trendy', 'Trendy'],
+              ['popular', 'Popular'],
+              ['easy', 'Easy']
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={sortBy === key}
+                onClick={() => setSortBy(key)}
+                className={`flex-none px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${
+                  sortBy === key ? 'bg-[#FFD43B] text-black' : 'bg-white/10 text-white/70 hover:bg-white/15'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (
@@ -227,12 +248,12 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
               onClick={() => setSortBy('new')}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
             >
-              Browse new cases
+              Browse cases
             </button>
           </div>
-        ) : (sortBy === 'new' && cases.length === 0) ? (
+        ) : (sortBy !== 'ongoing' && visibleCases.length === 0) ? (
           <div className="text-center py-20">
-            <p className="text-white/55 mb-4">No cases available</p>
+            <p className="text-white/55 mb-4">{sortBy === 'easy' ? 'No easy cases yet.' : 'No cases available'}</p>
             <button
               onClick={() => loadCases()}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
@@ -241,9 +262,9 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 lg:gap-6">
             {/* Ongoing Cases - Show First (if not filtered) */}
-            {sortBy !== 'new' && appealRequests.map((req) => (
+            {sortBy === 'ongoing' && appealRequests.map((req) => (
               <div
                 key={`appeal-${req.sessionId}`}
                 className="border-2 border-red-400/70 bg-red-500/[0.08] rounded-2xl p-5 backdrop-blur-sm"
@@ -272,7 +293,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
               </div>
             ))}
 
-            {sortBy !== 'new' && waitingGames.map((game) => (
+            {sortBy === 'ongoing' && waitingGames.map((game) => (
               <div
                 key={game.key}
                 className="border-2 border-dashed border-rose-400/60 bg-rose-500/[0.07] rounded-2xl p-5 backdrop-blur-sm"
@@ -307,7 +328,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
               </div>
             ))}
 
-            {sortBy !== 'new' && ongoingCases.map((ongoingCase) => {
+            {sortBy === 'ongoing' && ongoingCases.map((ongoingCase) => {
               const phase = getPhaseBadge(ongoingCase.current_phase);
               const mode = getSessionMode({ session_state: ongoingCase.session_state } as CaseSession);
               return (
@@ -357,67 +378,76 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
               );
             })}
 
-            {/* New Cases (if not filtered) */}
-            {sortBy !== 'ongoing' && cases.map((caseItem) => (
-              <div
-                key={`new-${caseItem.id}`}
-                className="bg-black/65 border border-white/15 rounded-2xl p-5 backdrop-blur-sm hover:border-white/30 transition-all group"
-              >
-                {!onPick && (
-                  <span className="inline-block mb-3 px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-lime-500/20 border-lime-400/60 text-lime-300">
-                    NEW CASE
-                  </span>
-                )}
-                <div className="flex items-start gap-3 mb-4">
-                  <CaseThumb src={caseItem.image_url} />
-                  <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
-                  <h3 className="font-game text-3xl leading-none text-white group-hover:text-[#FFD43B] transition-colors">
-                    {caseItem.title}
-                    {caseItem.versus && (
-                      <span className="block mt-1 font-sans text-sm font-normal tracking-normal text-white/60">({caseItem.versus})</span>
-                    )}
-                  </h3>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedCaseForWinners(caseItem);
-                      setShowWinnersModal(true);
-                    }}
-                    className="p-2 text-white/55 hover:text-[#FFD43B] hover:bg-[#FFD43B]/10 rounded-lg transition-colors"
-                    title="View winners"
-                  >
-                    <Trophy className="w-5 h-5" />
-                  </button>
-                  </div>
-                </div>
-
-                {/* The description only shows when choosing a case to read; the board stays easy to scan. */}
-                {onPick && (
-                  <p className="text-white/70 text-sm mb-4 line-clamp-5">
-                    "{caseItem.description}"
-                  </p>
-                )}
-
-                <div className="space-y-3 mb-4">
-                  <div className="text-sm">
-                    <span className="text-white/45">Defendant: </span>
-                    <span className="text-white/70">{caseItem.defendant_name || 'Unknown'}</span>
-                  </div>
+            {/* Cases to start */}
+            {sortBy !== 'ongoing' && visibleCases.map((caseItem) => {
+              const st = stats[caseItem.id];
+              return (
+                <div
+                  key={`new-${caseItem.id}`}
+                  className="flex flex-col bg-black/70 border border-white/15 rounded-2xl p-5 backdrop-blur-sm hover:border-white/30 transition-all group"
+                >
                   {!onPick && (
-                    <div className="text-xs text-white/45 italic">
-                      New Case - Awaiting Counsel
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      {caseItem.difficulty && (
+                        <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide uppercase ${getDifficultyColor(caseItem.difficulty)}`}>
+                          {caseItem.difficulty}
+                        </span>
+                      )}
+                      {sortBy === 'trendy' && st && st.week > 0 && (
+                        <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-orange-500/20 border-orange-400/60 text-orange-300">
+                          {st.week} THIS WEEK
+                        </span>
+                      )}
+                      {sortBy === 'popular' && st && st.plays > 0 && (
+                        <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-sky-500/20 border-sky-400/60 text-sky-300">
+                          {st.plays} {st.plays === 1 ? 'PLAY' : 'PLAYS'}
+                        </span>
+                      )}
                     </div>
                   )}
-                </div>
+                  <div className="flex items-start gap-3 mb-3">
+                    <CaseThumb src={caseItem.image_url} />
+                    <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
+                      <h3 className="font-game text-3xl leading-none text-white group-hover:text-[#FFD43B] transition-colors">
+                        {caseItem.title}
+                        {caseItem.versus && (
+                          <span className="block mt-1.5 font-sans text-sm font-normal tracking-normal text-white/60">{caseItem.versus}</span>
+                        )}
+                      </h3>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedCaseForWinners(caseItem);
+                          setShowWinnersModal(true);
+                        }}
+                        className="p-2 text-white/55 hover:text-[#FFD43B] hover:bg-[#FFD43B]/10 rounded-lg transition-colors"
+                        title="View winners"
+                      >
+                        <Trophy className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
 
-                <button
-                  onClick={() => handleReviewCase(caseItem)}
-                  className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
-                >
-                  {onPick ? 'Choose This Case' : 'Start New Game'}
-                </button>
-              </div>
-            ))}
+                  {caseItem.description && (
+                    <p className={`text-white/70 text-sm leading-relaxed mb-3 ${onPick ? 'line-clamp-5' : 'line-clamp-2'}`}>
+                      {caseItem.description}
+                    </p>
+                  )}
+
+                  <div className="text-sm text-white/55 mb-4 mt-auto">
+                    <span className="text-white/40">Defendant: </span>
+                    <span className="text-white/75">{caseItem.defendant_name || 'Unknown'}</span>
+                  </div>
+
+                  <button
+                    onClick={() => handleReviewCase(caseItem)}
+                    className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
+                  >
+                    {onPick ? 'Choose This Case' : 'View Details'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
