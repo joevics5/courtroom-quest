@@ -72,8 +72,10 @@ function AppContent() {
   // My challenges / invites still waiting for the other player
   const [waitingSentCount, setWaitingSentCount] = useState(0);
   // Which tab the Case Board opens on (My games when coming from the Play popup)
-  const [caseBoardFilter, setCaseBoardFilter] = useState<'all' | 'ongoing'>('all');
+  const [caseBoardFilter, setCaseBoardFilter] = useState<'all' | 'new' | 'ongoing'>('all');
   const [caseBoardFromHome, setCaseBoardFromHome] = useState(false);
+  // Set right after the avatar is saved, so a new player lands on the Case Board (after the intro, if any)
+  const [goToCasesNext, setGoToCasesNext] = useState(false);
   const [invites, setInvites] = useState<CaseInvitation[]>([]);
   // Opponent appeals waiting for this player's answer: shown on the dashboard like invites.
   const [appealRequestCount, setAppealRequestCount] = useState(0);
@@ -405,7 +407,13 @@ function AppContent() {
     return (
       <AvatarCreator
         initialUsername={user.user_metadata?.nickname || ''}
-        onDone={() => {}}
+        onDone={() => {
+          setGoToCasesNext(true);
+          setShowHome(false);
+          setCaseBoardFromHome(false);
+          setCaseBoardFilter('new');
+          setView('case-board');
+        }}
       />
     );
   }
@@ -434,6 +442,13 @@ function AppContent() {
         .catch(error => console.error('Failed to mark tutorial complete:', error));
     }
     // New players who picked a two-player mode on the home screen continue into it
+    if (goToCasesNext) {
+      setGoToCasesNext(false);
+      setCaseBoardFromHome(false);
+      setCaseBoardFilter('new');
+      setView('case-board');
+      return;
+    }
     setView(challengeSeed && !challengeSeed.withCase ? 'challenge-board' : 'landing');
   };
 

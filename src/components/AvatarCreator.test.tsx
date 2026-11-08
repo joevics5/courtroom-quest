@@ -51,7 +51,7 @@ describe('AvatarCreator', () => {
     render(<AvatarCreator onDone={onDone} />);
     await typeNameAndContinue('Counsel Ada');
     expect(await screen.findByRole('tablist')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'ENTER COURT' }));
+    fireEvent.click(screen.getByRole('button', { name: 'GO TO CASES' }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(savePublicProfile).toHaveBeenCalledWith(expect.objectContaining({ username: 'Counsel Ada', avatar: expect.any(Object) }));
     const data = updateUser.mock.calls[0][0].data;
@@ -64,7 +64,7 @@ describe('AvatarCreator', () => {
     const onDone = vi.fn();
     render(<AvatarCreator onDone={onDone} />);
     await typeNameAndContinue('Counsel Ada');
-    fireEvent.click(await screen.findByRole('button', { name: 'ENTER COURT' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'GO TO CASES' }));
     expect(await screen.findByText(/just taken/i)).toBeTruthy();
     expect(updateUser).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();

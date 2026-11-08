@@ -262,7 +262,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   const phaseClocksRef = useRef<Record<number, number>>({});
   phaseClocksRef.current = phaseTimeRemaining;
   // The break at every change of counsel in the witness stage: clock stopped, nobody can send anything.
-  const [handoff, setHandoff] = useState<{ secondsLeft: number; label: string } | null>(null);
+  const [handoff, setHandoff] = useState<{ secondsLeft: number; label: string; skippable?: boolean } | null>(null);
+  const handoffSkipRef = useRef(false);
   const handoffRef = useRef<number | null>(null);
   // True from the moment a question is sent until its answer is in.
   const questionInFlightRef = useRef(false);
@@ -863,13 +864,15 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   // A short break at every change of counsel in the witness stage. The clock is stopped and nobody can send
   // anything, so a question sent in the last second is answered inside it. Resolves when the break is over.
-  const runHandoffBreak = (label: string, seconds: number = HANDOFF_SECONDS) =>
+  const runHandoffBreak = (label: string, seconds: number = HANDOFF_SECONDS, skippable = false) =>
     new Promise<void>(resolve => {
       handoffRef.current = seconds;
-      setHandoff({ secondsLeft: seconds, label });
+      handoffSkipRef.current = false;
+      setHandoff({ secondsLeft: seconds, label, skippable });
       const id = setInterval(() => {
-        if (!aliveRef.current) {
+        if (!aliveRef.current || handoffSkipRef.current) {
           clearInterval(id);
+          handoffSkipRef.current = false;
           handoffRef.current = null;
           setHandoff(null);
           resolve();
@@ -884,7 +887,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           resolve();
         } else {
           handoffRef.current = next;
-          setHandoff({ secondsLeft: next, label });
+          setHandoff({ secondsLeft: next, label, skippable });
         }
       }, 1000);
     });
@@ -2105,7 +2108,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // An opening or closing statement is read for a fixed minute before anything else happens, like a
       // witness answer is. The clock is stopped and nobody can send anything until it is over.
       if (config && restStatementSide && !practiceMode) {
-        await runHandoffBreak(`Reading the ${eventType === 'closing' ? 'closing' : 'opening'} statement`, STATEMENT_READ_SECONDS);
+        await runHandoffBreak(`Reading the ${eventType === 'closing' ? 'closing' : 'opening'} statement`, STATEMENT_READ_SECONDS, true);
         if (!aliveRef.current) return;
       }
 
@@ -2601,6 +2604,15 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               {handoff && (
                 <div className="rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/85 tabular-nums">
                   {handoff.label} · {formatTime(handoff.secondsLeft)}
+                  {handoff.skippable && (
+                    <button
+                      type="button"
+                      onClick={() => { handoffSkipRef.current = true; }}
+                      className="ml-2 rounded-full bg-[#FFD43B] px-2.5 py-0.5 text-[11px] font-black text-black"
+                    >
+                      SKIP
+                    </button>
+                  )}
                 </div>
               )}
 

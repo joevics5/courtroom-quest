@@ -488,7 +488,7 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
       >
         <div className="max-w-md mx-auto">
           <button type="button" onClick={save} disabled={saving} className={`${GOLD_BUTTON} w-full`}>
-            {saving ? 'SAVING...' : mode === 'signup' ? 'ENTER COURT' : 'SAVE AVATAR'}
+            {saving ? 'SAVING...' : mode === 'signup' ? 'GO TO CASES' : 'SAVE AVATAR'}
           </button>
         </div>
       </div>

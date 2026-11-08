@@ -25,8 +25,8 @@ export const CROSS_RESERVE_KEY = -3;
 
 /** Pause at every change of counsel, so a question sent at the last second can still be answered. */
 export const HANDOFF_SECONDS = 10;
-/** Fixed read time after every opening and closing statement. Like the witness read-out, the clock is stopped. */
-export const STATEMENT_READ_SECONDS = 60;
+/** Read time after every opening and closing statement (the player can skip it). Like the witness read-out, the clock is stopped. */
+export const STATEMENT_READ_SECONDS = 20;
 /** Pause after each witness answer while it is read out. The clock does not run during it. */
 export const READOUT_SECONDS = 20;
 

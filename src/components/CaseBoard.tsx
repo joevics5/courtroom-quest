@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Trophy, RefreshCw, Briefcase, Play } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/database';
@@ -55,7 +55,10 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
   const [appealRequests, setAppealRequests] = useState<{ sessionId: string; title: string; due?: string; filed?: string }[]>([]);
   const [cancellingKey, setCancellingKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<'all' | 'new' | 'ongoing'>(initialFilter);
+  // Two tabs: My games and New cases. With no tab asked for, open on My games when there is something to
+  // continue, otherwise on New cases (decided once, after the first load).
+  const [sortBy, setSortBy] = useState<'new' | 'ongoing'>(initialFilter === 'ongoing' ? 'ongoing' : 'new');
+  const autoPickRef = useRef(initialFilter === 'all' && !onPick);
   const [showWinnersModal, setShowWinnersModal] = useState(false);
   const [selectedCaseForWinners, setSelectedCaseForWinners] = useState<Case | null>(null);
 
@@ -100,6 +103,13 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
       // session (newest first), so several games of one case can coexist.
       const presetCaseIds = new Set(preset.map(caseItem => caseItem.id));
       const presetOngoingSessions = boardSessions(ongoing, presetCaseIds);
+
+      if (autoPickRef.current) {
+        autoPickRef.current = false;
+        const myGames = presetOngoingSessions.length + (challenges as any[]).filter((c: any) => c.status === 'open' && c.creator_user_id === user.id).length
+          + invitations.filter(i => i.status === 'pending' && i.inviter_user_id === user.id).length + appealRows.length;
+        setSortBy(myGames > 0 ? 'ongoing' : 'new');
+      }
 
       setCases(preset);
       setOngoingCases(presetOngoingSessions.map(session => ({
@@ -176,7 +186,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
   return (
     <ScreenShell
       title={onPick ? 'PICK A CASE' : 'CASE BOARD'}
-      subtitle={onPick ? 'Read the case, then tap Choose This Case.' : 'New opportunities and ongoing cases at a glance.'}
+      subtitle={onPick ? 'Read the case, then tap Choose This Case.' : 'Continue your games, or start a new case.'}
       onBack={onBack}
       maxWidth="max-w-6xl"
       right={
@@ -193,9 +203,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
       <div>
         <div className={`flex gap-2 flex-wrap mb-6 ${onPick ? 'hidden' : ''}`}>
           {([
-            ['all', `All (${cases.length + ongoingCases.length + waitingGames.length + appealRequests.length})`],
-            ['new', `New cases (${cases.length})`],
-            ['ongoing', `My games (${ongoingCases.length + waitingGames.length + appealRequests.length})`]
+            ['ongoing', `My games (${ongoingCases.length + waitingGames.length + appealRequests.length})`],
+            ['new', `New cases (${cases.length})`]
           ] as const).map(([key, label]) => (
             <button
               key={key}
@@ -211,7 +220,17 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
 
         {loading ? (
           <div className="text-center py-20 text-white/55">Loading cases...</div>
-        ) : (cases.length === 0 && ongoingCases.length === 0) ? (
+        ) : sortBy === 'ongoing' && ongoingCases.length + waitingGames.length + appealRequests.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-white/55 mb-4">No games in progress yet.</p>
+            <button
+              onClick={() => setSortBy('new')}
+              className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
+            >
+              Browse new cases
+            </button>
+          </div>
+        ) : (sortBy === 'new' && cases.length === 0) ? (
           <div className="text-center py-20">
             <p className="text-white/55 mb-4">No cases available</p>
             <button
