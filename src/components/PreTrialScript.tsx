@@ -17,7 +17,7 @@ import type { StageSpeaker } from '../lib/stageSpeaker';
 import { pickStageScene } from '../lib/stageScene';
 import { db } from '../lib/database';
 import type { ShotName } from './court3d/stage';
-import { drivesPretrial, seatedKey, type PlayMode, type PretrialLive } from '../lib/liveGame';
+import { drivesPretrial, seatNotice, seatedKey, type PlayMode, type PretrialLive } from '../lib/liveGame';
 
 const Court3D = lazy(() => import('./court3d/Court3D'));
 
@@ -550,13 +550,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                   {!iDrive ? 'WAITING FOR COURT TO OPEN' : show3D ? 'START' : 'ENTER COURT'}
                 </button>
                 <p className="text-white/60 text-xs text-center" aria-live="polite">
-                  {!mySeated
-                    ? 'Walk to your chair at the counsel table to begin.'
-                    : !opponentSeated
-                      ? `Waiting for ${opponentName} to take their seat…`
-                      : iDrive
-                        ? 'Both counsel are seated. Press Start when you are ready.'
-                        : `Both counsel are seated. Waiting for ${opponentName} to open court…`}
+                  {seatNotice({ mySeated, opponentSeated, iDrive, opponentName })}
                 </p>
               </div>
             )}

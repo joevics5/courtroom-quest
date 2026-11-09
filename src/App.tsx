@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { appAlert } from './lib/appDialog';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
@@ -223,6 +223,64 @@ function AppContent() {
       setView('tutorial');
     }
   }, [view, needsTutorial]);
+
+  // ---- someone accepts MY challenge or invitation: take me into the game at once ----
+  const resumeSessionRef = useRef<(session: CaseSession) => Promise<void>>(async () => {});
+  const viewRef = useRef<AppView>('landing');
+  viewRef.current = view;
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    let timer: number | undefined;
+    // Challenges / invitations of mine that were still waiting the last time I looked.
+    const waiting = new Set<string>();
+    const handled = new Set<string>();
+    const justNow = (t?: string | null) => !!t && Date.now() - Date.parse(t) < 120000;
+    const inGameViews: AppView[] = ['role-selection', 'investigation', 'trial-type-selection', 'jury-selection', 'pre-trial', 'courtroom', 'verdict'];
+    const tick = async () => {
+      let nextDelay = 4000;
+      try {
+        if (document.visibilityState !== 'hidden') {
+          const [mine, sent] = await Promise.all([
+            db.challenges.getMyChallenges(user.id).catch(() => []),
+            db.invitations.getInvitationsByUser(user.id).catch(() => [])
+          ]);
+          if (!alive) return;
+          const matched: Array<{ key: string; sessionId: string }> = [];
+          const stillOpen = new Set<string>();
+          for (const c of mine as any[]) {
+            if (c.creator_user_id !== user.id) continue;
+            if (c.status === 'open') stillOpen.add(`c:${c.id}`);
+            else if (c.status === 'matched' && c.session_id && !handled.has(`c:${c.id}`) && (waiting.has(`c:${c.id}`) || justNow(c.matched_at))) matched.push({ key: `c:${c.id}`, sessionId: c.session_id });
+          }
+          for (const i of sent as any[]) {
+            if (i.inviter_user_id !== user.id) continue;
+            if (i.status === 'pending') stillOpen.add(`i:${i.id}`);
+            else if (i.status === 'accepted' && i.session_id && !handled.has(`i:${i.id}`) && (waiting.has(`i:${i.id}`) || justNow(i.accepted_at))) matched.push({ key: `i:${i.id}`, sessionId: i.session_id });
+          }
+          waiting.clear();
+          stillOpen.forEach(k => waiting.add(k));
+          if (matched.length > 0) {
+            matched.forEach(m => handled.add(m.key));
+            const session = await db.sessions.getSession(matched[0].sessionId);
+            if (alive && session) {
+              if (inGameViews.includes(viewRef.current)) {
+                void appAlert({ title: 'YOUR CHALLENGE WAS ACCEPTED', message: 'Your opponent joined. Find the new game under My games.', tone: 'info' });
+              } else {
+                setChallengeSeed(null);
+                await resumeSessionRef.current(session);
+              }
+            }
+          }
+          // While something of mine is waiting for an opponent, look often so the match shows up at once.
+          nextDelay = stillOpen.size > 0 ? 2000 : 4000;
+        }
+      } catch { /* try again on the next tick */ }
+      if (alive) timer = window.setTimeout(tick, nextDelay);
+    };
+    void tick();
+    return () => { alive = false; if (timer) window.clearTimeout(timer); };
+  }, [user?.id]);
 
   // ---- two players, two devices: keep both screens in step ----
   const liveOnline = isOnlineTwoPlayer(currentSession);
@@ -577,6 +635,8 @@ function AppContent() {
   };
 
   // Resume one specific game (Case Board "Ongoing" cards).
+  resumeSessionRef.current = resumeSession;
+
   const handleContinueSession = async (sessionId: string) => {
     setShowCaseReview(false);
     try {

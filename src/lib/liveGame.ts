@@ -120,3 +120,11 @@ export function pretrialLive(session: Pick<CaseSession, 'session_state'> | null 
 
 /** Who runs the bailiff's script and enters the plea: the defense. The prosecution watches, then starts the trial. */
 export const drivesPretrial = (side: PlayerRole | Side) => side === 'defense';
+
+/** What the pre-trial screen tells a player about the seats, before court opens. */
+export function seatNotice(input: { mySeated: boolean; opponentSeated: boolean; iDrive: boolean; opponentName: string }): string {
+  const { mySeated, opponentSeated, iDrive, opponentName } = input;
+  if (!mySeated) return opponentSeated ? `${opponentName} is seated. Take a seat.` : 'Walk to your chair at the counsel table to begin.';
+  if (!opponentSeated) return 'Waiting for opposing counsel…';
+  return iDrive ? 'Both counsel are seated. Press Start when you are ready.' : `Both counsel are seated. Waiting for ${opponentName} to open court…`;
+}

@@ -43,7 +43,7 @@ describe('PreTrialScript, two real players', () => {
     const onLivePatch = vi.fn();
     render(<PreTrialScript {...base} playerRole="defense" live={live()} onLivePatch={onLivePatch} onComplete={() => {}} />);
     expect(onLivePatch).toHaveBeenCalledWith({ seatedDefense: true });
-    expect(screen.getByText(/Waiting for Chidi to take their seat/)).toBeTruthy();
+    expect(screen.getByText('Waiting for opposing counsel…')).toBeTruthy();
     expect(screen.getByRole('button', { name: /ENTER COURT/ })).toBeDisabled();
   });
 

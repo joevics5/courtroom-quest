@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   drivesPretrial, isAhead, isOnlineTwoPlayer, isSessionHost, jurorTurn, mySideIn, opponentUserIdIn,
-  otherSide, phaseRank, playMode, pretrialLive, readyState
+  otherSide, phaseRank, playMode, pretrialLive, readyState, seatNotice
 } from './liveGame';
 
 const online = (extra: Record<string, unknown> = {}) =>
@@ -84,5 +84,20 @@ describe('pre-trial state', () => {
   it('the defense runs the script', () => {
     expect(drivesPretrial('defense')).toBe(true);
     expect(drivesPretrial('prosecution')).toBe(false);
+  });
+});
+
+describe('seat notices', () => {
+  const base = { iDrive: true, opponentName: 'Chidi' };
+  it('tells the player still standing that their opponent is already seated', () => {
+    expect(seatNotice({ ...base, mySeated: false, opponentSeated: true })).toBe('Chidi is seated. Take a seat.');
+    expect(seatNotice({ ...base, mySeated: false, opponentSeated: false })).toMatch(/Walk to your chair/);
+  });
+  it('tells the seated player they are waiting for opposing counsel', () => {
+    expect(seatNotice({ ...base, mySeated: true, opponentSeated: false })).toBe('Waiting for opposing counsel…');
+  });
+  it('once both are seated, the defense starts and the prosecution waits', () => {
+    expect(seatNotice({ ...base, mySeated: true, opponentSeated: true })).toMatch(/Press Start/);
+    expect(seatNotice({ ...base, iDrive: false, mySeated: true, opponentSeated: true })).toMatch(/Waiting for Chidi to open court/);
   });
 });
