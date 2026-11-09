@@ -122,3 +122,11 @@ describe('Investigation, two players', () => {
     expect(screen.getByRole('button', { name: /PROCEED TO TRIAL/ })).toBeEnabled();
   });
 });
+
+describe('Investigation, telling the other player what I am doing', () => {
+  it('reports what I am looking at as I move around the case file', async () => {
+    const onStatus = vi.fn();
+    await open({ onStatus });
+    expect(onStatus).toHaveBeenLastCalledWith('is reading the case file');
+  });
+});

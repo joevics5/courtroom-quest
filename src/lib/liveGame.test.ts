@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   drivesPretrial, isAhead, isOnlineTwoPlayer, isSessionHost, jurorTurn, mySideIn, opponentUserIdIn,
-  otherSide, phaseRank, playMode, pretrialLive, readyState, seatNotice
+  otherSide, parseStatus, phaseRank, playMode, pretrialLive, readyState, seatNotice, statusLine, statusKey
 } from './liveGame';
 
 const online = (extra: Record<string, unknown> = {}) =>
@@ -99,5 +99,17 @@ describe('seat notices', () => {
   it('once both are seated, the defense starts and the prosecution waits', () => {
     expect(seatNotice({ ...base, mySeated: true, opponentSeated: true })).toMatch(/Press Start/);
     expect(seatNotice({ ...base, iDrive: false, mySeated: true, opponentSeated: true })).toMatch(/Waiting for Chidi to open court/);
+  });
+});
+
+describe('what the opponent is doing', () => {
+  it('reads the other side\'s status and words it', () => {
+    const s = online({ statusDefense: { text: 'is looking through the evidence', seq: 5 } });
+    expect(statusKey('defense')).toBe('statusDefense');
+    expect(parseStatus(s, 'defense')).toEqual({ text: 'is looking through the evidence', seq: 5 });
+    expect(parseStatus(s, 'prosecution')).toBeNull();
+    expect(parseStatus(online({ statusDefense: { text: '  ', seq: 1 } }), 'defense')).toBeNull();
+    expect(statusLine('Chidi', parseStatus(s, 'defense'))).toBe('Chidi is looking through the evidence');
+    expect(statusLine('Chidi', null)).toBeNull();
   });
 });

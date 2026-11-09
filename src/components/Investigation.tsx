@@ -18,13 +18,15 @@ interface InvestigationProps {
   onBack: () => void;
   /** Two players: whether each of us has pressed Proceed. Absent against the computer or on one phone. */
   liveReady?: { iAmReady: boolean; opponentReady: boolean; opponentName: string };
+  /** Two players: tells the other player what I am looking at ("is interviewing Sam"). */
+  onStatus?: (text: string) => void;
   showCaseReview?: boolean;
   caseForReview?: Case | null;
   onReviewAccept?: () => void;
   onReviewReject?: () => void;
 }
 
-export default function Investigation({ session, onProceedToTrial, onBack, liveReady, showCaseReview = false, caseForReview, onReviewAccept, onReviewReject }: InvestigationProps) {
+export default function Investigation({ session, onProceedToTrial, onBack, liveReady, onStatus, showCaseReview = false, caseForReview, onReviewAccept, onReviewReject }: InvestigationProps) {
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
   const [selectedTab, setSelectedTab] = useState<'overview' | 'evidence' | 'witnesses'>('overview');
@@ -45,6 +47,19 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
   const [showPitchModal, setShowPitchModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showWitnessInfo, setShowWitnessInfo] = useState(false);
+
+  // The other player sees what I am looking at as I move around the case file.
+  useEffect(() => {
+    if (!onStatus) return;
+    onStatus(
+      selectedWitness ? `is interviewing ${selectedWitness.name.split(' ')[0]}`
+        : selectedEvidence ? `is examining ${selectedEvidence.title}`
+        : selectedTab === 'evidence' ? 'is going through the evidence'
+        : selectedTab === 'witnesses' ? 'is looking over the witnesses'
+        : 'is reading the case file'
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTab, selectedWitness?.id, selectedEvidence?.id]);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

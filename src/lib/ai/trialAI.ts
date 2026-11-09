@@ -5,6 +5,7 @@
  */
 
 import { stripStageDirections } from './stripStageDirections';
+import { composeJuryWriteup, extractLooseReasoning, isThinWriteup } from './verdictWriteup';
 import { MAX_WITNESS_HISTORY } from '../witnessHistory';
 import { getAIProvider } from './providerFactory';
 import type { AIRequest, AIResponse } from './types';
@@ -421,32 +422,57 @@ INSTRUCTIONS:
 6. Cite specific evidence that influenced the decision
 7. Assign a score (0-100) based on prosecution's case strength
 
+WRITE A REAL DECISION. The "reasoning" is the written decision the players read after the trial, so it must be thorough: at least four paragraphs separated by a blank line (use \\n\\n inside the JSON string), roughly 350 to 600 words in total.
+  1. The verdict and the standard it was measured against${isJuryTrial ? ', including how the jury voted' : ''}.
+  2. The strongest points of the prosecution's case: which testimony and exhibits, and how credible they were.
+  3. The strongest points of the defense: contradictions, gaps, unsupported claims, and which exhibits helped or hurt.
+  4. What decided the case${isJuryTrial ? ', and why the minority voted the other way if the vote was not unanimous' : ''}, and what either side could have done differently.
+Refer to the witnesses and exhibits by name. A one or two sentence decision is not acceptable.
+
 RESPOND WITH VALID JSON:
 {
   "outcome": "win" or "lose" or "partial",
-  "reasoning": "${isJuryTrial ? 'The jury finds...' : 'The Court finds...'} [Detailed explanation]",
+  "reasoning": "${isJuryTrial ? 'The jury finds...' : 'The Court finds...'} [the full multi-paragraph decision described above]",
   "evidence_cited": ["Exhibit A", "Exhibit B"],
   "score": 75
 }`;
 
+  // The written decision matters as much as the outcome: ask again once if it comes back thin or the call
+  // fails, and if it still does not, build it from the jurors' own reasons rather than showing a one-liner.
+  let best: VerdictResult | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await generateAIResponse({
+        system: prompt,
+        user: attempt === 0
+          ? (isJuryTrial ? 'Deliver the jury\'s verdict now.' : 'Deliver your verdict now.')
+          : 'Your last decision was too short. Deliver the verdict again with the full written decision: at least four paragraphs and 350 words.',
+        responseFormat: 'json',
+        temperature: isJuryTrial ? 0.5 : AGENT_TEMPERATURES.verdict, // Jury slightly more variable
+        maxTokens: 3500
+      });
+      const parsed = parseVerdictResponse(response.text, evidenceCitations);
+      if (isJuryTrial && juryResult) parsed.outcome = juryResult.outcome;
+      if (!best || (parsed.reasoning || '').length > best.reasoning.length) best = parsed;
+      if (!isThinWriteup(parsed.reasoning)) break;
+    } catch (error) {
+      console.error('[Verdict AI] Error generating verdict:', error);
+    }
+  }
+  if (best) {
+    if (isThinWriteup(best.reasoning) && isJuryTrial && juryResult) {
+      best.reasoning = `${best.reasoning.trim()}\n\n${composeJuryWriteup({ juryResult, caseTitle, defendantName, evidenceCited: best.evidence_cited })}`.trim();
+    }
+    return best;
+  }
   try {
-    const response = await generateAIResponse({
-      system: prompt,
-      user: isJuryTrial ? 'Deliver the jury\'s verdict now.' : 'Deliver your verdict now.',
-      responseFormat: 'json',
-      temperature: isJuryTrial ? 0.5 : AGENT_TEMPERATURES.verdict, // Jury slightly more variable
-      maxTokens: 2000
-    });
-
-    const parsed = parseVerdictResponse(response.text, evidenceCitations);
-    if (isJuryTrial && juryResult) parsed.outcome = juryResult.outcome;
-    return parsed;
+    throw new Error('The verdict could not be written.');
   } catch (error) {
     console.error('[Verdict AI] Error generating verdict:', error);
     if (isJuryTrial && juryResult) {
       return {
         outcome: juryResult.outcome,
-        reasoning: `The jury finds the defendant ${juryResult.outcome === 'win' ? 'guilty' : 'not guilty'} by a vote of ${Math.max(juryResult.guiltyVotes, juryResult.notGuiltyVotes)} to ${Math.min(juryResult.guiltyVotes, juryResult.notGuiltyVotes)}.`,
+        reasoning: composeJuryWriteup({ juryResult, caseTitle, defendantName, evidenceCited: evidenceCitations }),
         evidence_cited: evidenceCitations,
         score: Math.round((juryResult.guiltyVotes / Math.max(1, juryResult.guiltyVotes + juryResult.notGuiltyVotes)) * 100)
       };
@@ -1151,6 +1177,12 @@ function parseVerdictResponse(text: string, evidenceCitations: string[]): Verdic
       };
     } catch (error) {
       console.error('[Verdict AI] Failed to parse JSON:', error);
+      // A long write-up often breaks strict JSON (raw line breaks, a cut-off ending): keep the decision.
+      const loose = extractLooseReasoning(text);
+      const looseOutcome = text.match(/"outcome"\s*:\s*"(win|lose|partial)"/)?.[1] as 'win' | 'lose' | 'partial' | undefined;
+      if (loose) {
+        return { outcome: looseOutcome ?? 'partial', reasoning: loose, evidence_cited: evidenceCitations, score: 50 };
+      }
     }
   }
 
@@ -1162,7 +1194,7 @@ function parseVerdictResponse(text: string, evidenceCitations: string[]): Verdic
 
   return {
     outcome,
-    reasoning: text.substring(0, 1000) || 'The Court has reviewed the evidence and testimony.',
+    reasoning: text.substring(0, 4000) || 'The Court has reviewed the evidence and testimony.',
     evidence_cited: evidenceCitations,
     score: 50
   };

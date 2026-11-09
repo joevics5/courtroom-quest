@@ -128,3 +128,17 @@ export function seatNotice(input: { mySeated: boolean; opponentSeated: boolean; 
   if (!opponentSeated) return 'Waiting for opposing counsel…';
   return iDrive ? 'Both counsel are seated. Press Start when you are ready.' : `Both counsel are seated. Waiting for ${opponentName} to open court…`;
 }
+
+// ---- "what is my opponent doing" before the trial ----
+
+export const statusKey = (side: Side) => (side === 'prosecution' ? 'statusProsecution' : 'statusDefense');
+
+export interface LiveStatus { text: string; seq: number }
+
+export function parseStatus(session: Pick<CaseSession, 'session_state'> | null | undefined, side: Side): LiveStatus | null {
+  const raw = stateOf(session)[statusKey(side)];
+  return raw && typeof raw.text === 'string' && raw.text.trim() && typeof raw.seq === 'number' ? { text: raw.text, seq: raw.seq } : null;
+}
+
+/** "Chidi is looking through the evidence", or null when there is nothing to say. */
+export const statusLine = (name: string, status: LiveStatus | null): string | null => (status ? `${name} ${status.text}` : null);

@@ -43,7 +43,8 @@ import { getUserDisplayName } from '../lib/userName';
 import { buildExaminationRecap, buildWitnessHistory } from '../lib/witnessHistory';
 import { useElementHeight } from '../lib/useElementHeight';
 import AutoRestChip from './AutoRestChip';
-import { shouldFreezeForAbsentOpponent, shouldFreezeWhileHidden, useOpponentPresence } from '../lib/presence';
+import { shouldFreezeWhileHidden } from '../lib/presence';
+import { activityKey, activityLine, applyRemoteEvents, authorTag, currentActivity, isRemoteEvent, observeActivity, parseActivity, voiceRoleFor, witnessOnStand, type ActivityKind, type ActivityWatch } from '../lib/trialSync';
 import { buildLeaveSave, restoreTotalTime, shouldAutoPauseOnHide, startsPaused } from '../lib/trialResume';
 import { useTrialLifecycle } from '../lib/useTrialLifecycle';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
@@ -109,8 +110,23 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // name (the random attorney pool for prosecution, a generic label for
   // defense, since there's no name pool for that side yet).
   const humanDisplayName = getUserDisplayName(user);
-  const effectiveProsecutorName = playerRole === 'prosecution' ? humanDisplayName : plainLawyerName(prosecutorName || 'Prosecution');
-  const effectiveDefenseName = playerRole === 'defense' ? humanDisplayName : aiDefenseName(session.id);
+  const onlineTwoPlayerEarly = isMultiplayer && !sameDevicePlay;
+  const [opponentProfile, setOpponentProfile] = useState<PublicProfile | null>(null);
+  // The shared game state as the other screen last left it (names, clocks, activity), refreshed every couple of seconds.
+  const [liveState, setLiveState] = useState<Record<string, any> | null>(null);
+  // Two people: the other counsel is a real person and goes by their own name, the same one on both screens
+  // (each player's name is saved with the game); only against the computer do the made-up attorney names appear.
+  const sharedState = (liveState || session.session_state || {}) as Record<string, any>;
+  const effectiveProsecutorName = playerRole === 'prosecution'
+    ? humanDisplayName
+    : onlineTwoPlayerEarly
+      ? (sharedState.nameProsecution || opponentProfile?.username || 'Opposing Counsel')
+      : plainLawyerName(prosecutorName || 'Prosecution');
+  const effectiveDefenseName = playerRole === 'defense'
+    ? humanDisplayName
+    : onlineTwoPlayerEarly
+      ? (sharedState.nameDefense || opponentProfile?.username || 'Opposing Counsel')
+      : aiDefenseName(session.id);
   // Avatars for the stage: the human plays their own saved avatar; the judge and the
   // AI counsel come from the ready-made sets (same name -> same face every time).
   const myAvatar = useMemo(() => getUserAvatar(user), [user]);
@@ -121,7 +137,6 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           ? (session.session_state as any)?.defenseUserId
           : (session.session_state as any)?.prosecutionUserId) ?? null)
       : null;
-  const [opponentProfile, setOpponentProfile] = useState<PublicProfile | null>(null);
   useEffect(() => {
     if (!opponentUserId) {
       setOpponentProfile(null);
@@ -170,14 +185,26 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     }
     return session.current_trial_phase || 7; // Default to 7 for new trials
   });
-  const [events, setEvents] = useState<TrialEvent[]>([]);
+  const [events, setEventsRaw] = useState<TrialEvent[]>([]);
+  // Both screens add lines to the same transcript (and a line can arrive from the other screen a moment
+  // before this one finishes saving it), so a line is only ever kept once.
+  const setEvents = (update: TrialEvent[] | ((prev: TrialEvent[]) => TrialEvent[])) =>
+    setEventsRaw(prev => {
+      const next = typeof update === 'function' ? update(prev) : update;
+      const seen = new Set<string>();
+      return next.filter(e => (seen.has(e.id) ? false : (seen.add(e.id), true)));
+    });
   // Mirrors `events` for callbacks that resolve well after the render
   // they were scheduled in (e.g. TTS's onend firing seconds later) — a
   // closure over `events` state directly would still see whatever it
   // was at schedule-time, which is stale by then. handleNextPhase's
   // mandatory-statement gate reads from this instead of `events`
   // directly so it always sees the statement that was just saved.
+  /** Every line this screen writes is stamped with who wrote it, so the other screen knows it is theirs to read out. */
+  const addTrialEvent = (e: Parameters<typeof db.trialEvents.addEvent>[0]) =>
+    db.trialEvents.addEvent({ ...e, metadata: { ...(e.metadata || {}), ...authorTag(user.id) } });
   const eventsRef = useRef<TrialEvent[]>([]);
+  const trialLoadedRef = useRef(false);
   useEffect(() => {
     eventsRef.current = events;
   }, [events]);
@@ -200,10 +227,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
    const [timerActive, setTimerActive] = useState(false);
    // A trial that was left mid-way comes back paused; the player resumes on purpose.
-   // Two people on two devices: a game can take days. Nobody has to press Pause: the clocks stand still
-   // while the player whose turn it is is away, and the game picks up when they come back.
+   // Two people on two devices: a game can take days. Nobody has to press Pause: your own clock stands
+   // still while you are away, and the other player carries on with their turn.
    const onlineTwoPlayer = isMultiplayer && !sameDevicePlay;
-   const opponentOnline = useOpponentPresence(session.id, onlineTwoPlayer && !showPreTrial);
    const [timerPaused, setTimerPaused] = useState(() => !onlineTwoPlayer && startsPaused(session as any, practiceMode));
    const [pausedForDefense, setPausedForDefense] = useState(false);
    const [phaseTimeRemaining, setPhaseTimeRemaining] = useState<Record<number, number>>(() => {
@@ -374,10 +400,12 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // An opening or closing statement that has not been given never times out: the clock stands still
       // until the speaker says something (handleSubmit moves on once they do).
       if (waitingForStatementRef.current) return;
+      // Two players: only the one whose turn it is ends it. The other screen waits for the trial to move on.
+      if (onlineTwoPlayer && turnState?.current_turn !== playerRole) return;
       console.log('[Courtroom] Time ran out for phase', currentPhase, '- auto-resting');
       handleRestPhase();
     }
-  }, [phaseTimeRemaining, currentPhase, timerActive, timerPaused, trialDuration, showPreTrial, practiceMode]);
+  }, [phaseTimeRemaining, currentPhase, timerActive, timerPaused, trialDuration, showPreTrial, practiceMode, turnState?.current_turn]);
 
   // Leaving the page (switching tabs or apps, locking the screen) stops the clock right away, on its
   // own: the player does not have to press Pause, and it does not matter whose turn it is. The exact
@@ -409,14 +437,20 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   useEffect(() => {
     if (showPreTrial || practiceMode) return;
     if (trialDuration && totalTimeRemaining <= 0 && timerActive && !timerPaused) {
+      // Two players: one screen calls the verdict, the player whose turn it is; the other follows it live.
+      if (onlineTwoPlayer && turnState?.current_turn !== playerRole) return;
       console.log('[Courtroom] Total trial time ran out - forcing verdict');
       handleVerdict();
     }
-  }, [totalTimeRemaining, timerActive, timerPaused, trialDuration, showPreTrial, practiceMode]);
+  }, [totalTimeRemaining, timerActive, timerPaused, trialDuration, showPreTrial, practiceMode, turnState?.current_turn]);
 
   // Save progress whenever trial phase changes
   useEffect(() => {
     if (showPreTrial) return;
+    // Two players: the phase and clocks are published once, by the player who moves the trial on (see
+    // handleNextPhase). Saving them from both screens every second let a screen that was a moment behind
+    // push the trial back and overwrite the other player's changes.
+    if (onlineTwoPlayer) return;
     // Once the verdict process has started, stop re-saving session_state
     // — it would overwrite the jury vote record saved during deliberation.
     if (verdictStartedRef.current) return;
@@ -443,6 +477,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       setEvidence(evidenceData);
       setWitnesses(witnessData);
       setEvents(eventsData);
+      eventsData.forEach(e => spokenRef.current.add(e.id));
+      trialLoadedRef.current = true;
       setCaseData(caseInfo);
     } catch (error) {
       console.error('Failed to load trial data:', error);
@@ -458,40 +494,114 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // small chance of a redundant double-advance race. Worth revisiting
   // with real usage before investing in a stricter single-authority
   // model.
+  // Each player's name is saved with the game, so both screens (and the judge) use the same one for each side.
+  useEffect(() => {
+    if (!onlineTwoPlayer || showPreTrial) return;
+    const key = playerRole === 'prosecution' ? 'nameProsecution' : 'nameDefense';
+    db.sessions.mergeState(session.id, { [key]: humanDisplayName }).catch(err => console.error('Failed to save my name:', err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlineTwoPlayer, showPreTrial, session.id, playerRole, humanDisplayName]);
+
+  // Tell the other player what I am doing: typing, or speaking into the microphone.
+  const lastActivityRef = useRef<{ kind: ActivityKind; at: number }>({ kind: 'idle', at: 0 });
+  const reportActivity = (kind: ActivityKind) => {
+    if (!onlineTwoPlayer) return;
+    const now = Date.now();
+    const last = lastActivityRef.current;
+    if (kind === last.kind && (kind === 'idle' || now - last.at < 2500)) return;
+    lastActivityRef.current = { kind, at: now };
+    db.sessions.mergeState(session.id, { [activityKey(playerRole)]: { kind, seq: now } }).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!onlineTwoPlayer || showPreTrial) return;
+    if (isListening) reportActivity('speaking');
+    else if (input.trim() && turnState?.current_turn === playerRole) reportActivity('typing');
+    else reportActivity('idle');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, isListening, onlineTwoPlayer, showPreTrial, turnState?.current_turn]);
+
+  // What the other player's screen has done is read back every couple of seconds: their lines, the phase
+  // they moved the trial to (with the clocks that go with it), and whether they are typing or speaking.
+  const syncBusyRef = useRef(false);
+  const spokenRef = useRef<Set<string>>(new Set());
+  const [opponentWatch, setOpponentWatch] = useState<ActivityWatch | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const followVerdictRef = useRef<(fresh: CaseSession) => void>(() => {});
   useEffect(() => {
     if (!isMultiplayer || showPreTrial) return;
+    const otherSide: 'prosecution' | 'defense' = playerRole === 'prosecution' ? 'defense' : 'prosecution';
 
-    const syncInterval = setInterval(async () => {
+    const syncOnce = async () => {
+      if (syncBusyRef.current || !trialLoadedRef.current) return;
+      syncBusyRef.current = true;
       try {
         const [freshEvents, freshSession] = await Promise.all([
           db.trialEvents.getSessionEvents(session.id),
           db.sessions.getSession(session.id)
         ]);
 
-        setEvents(prev => {
-          const knownIds = new Set(prev.map(e => e.id));
-          const newOnes = freshEvents.filter(e => !knownIds.has(e.id));
-          return newOnes.length > 0 ? [...prev, ...newOnes] : prev;
-        });
+        const known = new Set(eventsRef.current.map(e => e.id));
+        const newOnes = freshEvents.filter(e => !known.has(e.id));
+        if (newOnes.length > 0) {
+          setEvents(prev => [...prev, ...newOnes]);
+          if (onlineTwoPlayer) {
+            const remote = newOnes.filter(e => isRemoteEvent(e, user.id));
+            for (const e of remote) {
+              if (spokenRef.current.has(e.id)) continue;
+              spokenRef.current.add(e.id);
+              // Both screens read the trial out: what the other player's screen wrote is read out here.
+              const voice = voiceRoleFor(e);
+              if (voice) speakAs(voice, e.content);
+              setCurrentSpeaker(e.speaker_role === 'judge' ? 'judge' : e.speaker_role === 'witness' ? 'witness' : (e.speaker_role as 'prosecution' | 'defense'));
+              // The opposing counsel's statements and questions are what I can object to.
+              if (e.speaker_role === otherSide && e.event_type !== 'objection' && e.event_type !== 'ruling') setLastProsecutionEvent(e);
+              // They objected to my question: my clock stands still until I speak again.
+              if (e.event_type === 'objection' && e.speaker_role === otherSide) pauseForObjection();
+            }
+            // Whoever is on the stand, the exhibits filed: the same on both screens.
+            setTurnState(prev => (prev ? applyRemoteEvents(prev, remote) : prev));
+          }
+        }
 
-        if (freshSession?.current_trial_phase && freshSession.current_trial_phase !== currentPhase) {
-          setCurrentPhase(freshSession.current_trial_phase);
+        if (freshSession) {
+          if (onlineTwoPlayer) {
+            const st = (freshSession.session_state || {}) as Record<string, any>;
+            setLiveState(st);
+            setOpponentWatch(prev => observeActivity(prev, parseActivity(st, otherSide), Date.now()));
+            const next = freshSession.current_trial_phase;
+            // The other player moved the trial on: follow, with the clocks they published for the new phase.
+            if (typeof next === 'number' && next > currentPhaseRef.current) {
+              if (st.phaseTimeRemaining && typeof st.phaseTimeRemaining === 'object') {
+                phaseClocksRef.current = st.phaseTimeRemaining;
+                setPhaseTimeRemaining(st.phaseTimeRemaining);
+              }
+              if (typeof st.totalTimeRemaining === 'number') setTotalTimeRemaining(st.totalTimeRemaining);
+              setCurrentPhase(next);
+            }
+            followVerdictRef.current(freshSession);
+          } else if (freshSession.current_trial_phase && freshSession.current_trial_phase !== currentPhaseRef.current) {
+            setCurrentPhase(freshSession.current_trial_phase);
+          }
         }
       } catch (error) {
         console.error('[Courtroom] Multiplayer sync failed:', error);
+      } finally {
+        syncBusyRef.current = false;
       }
-    }, 3000);
+    };
 
+    const syncInterval = setInterval(syncOnce, onlineTwoPlayer ? 2000 : 3000);
     return () => clearInterval(syncInterval);
-  }, [isMultiplayer, showPreTrial, session.id, currentPhase]);
+  }, [isMultiplayer, onlineTwoPlayer, showPreTrial, session.id, playerRole]);
 
-  // True while the clocks must stand still for the other player (they're away on their turn, or this page is hidden).
-  const freezeForAbsenceRef = useRef(false);
-  freezeForAbsenceRef.current = false;
-  const opponentAway = shouldFreezeForAbsentOpponent({
-    onlineTwoPlayer, opponentOnline, currentTurn: turnState?.current_turn as string | undefined, playerRole
-  });
-  freezeForAbsenceRef.current = opponentAway;
+  // Keeps the "is typing…" notice honest: it disappears on its own a few seconds after the last sign of life.
+  useEffect(() => {
+    if (!onlineTwoPlayer) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1500);
+    return () => clearInterval(id);
+  }, [onlineTwoPlayer]);
+
 
   const startTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -504,7 +614,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // An objection is being heard: the questioning counsel's time (and the trial total) stands still
       // until they start talking again.
       if (objectionPausedRef.current) return;
-      if (freezeForAbsenceRef.current || shouldFreezeWhileHidden(onlineTwoPlayer, document.visibilityState === 'hidden')) return;
+      if (shouldFreezeWhileHidden(onlineTwoPlayer, document.visibilityState === 'hidden')) return;
       // Stopped while a witness answer is read out, during the break between counsel, and while a
       // statement that is due has not been given.
       if (questionRestRef.current !== null || handoffRef.current !== null || waitingForStatementRef.current) return;
@@ -618,7 +728,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     if (role === 'counsel') resumeFromObjection();
 
     try {
-      const event = await db.trialEvents.addEvent({
+      const event = await addTrialEvent({
         session_id: session.id,
         event_type: eventType,
         speaker_role: resolvedRole,
@@ -654,7 +764,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     setQuestionRestLeft(seconds);
     questionRestTimerRef.current = setInterval(() => {
       if (!aliveRef.current) return;
-      if (timerPausedRef.current || isProcessingObjectionRef.current || freezeForAbsenceRef.current) return;
+      if (timerPausedRef.current || isProcessingObjectionRef.current) return;
       const next = (questionRestRef.current ?? 0) - 1;
       if (next <= 0) {
         clearQuestionRest();
@@ -855,9 +965,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     phaseClocksRef.current = plan.clocks;
     setPhaseTimeRemaining(plan.clocks);
     setCurrentPhase(plan.nextPhase);
-    await db.sessions.updateSession(session.id, {
-      current_trial_phase: plan.nextPhase
-    });
+    if (onlineTwoPlayer) {
+      // The phase and the clocks that go with it reach the other screen together, in one step.
+      await db.sessions.mergeState(session.id, { phaseTimeRemaining: plan.clocks, totalTimeRemaining }, undefined, plan.nextPhase);
+    } else {
+      await db.sessions.updateSession(session.id, {
+        current_trial_phase: plan.nextPhase
+      });
+    }
 
     announcePhase(plan.nextPhase);
   };
@@ -878,7 +993,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           resolve();
           return;
         }
-        if (timerPausedRef.current || freezeForAbsenceRef.current) return;
+        if (timerPausedRef.current) return;
         const next = (handoffRef.current ?? 0) - 1;
         if (next <= 0) {
           clearInterval(id);
@@ -921,6 +1036,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // cross-examination, since the second witness could never be
       // called.
       const targetPhaseType = getExaminationType(phase);
+      // Two players: the witness on the stand is whoever the other counsel called, which is in the transcript.
+      const standing = onlineTwoPlayer ? witnessOnStand(eventsRef.current) : null;
       const carriesForwardWitness = targetPhaseType === 'cross' || targetPhaseType === 'redirect';
 
       // Both counsel can call the same witnesses and submit the same exhibits, so what counts as "already
@@ -937,19 +1054,22 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         savedTurnState || turnState ? {
           witnesses_called: usedThisSide?.witnesses ?? (savedTurnState?.witnesses_called || turnState?.witnesses_called || []),
           evidence_submitted: usedThisSide?.evidence ?? (savedTurnState?.evidence_submitted || turnState?.evidence_submitted || []),
-          current_witness_id: carriesForwardWitness ? (savedTurnState?.current_witness_id || turnState?.current_witness_id || null) : null,
-          current_witness_name: carriesForwardWitness ? (savedTurnState?.current_witness_name || turnState?.current_witness_name || null) : null
+          current_witness_id: carriesForwardWitness ? (standing?.id || savedTurnState?.current_witness_id || turnState?.current_witness_id || null) : null,
+          current_witness_name: carriesForwardWitness ? (standing?.name || savedTurnState?.current_witness_name || turnState?.current_witness_name || null) : null
         } : undefined
       );
        setTurnState(newTurnState);
 
-       // Save turn state to session
-       db.sessions.updateSession(session.id, {
-         session_state: {
-           ...session.session_state,
-           turnState: newTurnState
-         }
-        }).catch(err => console.error('Failed to save turn state:', err));
+       // Save turn state to session (not with two players: each screen works it out from the same
+       // transcript, and a write of the whole saved state from a screen that is behind would overwrite the other's)
+       if (!onlineTwoPlayer) {
+         db.sessions.updateSession(session.id, {
+           session_state: {
+             ...session.session_state,
+             turnState: newTurnState
+           }
+          }).catch(err => console.error('Failed to save turn state:', err));
+       }
 
         // Enable user input for defense turns (after judge instruction).
         // In pass & play, both sides are the same human on one device, so
@@ -1039,6 +1159,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     // Check if this phase requires a judge instruction before it
     if (!requiresJudgeInstruction(currentPhaseInfo)) return;
     
+    // Two players: the judge's line is written once, by the counsel who is about to speak (or the host for
+    // phases that belong to neither); the other screen receives it with everything else and reads it out.
+    if (onlineTwoPlayer) {
+      const turnOwner = getTurnForPhase(currentPhaseInfo);
+      const iWriteIt = turnOwner === 'prosecution' || turnOwner === 'defense' ? turnOwner === playerRole : session.user_id === user.id;
+      if (!iWriteIt) return;
+    }
+
     // Check if we already showed the instruction for this phase
     if (judgeInstructionShownRef.current.has(currentPhase)) return;
     
@@ -1069,7 +1197,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const addInstruction = async () => {
       setJudgeInstructionPending(true);
       try {
-        const judgeEvent = await db.trialEvents.addEvent({
+        const judgeEvent = await addTrialEvent({
           session_id: session.id,
           event_type: 'opening',
           speaker_role: 'judge',
@@ -1388,7 +1516,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
        const isOpening = phase?.name.toLowerCase().includes('opening');
 
       console.log('[Courtroom] 💾 Saving event to database...');
-      const event = await db.trialEvents.addEvent({
+      const event = await addTrialEvent({
         session_id: session.id,
         event_type: isOpening ? 'opening' : 'closing',
         speaker_role: aiRole,
@@ -1433,7 +1561,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         metadata: { phase: currentPhase },
         event_order: events.length + 1
       };
-      setEvents([...events, fallbackEvent]);
+      setEvents(prev => [...prev, fallbackEvent]);
       speakAs('counsel', statement);
       setLastProsecutionEvent(fallbackEvent);
       throw error; // Re-throw so caller knows it failed
@@ -1553,7 +1681,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           event_order: events.length + 1
         };
         eventsRef.current = [...eventsRef.current, fallbackEvent];
-        setEvents([...events, fallbackEvent]);
+        setEvents(prev => [...prev, fallbackEvent]);
         speakAs('counsel', fallback);
         setLastProsecutionEvent(fallbackEvent);
       } catch (fallbackError) {
@@ -1665,7 +1793,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const callerRole: 'prosecution' | 'defense' = turnState.current_turn === 'defense' ? 'defense' : 'prosecution';
     const callerName = callerRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName;
 
-    const event = await db.trialEvents.addEvent({
+    const event = await addTrialEvent({
       session_id: session.id,
       event_type: 'witness_call',
       speaker_role: callerRole,
@@ -1746,7 +1874,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
     // Add the question to the transcript
     questionInFlightRef.current = true;
-    const questionEvent = await db.trialEvents.addEvent({
+    const questionEvent = await addTrialEvent({
       session_id: session.id,
       event_type: 'witness_examination',
       speaker_role: askerRole,
@@ -1779,7 +1907,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       holdForAnswer(response);
 
       // Add witness response to transcript
-      const responseEvent = await db.trialEvents.addEvent({
+      const responseEvent = await addTrialEvent({
         session_id: session.id,
         event_type: 'witness_examination',
         speaker_role: 'witness',
@@ -1835,7 +1963,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     resumeFromObjection();
     const phaseAtStart = turnState.current_phase_number;
 
-    const event = await db.trialEvents.addEvent({
+    const event = await addTrialEvent({
       session_id: session.id,
       event_type: 'evidence_submission',
       speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
@@ -1922,7 +2050,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // Add objection to transcript — only the human objects, so this is
       // always the player's side, whichever role they chose (or, in pass
       // & play, whichever side currently has the device).
-      const objectionEvent = await db.trialEvents.addEvent({
+      const objectionEvent = await addTrialEvent({
         session_id: session.id,
         event_type: 'objection',
         speaker_role: objectorRole,
@@ -1936,7 +2064,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         event_order: events.length + 1
       });
 
-      setEvents([...events, objectionEvent]);
+      setEvents(prev => [...prev, objectionEvent]);
 
       // Get judge ruling
       const config = getTrialConfig(trialDuration!);
@@ -1954,7 +2082,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       });
 
       // Add ruling to transcript
-      const rulingEvent = await db.trialEvents.addEvent({
+      const rulingEvent = await addTrialEvent({
         session_id: session.id,
         event_type: 'ruling',
         speaker_role: 'judge',
@@ -1968,7 +2096,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         event_order: events.length + 2
       });
 
-      setEvents([...events, objectionEvent, rulingEvent]);
+      setEvents(prev => [...prev, objectionEvent, rulingEvent]);
 
       // Update turn state with cooldown (60 seconds from now)
       const cooldownUntil = now + 60000; // 60 seconds
@@ -2038,6 +2166,16 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         delivered_at: new Date().toISOString()
       };
 
+      if (onlineTwoPlayer) {
+        // Two players: the result is saved and the game completed, so the other player's screen goes to it at once.
+        const saved = await db.verdicts.createVerdict({
+          session_id: session.id, outcome: verdict.outcome, reasoning: verdict.reasoning, evidence_cited: [], score: 0
+        } as any);
+        await db.sessions.updateSession(session.id, { current_phase: 'completed', completed_at: new Date().toISOString() });
+        onComplete(saved);
+        return;
+      }
+
       // Call onComplete to end the session
       onComplete(verdict);
     } catch (error) {
@@ -2088,7 +2226,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         ? 'opening'
         : 'witness_examination';
 
-      const event = await db.trialEvents.addEvent({
+      const event = await addTrialEvent({
         session_id: session.id,
         event_type: eventType,
         speaker_role: turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense',
@@ -2141,10 +2279,61 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       .filter((j): j is NonNullable<typeof j> => !!j) as JurorProfile[];
   };
 
+  // The deliberation is shared: the screen that runs it publishes each step, the other follows it live.
+  const publishedDeliberationRef = useRef('');
+  useEffect(() => {
+    if (!onlineTwoPlayer || !verdictStartedRef.current || !deliberation) return;
+    const snapshot = JSON.stringify(deliberation);
+    if (snapshot === publishedDeliberationRef.current) return;
+    publishedDeliberationRef.current = snapshot;
+    db.sessions.mergeState(session.id, { deliberationLive: deliberation }).catch(err => console.error('Failed to share the deliberation:', err));
+  }, [deliberation, onlineTwoPlayer]);
+
+  const followingVerdictRef = useRef(false);
+  const verdictFollowedRef = useRef(false);
+  const seenDeliberationRef = useRef('');
+  followVerdictRef.current = (fresh: CaseSession) => {
+    if (!onlineTwoPlayer || verdictStartedRef.current || verdictFollowedRef.current) return;
+    const st = (fresh.session_state || {}) as Record<string, any>;
+    if ((st.verdictStarted || fresh.current_phase === 'completed') && !followingVerdictRef.current) {
+      followingVerdictRef.current = true;
+      if (timerRef.current) clearInterval(timerRef.current);
+      setTimerActive(false);
+      cancelAutoRestCountdown();
+    }
+    if (st.deliberationLive) {
+      const snap = JSON.stringify(st.deliberationLive);
+      if (snap !== seenDeliberationRef.current) {
+        seenDeliberationRef.current = snap;
+        setDeliberation(st.deliberationLive as DeliberationState);
+      }
+    } else if (st.verdictStarted && !seenDeliberationRef.current) {
+      seenDeliberationRef.current = 'judge';
+      setDeliberation({ mode: 'judge', jurors: [], rounds: [], votingRound: null, stage: 'voting' });
+    }
+    if (fresh.current_phase === 'completed') {
+      verdictFollowedRef.current = true;
+      db.verdicts.getSessionVerdict(session.id).then(v => {
+        if (!v) { verdictFollowedRef.current = false; return; }
+        const jury = !!st.deliberationLive && st.deliberationLive.mode === 'jury';
+        if (jury) {
+          // Same as the player who ran it: look over the ballots, then on to the verdict.
+          setDeliberation(d => (d ? { ...d, votingRound: null, stage: 'done' } : d));
+          verdictContinueRef.current = () => { setDeliberation(null); onComplete(v); };
+        } else {
+          setDeliberation(null);
+          onComplete(v);
+        }
+      }).catch(() => { verdictFollowedRef.current = false; });
+    }
+  };
+
   const handleVerdict = async () => {
     // Only ever run once, however many triggers fire (phase end, timers).
     if (verdictStartedRef.current || !aliveRef.current) return;
     verdictStartedRef.current = true;
+    // Two players: tell the other screen right away, so both of them watch the deliberation together.
+    if (onlineTwoPlayer) db.sessions.mergeState(session.id, { verdictStarted: true }).catch(err => console.error('Failed to announce the verdict:', err));
 
     // Stop the clocks so nothing auto-advances during deliberation.
     if (timerRef.current) clearInterval(timerRef.current);
@@ -2260,6 +2449,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         evidence_cited: [],
         score: 50
       });
+      if (onlineTwoPlayer) await db.sessions.updateSession(session.id, { current_phase: 'completed', completed_at: new Date().toISOString() }).catch(() => {});
       setDeliberation(null);
       onComplete(fallbackVerdict);
     } finally {
@@ -2626,15 +2816,19 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 </div>
               )}
 
+              {onlineTwoPlayer && (() => {
+                const otherName = playerRole === 'prosecution' ? effectiveDefenseName : effectiveProsecutorName;
+                const line = activityLine(otherName, currentActivity(opponentWatch, nowTick));
+                return line ? (
+                  <div role="status" className="rounded-full border border-white/20 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/90 animate-pulse">
+                    {line}
+                  </div>
+                ) : null;
+              })()}
+
               {objectionPaused && (
                 <div className="rounded-full border border-red-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-red-200">
                   Objection — clock paused until counsel speaks
-                </div>
-              )}
-
-              {opponentAway && (
-                <div className="rounded-full border border-amber-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-amber-200">
-                  Your opponent is away. The clock is paused until they come back and respond.
                 </div>
               )}
 

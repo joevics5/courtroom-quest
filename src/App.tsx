@@ -17,7 +17,8 @@ import { getLevelForWins, STARTING_RANK } from './lib/levels';
 import { getUserDisplayName, getPublicName } from './lib/userName';
 import { getRandomJudgeName, getRandomProsecutorName } from './lib/trialConfig';
 import { getSessionPlayerRole } from './lib/verdictUtils';
-import { LIVE_POLL_MS, isAhead, isOnlineTwoPlayer, isSessionHost, mySideIn, opponentUserIdIn, playMode, pretrialLive, readyKey, readyState } from './lib/liveGame';
+import { LIVE_POLL_MS, isAhead, isOnlineTwoPlayer, isSessionHost, mySideIn, opponentUserIdIn, otherSide, parseStatus, playMode, pretrialLive, readyKey, readyState, statusKey, statusLine } from './lib/liveGame';
+import LiveStatusBar from './components/LiveStatusBar';
 import { fetchPublicProfile } from './lib/publicProfile';
 import type { AvatarConfig } from './lib/avatars';
 import type { HistoryEntry } from './lib/caseHistory';
@@ -308,6 +309,28 @@ function AppContent() {
       return null;
     }
   };
+
+  // What I am doing, for the other player's screen ("is choosing jurors"). Only written when it changes.
+  const lastStatusRef = useRef('');
+  const reportStatus = (text: string) => {
+    if (!liveOnline || !currentSession || !user) return;
+    if (lastStatusRef.current === `${currentSession.id}:${text}`) return;
+    lastStatusRef.current = `${currentSession.id}:${text}`;
+    void patchLive({ [statusKey(mySideIn(currentSession, user.id))]: { text, seq: Date.now() } });
+  };
+  useEffect(() => {
+    if (!liveOnline || !user) return;
+    const host = isSessionHost(currentSession, user.id);
+    const byView: Partial<Record<AppView, string>> = {
+      investigation: 'is investigating the case',
+      'trial-type-selection': host ? 'is choosing the trial type' : 'is waiting for the trial to be set up',
+      'jury-selection': 'is choosing jurors',
+      'pre-trial': 'is heading into the courtroom'
+    };
+    const text = byView[view];
+    if (text) reportStatus(text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, liveOnline, liveSessionId]);
 
   // While the setup screens are open, follow the other player: their changes show up on their own, and
   // when the game moves to the next stage (they proceeded, set the trial up, chose the last juror…) so do I.
@@ -1178,11 +1201,18 @@ function AppContent() {
         />
       )}
 
+      {liveOnline && user && currentSession && (view === 'investigation' || view === 'trial-type-selection' || view === 'jury-selection' || view === 'pre-trial') && (
+        <LiveStatusBar
+          text={statusLine(opponent?.name || 'Opposing counsel', parseStatus(currentSession, otherSide(mySideIn(currentSession, user.id))))}
+        />
+      )}
+
       {view === 'investigation' && (currentSession || showCaseReview) && (
         <Investigation
           session={currentSession}
           onProceedToTrial={handleProceedToTrial}
           onBack={handleBackFromInvestigation}
+          onStatus={liveOnline ? reportStatus : undefined}
           liveReady={
             liveOnline && user
               ? { ...readyState(currentSession, mySideIn(currentSession, user.id)), opponentName: opponent?.name || 'Opposing Counsel' }

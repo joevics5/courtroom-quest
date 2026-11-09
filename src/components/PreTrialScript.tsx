@@ -272,7 +272,10 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   const mySeatKey = seatedKey(playerRole);
   const iHaveToldThem = live ? (live as any)[mySeatKey] === true : false;
   useEffect(() => {
-    if (online && mySeated && !iHaveToldThem) patchLive({ [mySeatKey]: true });
+    // Taking the seat also saves my name with the game, so the judge and the other screen use it from the first line.
+    if (online && mySeated && !iHaveToldThem) {
+      patchLive({ [mySeatKey]: true, [playerRole === 'prosecution' ? 'nameProsecution' : 'nameDefense']: userName });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, mySeated, iHaveToldThem]);
   const opponentSeated = live ? (playerRole === 'prosecution' ? live.seatedDefense : live.seatedProsecution) : false;
