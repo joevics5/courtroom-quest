@@ -182,8 +182,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
   const visibleCases = useMemo(() => {
     const plays = (c: Case) => stats[c.id]?.plays ?? 0;
     const week = (c: Case) => stats[c.id]?.week ?? 0;
-    if (sortBy === 'popular') return [...cases].sort((a, b) => plays(b) - plays(a));
-    if (sortBy === 'trendy') return [...cases].sort((a, b) => week(b) - week(a) || plays(b) - plays(a));
+    if (sortBy === 'popular') return cases.filter(c => c.case_category === 'popular').sort((a, b) => plays(b) - plays(a));
+    if (sortBy === 'trendy') return cases.filter(c => c.case_category === 'trendy').sort((a, b) => week(b) - week(a) || plays(b) - plays(a));
     if (sortBy === 'easy') return cases.filter(c => c.difficulty === 'easy');
     return cases;
   }, [cases, stats, sortBy]);
@@ -269,7 +269,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
           </div>
         ) : (sortBy !== 'ongoing' && visibleCases.length === 0) ? (
           <div className="text-center py-20">
-            <p className="text-white/55 mb-4">{sortBy === 'easy' ? 'No easy cases yet.' : 'No cases available'}</p>
+            <p className="text-white/55 mb-4">{sortBy === 'easy' ? 'No easy cases yet.' : sortBy === 'trendy' ? 'No trendy cases yet.' : sortBy === 'popular' ? 'No popular cases yet.' : 'No cases available'}</p>
             <button
               onClick={() => loadCases()}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
@@ -407,6 +407,11 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                       {caseItem.difficulty && (
                         <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide uppercase ${getDifficultyColor(caseItem.difficulty)}`}>
                           {caseItem.difficulty}
+                        </span>
+                      )}
+                      {caseItem.charges && caseItem.charges.length > 1 && (
+                        <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-white/10 border-white/25 text-white/80">
+                          {caseItem.charges.length} COUNTS
                         </span>
                       )}
                       {sortBy === 'trendy' && st && st.week > 0 && (

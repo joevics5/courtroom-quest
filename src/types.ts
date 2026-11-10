@@ -43,6 +43,14 @@ export type EventType = 'opening' | 'witness_examination' | 'cross_examination' 
 export type SpeakerRole = 'judge' | 'counsel' | 'witness' | 'opposing_counsel' | 'prosecution' | 'defense' | 'jury';
 export type Outcome = 'win' | 'lose' | 'partial';
 
+/** One count: what the prosecution is charging, or what a claimant is asking the court for. */
+export interface CaseCharge {
+  label: string;
+  detail?: string;
+}
+
+export type CaseCategory = 'popular' | 'trendy' | 'normal';
+
 export interface Case {
   id: string;
   title: string;
@@ -58,6 +66,10 @@ export interface Case {
   /** Who is against whom, e.g. "Ella vs. Nelson". Shown in brackets under the title on case cards. */
   versus?: string | null;
   is_multiplayer?: boolean;
+  /** Board section: popular (real famous cases), trendy (modern everyday-life cases), or normal. */
+  case_category?: CaseCategory;
+  /** What is being sought, one entry per count, so a jury can rule count by count. */
+  charges?: CaseCharge[];
   /** Optional thumbnail for case cards; no thumbnail is drawn when empty. */
   image_url?: string | null;
   truth_state?: Record<string, any>;

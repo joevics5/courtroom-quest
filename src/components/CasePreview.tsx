@@ -16,6 +16,8 @@ interface Props {
   caseTitle: string;
   caseText: string;
   defendantName?: string;
+  /** What the prosecution / claimant is seeking, one entry per count. */
+  charges?: { label: string; detail?: string }[];
   onSelect: (role: PlayerRole) => void;
   onCancel: () => void;
   /** Switch this case to a two-player mode instead of playing the AI */
@@ -39,7 +41,7 @@ const ROLE_STYLE = {
   }
 };
 
-export default function CasePreview({ caseId, caseTitle, caseText, defendantName, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0 }: Props) {
+export default function CasePreview({ caseId, caseTitle, caseText, defendantName, charges, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0 }: Props) {
   const { user } = useAuth();
   const myAvatar = getUserAvatar(user);
   const myRank = getLevelForWins(playerWins);
@@ -147,6 +149,25 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
 
         <h2 className="text-2xl font-bold text-white mb-3 leading-snug">{caseTitle}</h2>
         <p className="text-white/80 leading-relaxed whitespace-pre-line mb-5">{caseText}</p>
+
+        {charges && charges.length > 0 && (
+          <div className="mb-5 rounded-xl border border-white/15 bg-white/5 p-4">
+            <p className="text-[11px] font-black tracking-[0.14em] text-[#FFD43B] mb-2">
+              {charges.length > 1 ? `WHAT IS SOUGHT · ${charges.length} COUNTS` : 'WHAT IS SOUGHT'}
+            </p>
+            <ol className="space-y-2">
+              {charges.map((c, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="flex-none w-6 h-6 rounded-full bg-[#FFD43B] text-black text-xs font-black flex items-center justify-center">{i + 1}</span>
+                  <span className="text-white/85 text-sm leading-snug">
+                    <span className="font-bold text-white">{c.label}</span>
+                    {c.detail && <span className="block text-white/60">{c.detail}</span>}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
 
         <button
           onClick={handleToggleFiles}
