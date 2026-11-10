@@ -136,4 +136,28 @@ describe('CasePreview (accept the case)', () => {
     await waitFor(() => expect(getFeeBoard).toHaveBeenCalledTimes(2));
     expect(screen.queryByLabelText(/coins for a win/)).toBeNull();
   });
+  it('keeps what is sought closed until opened, then lists the counts', () => {
+    const charges = [
+      { label: 'Attempted murder', detail: 'A jogger attacked and left near death' },
+      { label: 'Riot' }
+    ];
+    render(<CasePreview {...props} charges={charges} />);
+    const toggle = screen.getByRole('button', { name: /What is sought · 2 counts/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Attempted murder')).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Attempted murder')).toBeTruthy();
+    expect(screen.getByText('A jogger attacked and left near death')).toBeTruthy();
+    expect(screen.getByText('Riot')).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(screen.queryByText('Riot')).toBeNull();
+  });
+
+  it('says "What is sought" for a single count and shows nothing without charges', () => {
+    const { rerender } = render(<CasePreview {...props} charges={[{ label: 'Theft' }]} />);
+    expect(screen.getByRole('button', { name: /^What is sought$/ })).toBeTruthy();
+    rerender(<CasePreview {...props} charges={[]} />);
+    expect(screen.queryByRole('button', { name: /What is sought/ })).toBeNull();
+  });
 });

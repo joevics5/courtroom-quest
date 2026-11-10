@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield, Gavel, FileText, ArrowLeft, X, ChevronDown, ChevronUp, FileStack, Users, Loader2 } from 'lucide-react';
+import { Shield, Gavel, FileText, ArrowLeft, X, ChevronDown, ChevronUp, FileStack, Users, Loader2, Scale } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import AvatarFace from './AvatarFace';
@@ -47,6 +47,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
   const myRank = getLevelForWins(playerWins);
   const [step, setStep] = useState<Step>('browse');
   const [filesExpanded, setFilesExpanded] = useState(false);
+  const [chargesExpanded, setChargesExpanded] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesLoaded, setFilesLoaded] = useState(false);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
@@ -151,22 +152,33 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
         <p className="text-white/80 leading-relaxed whitespace-pre-line mb-5">{caseText}</p>
 
         {charges && charges.length > 0 && (
-          <div className="mb-5 rounded-xl border border-white/15 bg-white/5 p-4">
-            <p className="text-[11px] font-black tracking-[0.14em] text-[#FFD43B] mb-2">
-              {charges.length > 1 ? `WHAT IS SOUGHT · ${charges.length} COUNTS` : 'WHAT IS SOUGHT'}
-            </p>
-            <ol className="space-y-2">
-              {charges.map((c, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="flex-none w-6 h-6 rounded-full bg-[#FFD43B] text-black text-xs font-black flex items-center justify-center">{i + 1}</span>
-                  <span className="text-white/85 text-sm leading-snug">
-                    <span className="font-bold text-white">{c.label}</span>
-                    {c.detail && <span className="block text-white/60">{c.detail}</span>}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
+          <>
+            <button
+              onClick={() => setChargesExpanded(open => !open)}
+              aria-expanded={chargesExpanded}
+              className="w-full flex items-center justify-between px-4 py-3 mb-5 bg-white/10 active:bg-white/15 border border-white/15 rounded-xl text-white/90 text-sm font-medium transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <Scale className="w-4 h-4" />
+                {charges.length > 1 ? `What is sought · ${charges.length} counts` : 'What is sought'}
+              </span>
+              {chargesExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {chargesExpanded && (
+              <ol className="mb-5 space-y-2 rounded-xl border border-white/15 bg-white/5 p-4">
+                {charges.map((c, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="flex-none w-6 h-6 rounded-full bg-[#FFD43B] text-black text-xs font-black flex items-center justify-center">{i + 1}</span>
+                    <span className="text-white/85 text-sm leading-snug">
+                      <span className="font-bold text-white">{c.label}</span>
+                      {c.detail && <span className="block text-white/60">{c.detail}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
         )}
 
         <button

@@ -450,8 +450,9 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     </div>
                   </div>
 
-                  {caseItem.description && (
-                    <p className={`text-white/70 text-sm leading-relaxed mb-3 ${onPick ? 'line-clamp-5' : 'line-clamp-2'}`}>
+                  {/* Only when picking a case for a challenge: there is no details screen there, so the card has to be readable. */}
+                  {onPick && caseItem.description && (
+                    <p className="text-white/70 text-sm leading-relaxed mb-3 line-clamp-5">
                       {caseItem.description}
                     </p>
                   )}
@@ -467,7 +468,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     onClick={() => handleReviewCase(caseItem)}
                     className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                   >
-                    {onPick ? 'Choose This Case' : 'View Details'}
+                    {onPick ? 'Choose This Case' : 'Case Details'}
                   </button>
                 </div>
               );
