@@ -6,7 +6,7 @@ import ScreenShell from './ScreenShell';
 import CaseThumb from './CaseThumb';
 import CaseWinners from './CaseWinners';
 import CoinAmount from './CoinAmount';
-import CaseFeeTiles from './CaseFeeTiles';
+import CaseFeeLine from './CaseFeeLine';
 import { hasFee, type FeeBoard } from '../lib/coins';
 import { getPhaseBadge, getSessionMode, timeAgo } from '../lib/sessionInfo';
 import { boardSessions } from '../lib/gameCounts';
@@ -456,7 +456,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     </p>
                   )}
 
-                  {hasFee(fees[caseItem.id]) && <CaseFeeTiles fee={fees[caseItem.id]} className="mb-3 mt-auto" />}
+                  {hasFee(fees[caseItem.id]) && <CaseFeeLine fee={fees[caseItem.id]} className="mb-2 mt-auto" />}
 
                   <div className={`text-sm text-white/55 mb-4 ${hasFee(fees[caseItem.id]) ? '' : 'mt-auto'}`}>
                     <span className="text-white/40">Defendant: </span>
