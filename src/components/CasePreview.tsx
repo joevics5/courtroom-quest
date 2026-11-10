@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Shield, Gavel, FileText, ArrowLeft, X, ChevronDown, ChevronUp, FileStack, Users, Loader2 } from 'lucide-react';
 import { db } from '../lib/database';
 import { useAuth } from '../contexts/AuthContext';
 import AvatarFace from './AvatarFace';
+import CoinAmount from './CoinAmount';
+import { hasFee, type CaseFee } from '../lib/coins';
 import { gameButton, PANEL } from './ui';
 import { getUserAvatar } from '../lib/avatars';
 import { getLevelForWins } from '../lib/levels';
@@ -49,6 +51,16 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const defendant = defendantName || 'the defendant';
+  const [fee, setFee] = useState<CaseFee | undefined>();
+
+  // What each side pays for a win. Nothing shows if the board can't be read.
+  useEffect(() => {
+    let cancelled = false;
+    db.coins.getFeeBoard()
+      .then(board => { if (!cancelled) setFee(board[caseId]); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [caseId]);
 
   const toggleItem = (id: string) => {
     setExpandedItems(prev => {
@@ -96,6 +108,13 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
           <h2 className="logo-gold font-game text-4xl leading-none mt-6">{style.label}</h2>
           <p className="text-white/60 text-sm mt-2">{myRank.title}</p>
           <p className="text-white/85 leading-relaxed mt-4 mb-6">{briefing}</p>
+          {hasFee(fee) && (
+            <p className="-mt-3 mb-6 text-sm text-white/70">
+              Win this case as {role === 'prosecution' ? 'prosecution' : 'defense'} and earn{' '}
+              <CoinAmount amount={role === 'prosecution' ? fee.prosecution : fee.defense} />
+              {fee.repeat && <span className="text-white/45"> (repeat win)</span>}
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <button onClick={() => setStep('browse')} className={gameButton('ghost', 'md')}>
               REJECT
@@ -246,6 +265,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
           >
             <Gavel className="w-8 h-8 text-[#FF7A7E]" />
             <span className="font-game text-3xl leading-none text-white">PROSECUTE</span>
+            {hasFee(fee) && <span className="text-sm" aria-label={`${fee.prosecution} coins for a win`}><CoinAmount amount={fee.prosecution} /></span>}
           </button>
           <button
             onClick={() => setStep('confirm-defend')}
@@ -253,6 +273,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
           >
             <Shield className="w-8 h-8 text-[#7FB2FF]" />
             <span className="font-game text-3xl leading-none text-white">DEFEND</span>
+            {hasFee(fee) && <span className="text-sm" aria-label={`${fee.defense} coins for a win`}><CoinAmount amount={fee.defense} /></span>}
           </button>
         </div>
 

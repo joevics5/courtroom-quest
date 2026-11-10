@@ -4,8 +4,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 vi.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1', user_metadata: {} } }) }));
 const getCaseEvidence = vi.fn();
 const getCaseWitnesses = vi.fn();
+const getFeeBoard = vi.fn();
 vi.mock('../lib/database', () => ({
   db: {
+    coins: { getFeeBoard: (...a: unknown[]) => getFeeBoard(...a) },
     evidence: { getCaseEvidence: (...a: unknown[]) => getCaseEvidence(...a) },
     witnesses: { getCaseWitnesses: (...a: unknown[]) => getCaseWitnesses(...a) }
   }
@@ -28,6 +30,8 @@ describe('CasePreview (accept the case)', () => {
     props.onCancel.mockReset();
     getCaseEvidence.mockReset();
     getCaseWitnesses.mockReset();
+    getFeeBoard.mockReset();
+    getFeeBoard.mockResolvedValue({});
     getCaseEvidence.mockResolvedValue([{ id: 'e1', exhibit_label: 'Exhibit A', title: 'Receipt', description: 'Bought gas', content: '' }]);
     getCaseWitnesses.mockResolvedValue([{ id: 'w1', name: 'Maria Lopez', role: 'Neighbor', background: 'Lives next door', base_testimony: 'Saw smoke' }]);
   });
@@ -102,5 +106,34 @@ describe('CasePreview (accept the case)', () => {
     render(<CasePreview {...props} caseTitle="The Conspiracy" />);
     fireEvent.click(screen.getByRole('button', { name: /DEFEND/ }));
     expect(screen.getByText(/defend them in The Conspiracy case\./)).toBeTruthy();
+  });
+  it('shows what each side pays for a win, and the fee again when accepting', async () => {
+    getFeeBoard.mockResolvedValue({ c1: { prosecution: 95, defense: 80, repeat: false } });
+    render(<CasePreview {...props} />);
+    expect(await screen.findByLabelText('95 coins for a win')).toBeTruthy();
+    expect(screen.getByLabelText('80 coins for a win')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /DEFEND/ }));
+    expect(screen.getByText(/Win this case as defense and earn/)).toBeTruthy();
+    expect(screen.getByText('80')).toBeTruthy();
+    expect(screen.queryByText(/repeat win/)).toBeNull();
+  });
+
+  it('says so when the fee is the reduced repeat-win payment', async () => {
+    getFeeBoard.mockResolvedValue({ c1: { prosecution: 24, defense: 20, repeat: true } });
+    render(<CasePreview {...props} />);
+    await screen.findByLabelText('24 coins for a win');
+    fireEvent.click(screen.getByRole('button', { name: /PROSECUTE/ }));
+    expect(screen.getByText(/repeat win/)).toBeTruthy();
+  });
+
+  it('shows no coins when the case pays nothing or the board is unavailable', async () => {
+    getFeeBoard.mockResolvedValue({ c1: { prosecution: 0, defense: 0, repeat: false } });
+    const { rerender } = render(<CasePreview {...props} />);
+    await waitFor(() => expect(getFeeBoard).toHaveBeenCalled());
+    expect(screen.queryByLabelText(/coins for a win/)).toBeNull();
+    getFeeBoard.mockRejectedValue(new Error('no function'));
+    rerender(<CasePreview {...props} caseId="c2" />);
+    await waitFor(() => expect(getFeeBoard).toHaveBeenCalledTimes(2));
+    expect(screen.queryByLabelText(/coins for a win/)).toBeNull();
   });
 });

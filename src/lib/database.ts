@@ -19,6 +19,7 @@ import type {
   CaseTopWinner,
   PlayerRole
 } from '../types';
+import { parseFeeBoard, type FeeBoard } from './coins';
 
 export type HistorySession = CaseSession & {
   cases: { title: string; difficulty?: string } | null;
@@ -993,6 +994,35 @@ export const db = {
       if (linkError) throw linkError;
 
       return session as CaseSession;
+    }
+  },
+
+  coins: {
+    /** The signed-in player's coin balance. Null if it can't be read (e.g. the database function is missing). */
+    async getBalance(): Promise<number | null> {
+      const { data, error } = await (supabase as any).rpc('coin_balance');
+      if (error) return null;
+      return Math.max(0, Number(data) || 0);
+    },
+
+    /** The fee of each side for every case, as this player would be paid. Empty if the function is missing. */
+    async getFeeBoard(): Promise<FeeBoard> {
+      const { data, error } = await (supabase as any).rpc('case_fee_board');
+      if (error) return {};
+      return parseFeeBoard(data);
+    },
+
+    /** Coins this player was paid for one game, or null if none. */
+    async getEarnedForSession(sessionId: string): Promise<number | null> {
+      const { data, error } = await (supabase as any)
+        .from('coin_ledger')
+        .select('amount')
+        .eq('session_id', sessionId)
+        .eq('reason', 'case_win')
+        .maybeSingle();
+      if (error || !data) return null;
+      const amount = Number((data as { amount: number }).amount) || 0;
+      return amount > 0 ? amount : null;
     }
   },
 

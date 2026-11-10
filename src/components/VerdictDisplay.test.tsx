@@ -5,6 +5,7 @@ import type { Verdict } from '../types';
 vi.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1', user_metadata: {} } }) }));
 vi.mock('../lib/database', () => ({
   db: {
+    coins: { getEarnedForSession: vi.fn().mockResolvedValue(null) },
     sessions: { getSession: vi.fn().mockResolvedValue(null), updateSession: vi.fn().mockResolvedValue({}) },
     trialEvents: { getSessionEvents: vi.fn().mockResolvedValue([]) }
   }
@@ -12,6 +13,7 @@ vi.mock('../lib/database', () => ({
 vi.mock('./TranscriptViewer', () => ({ default: () => <div>TRANSCRIPT OPEN</div> }));
 
 import VerdictDisplay from './VerdictDisplay';
+import { db } from '../lib/database';
 
 const verdict = (over: Partial<Verdict> = {}): Verdict => ({
   id: 'v1',
@@ -91,5 +93,18 @@ describe('VerdictDisplay', () => {
     expect(onReturnHome).toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /VIEW TRANSCRIPT/ }));
     await waitFor(() => expect(screen.getByText('TRANSCRIPT OPEN')).toBeTruthy());
+  });
+  it('shows the coins a win paid', async () => {
+    vi.mocked(db.coins.getEarnedForSession).mockResolvedValue(95);
+    render(<VerdictDisplay verdict={verdict()} {...base} wins={1} />);
+    expect(await screen.findByLabelText('You earned 95 coins')).toBeTruthy();
+    expect(db.coins.getEarnedForSession).toHaveBeenCalledWith('s1');
+  });
+
+  it('shows no coins on a loss, and does not ask for them', () => {
+    render(<VerdictDisplay verdict={verdict({ outcome: 'win' })} {...base} wins={1} />);
+    expect(screen.getByText('DEFEAT')).toBeTruthy();
+    expect(screen.queryByLabelText(/You earned/)).toBeNull();
+    expect(db.coins.getEarnedForSession).not.toHaveBeenCalled();
   });
 });

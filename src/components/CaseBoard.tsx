@@ -5,6 +5,8 @@ import { db } from '../lib/database';
 import ScreenShell from './ScreenShell';
 import CaseThumb from './CaseThumb';
 import CaseWinners from './CaseWinners';
+import CoinAmount from './CoinAmount';
+import { hasFee, type FeeBoard } from '../lib/coins';
 import { getPhaseBadge, getSessionMode, timeAgo } from '../lib/sessionInfo';
 import { boardSessions } from '../lib/gameCounts';
 import { activeAppeal, appealsEnabled } from '../lib/appeals';
@@ -61,6 +63,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
   // continue, otherwise on New cases (decided once, after the first load).
   const [sortBy, setSortBy] = useState<BoardTab>(initialFilter === 'all' ? 'new' : initialFilter);
   const [stats, setStats] = useState<Record<string, { plays: number; week: number }>>({});
+  const [fees, setFees] = useState<FeeBoard>({});
+  const [balance, setBalance] = useState<number | null>(null);
   const autoPickRef = useRef(initialFilter === 'all' && !onPick);
   const [showWinnersModal, setShowWinnersModal] = useState(false);
   const [selectedCaseForWinners, setSelectedCaseForWinners] = useState<Case | null>(null);
@@ -115,6 +119,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
       }
 
       db.cases.getPlayStats().then(setStats).catch(() => undefined);
+      db.coins.getFeeBoard().then(setFees).catch(() => undefined);
+      db.coins.getBalance().then(setBalance).catch(() => undefined);
 
       setCases(preset);
       setOngoingCases(presetOngoingSessions.map(session => ({
@@ -204,14 +210,24 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
       onBack={onBack}
       maxWidth="max-w-6xl"
       right={
-        <button
-          onClick={() => loadCases()}
-          disabled={loading}
-          aria-label="Refresh cases"
-          className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white disabled:opacity-50"
-        >
-          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          {balance !== null && !onPick && (
+            <span
+              className="flex-none flex items-center h-11 px-3 rounded-full bg-black/55 border border-[#FFD43B]/40 text-base"
+              aria-label={`${balance} coins`}
+            >
+              <CoinAmount amount={balance} />
+            </span>
+          )}
+          <button
+            onClick={() => loadCases()}
+            disabled={loading}
+            aria-label="Refresh cases"
+            className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       }
     >
       <div>
@@ -434,7 +450,16 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     </p>
                   )}
 
-                  <div className="text-sm text-white/55 mb-4 mt-auto">
+                  {hasFee(fees[caseItem.id]) && (
+                    <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm mb-3 mt-auto" aria-label="Coins paid for a win">
+                      <span className="text-white/55">Win as</span>
+                      <span className="text-white/75">Prosecution <CoinAmount amount={fees[caseItem.id].prosecution} /></span>
+                      <span className="text-white/75">Defense <CoinAmount amount={fees[caseItem.id].defense} /></span>
+                      {fees[caseItem.id].repeat && <span className="text-xs text-white/45">repeat win pays less</span>}
+                    </div>
+                  )}
+
+                  <div className={`text-sm text-white/55 mb-4 ${hasFee(fees[caseItem.id]) ? '' : 'mt-auto'}`}>
                     <span className="text-white/40">Defendant: </span>
                     <span className="text-white/75">{caseItem.defendant_name || 'Unknown'}</span>
                   </div>

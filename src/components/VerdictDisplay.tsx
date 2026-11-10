@@ -3,6 +3,7 @@ import { appAlert } from '../lib/appDialog';
 import { ArrowLeft, CheckCircle, FileText, Home, Share2, XCircle } from 'lucide-react';
 import type { Verdict, TrialEvent, PlayerRole, CaseSession } from '../types';
 import { db } from '../lib/database';
+import CoinAmount from './CoinAmount';
 import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
 import TranscriptViewer from './TranscriptViewer';
 import { JuryVoteHistory } from './JuryDeliberation';
@@ -46,6 +47,17 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
   const [transcriptEvents, setTranscriptEvents] = useState<TrialEvent[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [juryRounds, setJuryRounds] = useState<JuryRound[]>([]);
+  const [coinsEarned, setCoinsEarned] = useState<number | null>(null);
+
+  // The server pays the case fee when it records the win; show what this game paid.
+  useEffect(() => {
+    if (!isWin) return;
+    let cancelled = false;
+    db.coins.getEarnedForSession(verdict.session_id)
+      .then(amount => { if (!cancelled) setCoinsEarned(amount); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [verdict.session_id, isWin]);
 
   // Jury trials record each juror's ballot per round — show how they voted.
   useEffect(() => {
@@ -165,6 +177,12 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                 </span>
               )}
             </div>
+            {coinsEarned !== null && (
+              <p className="mt-3 text-lg" aria-label={`You earned ${coinsEarned} coins`}>
+                <span className="text-white/70">Case fee earned </span>
+                <CoinAmount amount={coinsEarned} />
+              </p>
+            )}
             {next && (
               <div className="mt-3 mx-auto max-w-xs">
                 <div className="h-2 rounded-full bg-white/15 overflow-hidden" aria-hidden="true">
