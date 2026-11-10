@@ -20,17 +20,39 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe('LoadingScreen', () => {
-  it('waits for the small home illustration first and only then starts the big background poster', () => {
+  // Stand-in for the browser's idle callback so a test decides when "idle" happens.
+  const stubIdle = () => {
+    const idleCallbacks: (() => void)[] = [];
+    vi.stubGlobal('requestIdleCallback', (cb: () => void) => { idleCallbacks.push(cb); return 1; });
+    return () => idleCallbacks.splice(0).forEach((cb) => cb());
+  };
+
+  it('waits for the small home illustration first, then fetches the big poster only once the browser is idle', () => {
+    const goIdle = stubIdle();
     render(<LoadingScreen authReady={false} onDone={vi.fn()} />);
     expect(created.map((i) => i.src)).toEqual([HOME_ART.webp]);   // the poster must not compete with it
     created[0].onload?.();
+    expect(created.map((i) => i.src)).toEqual([HOME_ART.webp]);   // still not: the browser is busy
+    goIdle();
     expect(created.map((i) => i.src)).toEqual([HOME_ART.webp, HERO_POSTER]);
   });
 
   it('does not get stuck if the illustration fails to load', () => {
+    const goIdle = stubIdle();
     render(<LoadingScreen authReady={false} onDone={vi.fn()} />);
     created[0].onerror?.();
+    goIdle();
     expect(created.map((i) => i.src)).toContain(HERO_POSTER);
+  });
+
+  it('still fetches the poster, after a short delay, where the browser has no idle callback', () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('requestIdleCallback', undefined);
+    render(<LoadingScreen authReady={false} onDone={vi.fn()} />);
+    created[0].onload?.();
+    expect(created.map((i) => i.src)).toEqual([HOME_ART.webp]);
+    vi.advanceTimersByTime(2000);
+    expect(created.map((i) => i.src)).toEqual([HOME_ART.webp, HERO_POSTER]);
   });
 
   it('finishes once everything is ready, and never later than the hard timeout', () => {

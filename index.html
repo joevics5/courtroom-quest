@@ -24,12 +24,8 @@
 
     <!-- Home illustration: fetched while the app code downloads, so it is cached when the home screen appears -->
     <link rel="preload" as="image" href="/images/home/courtroom-v5.webp" type="image/webp" fetchpriority="high" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=Bangers&display=swap"
-      rel="stylesheet"
-    />
+    <!-- The logo/heading font (Bangers) is served from this site, so no third-party font stylesheet blocks the first paint -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/bangers-latin-400.woff2" crossorigin />
   </head>
 
   <body>

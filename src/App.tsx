@@ -3,12 +3,10 @@ import { appAlert } from './lib/appDialog';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
-import AvatarCreator from './components/AvatarCreator';
 import { hasSavedAvatar } from './lib/avatars';
 import HomePage from './components/HomePage';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './components/LandingPage';
-import CaseBoard from './components/CaseBoard';
 import { countMyGames } from './lib/gameCounts';
 import CaseSelection from './components/CaseSelection';
 import SubscriptionGate, { getTrialLimit, canCreateCustomCase } from './components/SubscriptionGate';
@@ -25,12 +23,16 @@ import type { HistoryEntry } from './lib/caseHistory';
 import { appealsEnabled } from './lib/appeals';
 import type { CaseInvitation, CaseSession, Verdict, TrialType, UserProfile, SubscriptionTier, Case, Difficulty, PlayerRole } from './types';
 import { supabase } from './lib/supabase';
+import { whenIdle } from './lib/whenIdle';
 import { markTutorialSeen, tutorialAlreadySeen } from './lib/tutorialSeen';
-import Settings from './components/Settings';
-import ChallengeLink from './components/ChallengeLink';
 import { captureChallengeLink, clearPendingChallenge } from './lib/challengeLink';
 
 // Heavy screens load on demand so the first screen (home → play) downloads less code.
+// Screens the first paint doesn't need are loaded when first opened (and fetched in the background once the home screen is up).
+const CaseBoard = lazy(() => import('./components/CaseBoard'));
+const AvatarCreator = lazy(() => import('./components/AvatarCreator'));
+const Settings = lazy(() => import('./components/Settings'));
+const ChallengeLink = lazy(() => import('./components/ChallengeLink'));
 const CustomCaseCreator = lazy(() => import('./components/CustomCaseCreator'));
 const Investigation = lazy(() => import('./components/Investigation'));
 const Courtroom = lazy(() => import('./components/Courtroom'));
@@ -66,6 +68,16 @@ type AppView =
 function AppContent() {
   const { user, loading: authLoading, signInAsGuest } = useAuth();
   const [bootDone, setBootDone] = useState(false);
+
+  // Once the home screen is up, fetch the screens people open next, in the background, so tapping them feels instant.
+  useEffect(() => {
+    if (!bootDone) return;
+    whenIdle(() => {
+      void import('./components/CaseBoard');
+      void import('./components/Settings');
+      void import('./components/CasePreview');
+    });
+  }, [bootDone]);
   const [showHome, setShowHome] = useState(true);
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   // Ongoing games and invitations waiting — shown as badges on Home and the dashboard

@@ -7,7 +7,7 @@ interface LoadingScreenProps {
   onDone: () => void;
 }
 
-const MIN_SHOW_MS = 1000;
+const MIN_SHOW_MS = 600;
 const HARD_TIMEOUT_MS = 4500;
 
 const STATUS_LINES = ['SWEARING IN THE JURY…', 'CALLING THE WITNESSES…', 'ALL RISE…'];
@@ -32,8 +32,14 @@ export default function LoadingScreen({ authReady, onDone }: LoadingScreenProps)
     const art = new Image();
     art.onload = art.onerror = () => {
       setImageReady(true);
-      const bg = new Image(); // warm the background poster now that the illustration is in
-      bg.src = HERO_POSTER;
+      // Warm the big background poster once the browser is idle, so it never competes with the app code or the illustration.
+      const warm = () => {
+        const bg = new Image();
+        bg.src = HERO_POSTER;
+      };
+      const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+      if (idle) idle.call(window, warm, { timeout: 4000 });
+      else setTimeout(warm, 2000);
     };
     art.src = HOME_ART.webp;
 
