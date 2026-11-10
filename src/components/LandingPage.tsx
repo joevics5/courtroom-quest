@@ -157,34 +157,30 @@ export default function LandingPage({
           <div className="space-y-4">
             <PathTile
               onClick={onNavigateToCaseBoard}
-              icon={<Briefcase className="w-7 h-7 text-white" />}
+              icon={<Briefcase className="w-4 h-4 text-white" />}
               iconBg="bg-blue-600"
               title="CASE BOARD"
-              subtitle="Take on real cases. Investigate. Argue. Win."
               badge={ongoingCount > 0 ? `${ongoingCount} ONGOING` : undefined}
             />
             <PathTile
               onClick={onNavigateToCustomCases}
-              icon={<FileText className="w-7 h-7 text-white" />}
+              icon={<FileText className="w-4 h-4 text-white" />}
               iconBg="bg-purple-600"
               title="CREATE YOUR CASE"
-              subtitle="Your evidence. Your witnesses."
             />
             <PathTile
               onClick={onNavigateToChallengeBoard}
-              icon={<Swords className="w-7 h-7 text-white" />}
+              icon={<Swords className="w-4 h-4 text-white" />}
               iconBg="bg-orange-600"
               title="CHALLENGE A PLAYER"
-              subtitle="Face a real opponent."
               badge={invites.length > 0 ? `${invites.length} INVITE${invites.length > 1 ? 'S' : ''} WAITING` : 'LIVE 1V1'}
             />
             {onNavigateToCaseHistory && (
               <PathTile
                 onClick={onNavigateToCaseHistory}
-                icon={<ScrollText className="w-7 h-7 text-white" />}
+                icon={<ScrollText className="w-4 h-4 text-white" />}
                 iconBg="bg-slate-600"
                 title="CASE HISTORY"
-                subtitle="Every case won and lost. Appeal a verdict."
               />
             )}
           </div>

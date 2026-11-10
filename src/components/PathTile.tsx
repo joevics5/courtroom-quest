@@ -6,13 +6,12 @@ interface PathTileProps {
   icon: ReactNode;
   iconBg: string;
   title: string;
-  subtitle: string;
   badge?: string;
   disabled?: boolean;
 }
 
-/** Big tappable game-style row used for choosing a path / play mode. */
-export default function PathTile({ onClick, icon, iconBg, title, subtitle, badge, disabled }: PathTileProps) {
+/** Tappable game-style row used for choosing a path / play mode. The icon is as tall as the title text. */
+export default function PathTile({ onClick, icon, iconBg, title, badge, disabled }: PathTileProps) {
   return (
     <button
       onClick={onClick}
@@ -26,11 +25,9 @@ export default function PathTile({ onClick, icon, iconBg, title, subtitle, badge
           {badge}
         </span>
       )}
-      <span className={`flex-none flex items-center justify-center w-14 h-14 rounded-xl ${iconBg}`}>{icon}</span>
-      <span className="flex-1 min-w-0">
-        <span className="block font-game text-3xl text-white leading-none">{title}</span>
-        <span className="block mt-1 text-sm text-white/65">{subtitle}</span>
-      </span>
+      {/* text-3xl + leading-none makes the title exactly 1.875rem tall; the icon box matches it */}
+      <span className={`flex-none flex items-center justify-center w-[1.875rem] h-[1.875rem] rounded-lg ${iconBg}`}>{icon}</span>
+      <span className="flex-1 min-w-0 font-game text-3xl text-white leading-none">{title}</span>
       {!disabled && <ChevronRight className="flex-none w-6 h-6 text-[#FFD43B]" />}
     </button>
   );

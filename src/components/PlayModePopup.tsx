@@ -38,25 +38,22 @@ export default function PlayModePopup({ onSelect, onClose, showMyGames = false, 
         <div className="space-y-4">
           <PathTile
             onClick={() => onSelect('ai')}
-            icon={<Bot className="w-7 h-7 text-white" />}
+            icon={<Bot className="w-4 h-4 text-white" />}
             iconBg="bg-blue-600"
             title="SOLO"
-            subtitle="Play on your own against the judge and opposing counsel."
           />
           <PathTile
             onClick={() => onSelect('online')}
-            icon={<Swords className="w-7 h-7 text-white" />}
+            icon={<Swords className="w-4 h-4 text-white" />}
             iconBg="bg-orange-600"
             title="VS PLAYER ONLINE"
-            subtitle="Match with an opponent or invite a friend."
             badge="LIVE 1V1"
           />
           <PathTile
             onClick={() => onSelect('local')}
-            icon={<Users className="w-7 h-7 text-white" />}
+            icon={<Users className="w-4 h-4 text-white" />}
             iconBg="bg-purple-600"
             title="SAME DEVICE"
-            subtitle="Two people, one phone. Pass it each turn."
           />
         </div>
 
@@ -69,10 +66,9 @@ export default function PlayModePopup({ onSelect, onClose, showMyGames = false, 
             </div>
             <PathTile
               onClick={() => onSelect('games')}
-              icon={<FolderOpen className="w-7 h-7 text-black" />}
+              icon={<FolderOpen className="w-4 h-4 text-black" />}
               iconBg="bg-[#FFD43B]"
               title="MY GAMES"
-              subtitle="Continue a game or check one that's waiting."
               badge={myGamesCount > 0 ? `${myGamesCount} ACTIVE` : undefined}
             />
           </>
