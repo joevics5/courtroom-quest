@@ -50,21 +50,22 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
   const artRef = useRef<HTMLImageElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const playRef = useRef<HTMLButtonElement>(null);
+  const logoRef = useRef<HTMLDivElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const [artLayout, setArtLayout] = useState<ArtLayout | null>(null);
 
-  // Size and place the picture for this screen: lawyers under the tagline, judge, gavel and desk top above PLAY (see lib/homeArt).
+  // Size and place the picture for this screen: lawyers under the logo, judge, gavel and desk top above the tagline (see lib/homeArt).
   useLayoutEffect(() => {
     const measure = () => {
-      const page = pageRef.current, play = playRef.current, tagline = taglineRef.current;
-      if (!page || !play || !tagline) return;
+      const page = pageRef.current, logo = logoRef.current, tagline = taglineRef.current;
+      if (!page || !logo || !tagline) return;
       const pr = page.getBoundingClientRect();
       if (!pr.width || !pr.height) return;
       const next = computeArtLayout({
         columnWidth: Math.min(pr.width, ART_MAX_WIDTH),
         pageHeight: pr.height,
-        controlsTop: play.getBoundingClientRect().top - pr.top,
-        taglineBottom: tagline.getBoundingClientRect().bottom - pr.top,
+        controlsTop: tagline.getBoundingClientRect().top - pr.top,
+        headerBottom: logo.getBoundingClientRect().bottom - pr.top,
       });
       setArtLayout(prev => (prev && next && prev.scale === next.scale && prev.top === next.top && prev.left === next.left ? prev : next));
     };
@@ -191,16 +192,11 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
         </button>
 
         {/* Logo */}
-        <div className="px-5 flex flex-col items-center" style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}>
+        <div ref={logoRef} className="px-5 flex flex-col items-center" style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}>
           <h1 className="font-game leading-[0.9] select-none text-center">
             <span className="logo-gold block text-4xl sm:text-5xl">COURTROOM</span>
             <span className="logo-gold block text-6xl sm:text-7xl">QUEST</span>
           </h1>
-          <p ref={taglineRef} aria-label={TAGLINE} className={`mt-2.5 max-w-[22rem] text-center text-[clamp(13px,4.2vw,15px)] sm:text-lg font-black leading-tight tracking-[0.05em] ${TAGLINE_STYLE}`}>
-            {TAGLINE_LINES.map(line => (
-              <span key={line} className="block">{line}</span>
-            ))}
-          </p>
         </div>
 
         {/* The picture shows through here */}
@@ -209,6 +205,12 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
         {/* Actions: sit on a dark covering that starts just above PLAY, so the artwork becomes a quiet background behind the text */}
         <div className="px-5 pt-8" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)', background: ACTIONS_SHADE }}>
         <div className="w-full max-w-sm mx-auto space-y-2.5">
+          {/* Just above PLAY, on the dark covering */}
+          <p ref={taglineRef} aria-label={TAGLINE} className={`mx-auto max-w-[22rem] text-center text-[clamp(13px,4.2vw,15px)] sm:text-lg font-black leading-tight tracking-[0.05em] ${TAGLINE_STYLE}`}>
+            {TAGLINE_LINES.map(line => (
+              <span key={line} className="block">{line}</span>
+            ))}
+          </p>
           <button
             ref={playRef}
             onClick={() => {
@@ -216,7 +218,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
               setShowModes(true);
             }}
             disabled={busy !== null}
-            className="w-full rounded-2xl bg-[#FFD43B] text-black font-game text-4xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-70"
+            className="w-full rounded-2xl bg-[#FFD43B] text-black font-game text-4xl py-1 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-70"
           >
             {busy === 'play' ? 'ONE SEC…' : 'PLAY'}
           </button>

@@ -38,14 +38,18 @@ describe('HomePage', () => {
     expect(block.contains(screen.getByText('SETTINGS'))).toBe(true);
     expect(block.contains(screen.getByText('HAVE AN ACCOUNT? SIGN IN'))).toBe(true);
     expect(block.contains(screen.getByRole('heading', { level: 1 }))).toBe(false);
-    expect(block.contains(screen.getByText('PROVE IT IN COURT'))).toBe(false);
+    // The tagline sits in that block, as its first item, directly above PLAY.
+    const tagline = screen.getByLabelText('How Good a Lawyer Are You? Prove It in Court');
+    expect(block.contains(tagline)).toBe(true);
+    expect(tagline.nextElementSibling).toBe(screen.getByRole('button', { name: 'PLAY' }));
   });
 
-  it('sizes and places the picture with the layout computed for this screen (smaller characters, desk above PLAY)', () => {
+  it('sizes and places the picture with the layout computed for this screen (smaller characters, desk above the tagline)', () => {
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const rect = (o: Partial<DOMRect>) => ({ x: 0, y: 0, left: 0, right: 0, width: 0, height: 0, top: 0, bottom: 0, toJSON() {}, ...o }) as DOMRect;
-      if (this.textContent?.trim() === 'PLAY') return rect({ top: 483, bottom: 557 });
-      if (this.tagName === 'P' && this.textContent?.includes('PROVE IT IN COURT')) return rect({ top: 126, bottom: 153 });
+      if (this.textContent?.trim() === 'PLAY') return rect({ top: 483, bottom: 540 });
+      if (this.tagName === 'P' && this.textContent?.includes('PROVE IT IN COURT')) return rect({ top: 440, bottom: 467 });
+      if (this.tagName === 'DIV' && this.querySelector(':scope > h1')) return rect({ top: 0, bottom: 153 });
       if (this.dataset?.testPage === '1') return rect({ width: 411, height: 778 });
       return rect({});
     });
@@ -54,7 +58,7 @@ describe('HomePage', () => {
       (container.firstElementChild as HTMLElement).dataset.testPage = '1';
       act(() => { window.dispatchEvent(new Event('resize')); });
       const box = container.querySelector('picture')?.parentElement as HTMLElement;
-      const expected = computeArtLayout({ columnWidth: 411, pageHeight: 778, controlsTop: 483, taglineBottom: 153 })!;
+      const expected = computeArtLayout({ columnWidth: 411, pageHeight: 778, controlsTop: 440, headerBottom: 153 })!;
       expect(parseFloat(box.style.width)).toBeCloseTo(expected.width, 1);
       expect(parseFloat(box.style.height)).toBeCloseTo(expected.height, 1);
       expect(parseFloat(box.style.top)).toBeCloseTo(expected.top, 1);
