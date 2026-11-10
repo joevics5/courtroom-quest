@@ -6,6 +6,7 @@ import ScreenShell from './ScreenShell';
 import CaseThumb from './CaseThumb';
 import CaseWinners from './CaseWinners';
 import CoinAmount from './CoinAmount';
+import CaseFeeTiles from './CaseFeeTiles';
 import { hasFee, type FeeBoard } from '../lib/coins';
 import { getPhaseBadge, getSessionMode, timeAgo } from '../lib/sessionInfo';
 import { boardSessions } from '../lib/gameCounts';
@@ -455,14 +456,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     </p>
                   )}
 
-                  {hasFee(fees[caseItem.id]) && (
-                    <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-sm mb-3 mt-auto" aria-label="Coins paid for a win">
-                      <span className="text-white/55">Win as</span>
-                      <span className="text-white/75">Prosecution <CoinAmount amount={fees[caseItem.id].prosecution} /></span>
-                      <span className="text-white/75">Defense <CoinAmount amount={fees[caseItem.id].defense} /></span>
-                      {fees[caseItem.id].repeat && <span className="text-xs text-white/45">repeat win pays less</span>}
-                    </div>
-                  )}
+                  {hasFee(fees[caseItem.id]) && <CaseFeeTiles fee={fees[caseItem.id]} className="mb-3 mt-auto" />}
 
                   <div className={`text-sm text-white/55 mb-4 ${hasFee(fees[caseItem.id]) ? '' : 'mt-auto'}`}>
                     <span className="text-white/40">Defendant: </span>

@@ -1,10 +1,10 @@
-import { Coins } from 'lucide-react';
+import CoinIcon from './CoinIcon';
 
-/** A coin amount in the game's gold, e.g. the fee on a case or a balance. */
+/** A coin amount: the gold coin, then the number. */
 export default function CoinAmount({ amount, className = '' }: { amount: number; className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 font-black text-[#FFD43B] ${className}`}>
-      <Coins className="w-4 h-4 flex-none" aria-hidden="true" />
+    <span className={`inline-flex items-center gap-1.5 font-black text-[#FFD43B] ${className}`}>
+      <CoinIcon size={18} />
       {amount.toLocaleString()}
     </span>
   );
