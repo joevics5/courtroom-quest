@@ -97,10 +97,10 @@ describe('HomePage', () => {
     expect(img.className).toContain('opacity-100');
   });
 
-  it('shows the tagline as red text with no box around it', () => {
+  it('shows the tagline as white text with no box around it', () => {
     render(<HomePage {...props} />);
     const tagline = screen.getByLabelText('How Good a Lawyer Are You? Prove It in Court');
-    expect(tagline.className).toContain('text-[#FF3B3B]');
+    expect(tagline.className).toContain('text-white');
     expect(tagline.className).toContain('text-shadow');
     // No container: no fill, border, rounding, padding or box shadow.
     expect(tagline.className).not.toMatch(/(^|\s)(bg-|border|rounded|px-|py-|p-|shadow-)/);

@@ -35,8 +35,8 @@ const ART_MAX_WIDTH = 560;
 
 const TAGLINE_LINES = ['HOW GOOD A LAWYER ARE YOU?', 'PROVE IT IN COURT'];
 const TAGLINE = 'How Good a Lawyer Are You? Prove It in Court';
-// Bright red text with a dark edge and a soft red glow so it stands out on the artwork. No box around it.
-const TAGLINE_STYLE = 'text-[#FF3B3B] [text-shadow:0_1px_0_#3b0505,0_2px_0_#3b0505,0_0_14px_rgba(255,59,59,0.6),0_2px_8px_rgba(0,0,0,0.85)]';
+// White text with a dark edge and shadow so it stays readable over the artwork. No box around it.
+const TAGLINE_STYLE = 'text-white [text-shadow:0_1px_0_rgba(0,0,0,0.9),0_2px_0_rgba(0,0,0,0.9),0_2px_10px_rgba(0,0,0,0.9)]';
 
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
