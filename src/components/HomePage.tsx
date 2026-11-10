@@ -35,6 +35,8 @@ const ART_MAX_WIDTH = 560;
 
 const TAGLINE_LINES = ['HOW GOOD A LAWYER ARE YOU?', 'PROVE IT IN COURT'];
 const TAGLINE = 'How Good a Lawyer Are You? Prove It in Court';
+// Bright red text with a dark edge and a soft red glow so it stands out on the artwork. No box around it.
+const TAGLINE_STYLE = 'text-[#FF3B3B] [text-shadow:0_1px_0_#3b0505,0_2px_0_#3b0505,0_0_14px_rgba(255,59,59,0.6),0_2px_8px_rgba(0,0,0,0.85)]';
 
 const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
 
@@ -194,7 +196,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             <span className="logo-gold block text-4xl sm:text-5xl">COURTROOM</span>
             <span className="logo-gold block text-6xl sm:text-7xl">QUEST</span>
           </h1>
-          <p ref={taglineRef} aria-label={TAGLINE} className="mt-2.5 max-w-[22rem] rounded-2xl bg-gradient-to-b from-red-500 to-red-700 border-2 border-[#FFD43B] px-4 py-2 text-center text-[clamp(13px,4.2vw,15px)] sm:text-lg font-black leading-tight tracking-[0.05em] text-white shadow-[0_4px_0_#7f1d1d,0_0_22px_rgba(239,68,68,0.55)] [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+          <p ref={taglineRef} aria-label={TAGLINE} className={`mt-2.5 max-w-[22rem] text-center text-[clamp(13px,4.2vw,15px)] sm:text-lg font-black leading-tight tracking-[0.05em] ${TAGLINE_STYLE}`}>
             {TAGLINE_LINES.map(line => (
               <span key={line} className="block">{line}</span>
             ))}
@@ -384,7 +386,7 @@ function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waiting
               <span className="logo-gold block text-6xl [@media(min-height:800px)]:text-7xl">COURTROOM</span>
               <span className="logo-gold block text-8xl [@media(min-height:800px)]:text-9xl">QUEST</span>
             </h1>
-            <p aria-label={TAGLINE} className="mt-4 inline-block max-w-lg rounded-2xl bg-gradient-to-b from-red-500 to-red-700 border-2 border-[#FFD43B] px-6 py-2.5 text-center text-xl font-black leading-tight tracking-[0.06em] text-white shadow-[0_5px_0_#7f1d1d,0_0_28px_rgba(239,68,68,0.55)] [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+            <p aria-label={TAGLINE} className={`mt-4 inline-block max-w-lg text-center text-xl font-black leading-tight tracking-[0.06em] ${TAGLINE_STYLE}`}>
               {TAGLINE_LINES.map(line => (
                 <span key={line} className="block">{line}</span>
               ))}
