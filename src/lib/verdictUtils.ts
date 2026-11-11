@@ -20,6 +20,17 @@ export function didPlayerWin(outcome: Outcome, playerRole: PlayerRole): boolean 
   return playerRole === 'prosecution' ? guiltyVerdict : !guiltyVerdict;
 }
 
+/**
+ * The AI's `score` (0-100) rates the PROSECUTION's case (for a jury it is the share of guilty votes). Shown raw,
+ * a defense player who wins ("Not Guilty") always sees a low number. This turns it into how strong the court
+ * found the player's OWN side: as prosecution it is the score itself, as defense it is 100 minus the score.
+ */
+export function playerCaseScore(score: number | null | undefined, playerRole: PlayerRole): number | null {
+  if (typeof score !== 'number' || !Number.isFinite(score)) return null;
+  const prosecution = Math.min(100, Math.max(0, score));
+  return Math.round(playerRole === 'prosecution' ? prosecution : 100 - prosecution);
+}
+
 /** Human-readable verdict label — independent of who's playing. */
 export function verdictLabel(outcome: Outcome): 'Guilty' | 'Not Guilty' | 'Partial Verdict' {
   if (outcome === 'win') return 'Guilty';

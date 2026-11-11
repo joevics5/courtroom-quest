@@ -5,7 +5,7 @@ import type { Verdict, TrialEvent, PlayerRole, CaseSession } from '../types';
 import { db } from '../lib/database';
 import CoinAmount from './CoinAmount';
 import WinCelebration from './WinCelebration';
-import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
+import { didPlayerWin, playerCaseScore, verdictLabel } from '../lib/verdictUtils';
 import TranscriptViewer from './TranscriptViewer';
 import { JuryVoteHistory } from './JuryDeliberation';
 import AvatarFace from './AvatarFace';
@@ -103,7 +103,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
         verdictWord,
         roleLabel: playerRole === 'prosecution' ? 'Prosecution' : 'Defense',
         rankTitle: wins !== undefined ? getLevelForWins(wins).title : currentLevel,
-        score: appeal.gated ? null : verdict.score
+        score: appeal.gated ? null : playerScore
       });
       const result = await shareVerdictCard(blob);
       if (result === 'downloaded') {
@@ -125,7 +125,9 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
   // Wins is already counted for this case, so landing exactly on a rank's threshold means just promoted.
   const rankedUp = isWin && wins !== undefined && LEVELS.some(l => l.level > 1 && l.wins === wins);
   const next = wins !== undefined ? getNextLevel(wins) : null;
-  const hasScore = typeof verdict.score === 'number';
+  // The stored score rates the prosecution's case; show how strong the court found the player's own side.
+  const playerScore = playerCaseScore(verdict.score, playerRole);
+  const hasScore = playerScore !== null;
 
   return (
     <div className="relative min-h-[100dvh] bg-[#0b0d14] overflow-x-hidden">
@@ -227,13 +229,14 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                     <div className="flex-1 bg-white/15 rounded-full h-3 overflow-hidden">
                       <div
                         className={`h-full transition-all ${
-                          verdict.score! >= 80 ? 'bg-[#2EC4B6]' : verdict.score! >= 60 ? 'bg-[#FFD43B]' : 'bg-[#E5484D]'
+                          playerScore! >= 80 ? 'bg-[#2EC4B6]' : playerScore! >= 60 ? 'bg-[#FFD43B]' : 'bg-[#E5484D]'
                         }`}
-                        style={{ width: `${Math.min(100, Math.max(0, verdict.score!))}%` }}
+                        style={{ width: `${playerScore}%` }}
                       />
                     </div>
-                    <span className="font-game text-4xl leading-none text-white">{verdict.score}</span>
+                    <span className="font-game text-4xl leading-none text-white">{playerScore}</span>
                   </div>
+                  <p className="mt-1.5 text-xs text-white/50">How strongly the court found your side's case</p>
                 </div>
               )}
 

@@ -33,7 +33,8 @@ describe('VerdictDisplay', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('a win shows VICTORY, the score and the share button', () => {
-    render(<VerdictDisplay verdict={verdict()} {...base} wins={1} />);
+    // A defense win: the AI rated the prosecution's case 18, so the court found the defense's case 82 strong.
+    render(<VerdictDisplay verdict={verdict({ score: 18 })} {...base} wins={1} />);
     expect(screen.getByText('VICTORY')).toBeTruthy();
     expect(screen.getByText('82')).toBeTruthy();
     expect(screen.getByRole('button', { name: /SHARE VICTORY/ })).toBeTruthy();
@@ -52,6 +53,22 @@ describe('VerdictDisplay', () => {
   it('judges the result from the player\'s side: guilty is a win for the prosecution', () => {
     render(<VerdictDisplay verdict={verdict({ outcome: 'win' })} {...base} playerRole="prosecution" wins={1} />);
     expect(screen.getByText('VICTORY')).toBeTruthy();
+  });
+
+  it('shows the score from the player\'s own side, so winning as the defense is not a "low" score', () => {
+    // The AI rates the prosecution's case: 25 means a weak case, which is a Not Guilty and a defense win.
+    const { rerender } = render(<VerdictDisplay verdict={verdict({ outcome: 'lose', score: 25 })} {...base} playerRole="defense" wins={1} />);
+    expect(screen.getByText('VICTORY')).toBeTruthy();
+    expect(screen.getByText('75')).toBeTruthy();
+    expect(screen.queryByText('25')).toBeNull();
+    // The same raw score means the opposite for a prosecutor, who would have lost with it.
+    rerender(<VerdictDisplay verdict={verdict({ outcome: 'lose', score: 25 })} {...base} playerRole="prosecution" wins={1} />);
+    expect(screen.getByText('DEFEAT')).toBeTruthy();
+    expect(screen.getByText('25')).toBeTruthy();
+    // A prosecution win with a strong case shows it as it is.
+    rerender(<VerdictDisplay verdict={verdict({ outcome: 'win', score: 88 })} {...base} playerRole="prosecution" wins={1} />);
+    expect(screen.getByText('88')).toBeTruthy();
+    expect(screen.getByText(/How strongly the court found your side/)).toBeTruthy();
   });
 
   it('a score of 0 shows as 0, not as stray text', () => {
