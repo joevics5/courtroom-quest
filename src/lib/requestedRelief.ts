@@ -30,20 +30,14 @@ export function defenceNote(caseType?: string): string {
 }
 
 /**
- * The demand as text for an AI prompt. `audience` decides the closing instruction:
- * the prosecuting side argues for it, the defending side argues against it, the judge weighs it.
- * Empty when the case has no demand, so prompts stay unchanged.
+ * The case description with the demand written under it, so everything that reads the description
+ * (the AI counsel, the judge) gets the demand in the same text. Unchanged when there is no demand.
  */
-export function reliefPromptBlock(relief: RequestedRelief | null | undefined, audience: 'prosecution' | 'defense' | 'judge'): string {
+export function descriptionWithRelief(description: string | null | undefined, relief?: RequestedRelief | null): string {
+  const base = description ?? '';
   const rows = reliefRows(relief);
-  if (rows.length === 0) return '';
+  if (rows.length === 0) return base;
   const lines = rows.map(r => `- ${r.label.charAt(0)}${r.label.slice(1).toLowerCase()}: ${r.text}`).join('\n');
-  const basis = relief?.basis?.trim() ? `\nLegal basis given for the demand: ${relief.basis.trim()}` : '';
-  const closing =
-    audience === 'prosecution'
-      ? 'You are arguing for exactly this relief. Tie your case to it. Do not ask for anything that is not listed here.'
-      : audience === 'defense'
-        ? 'The prosecution is asking for exactly this relief. Challenge it: dispute the amounts, argue against each order, and argue that the penalty is too harsh or unjustified. Do not invent other demands.'
-        : 'This is what the prosecution is asking the court to grant. These demands are not evidence and not binding on you. Decide whether the case is proven first; if it is, you decide what to grant, and you may grant less than asked.';
-  return `WHAT THE PROSECUTION IS ASKING THE COURT TO GRANT:\n${lines}${basis}\n${closing}`;
+  const why = relief?.basis?.trim() ? `\nWhy: ${relief.basis.trim()}` : '';
+  return `${base}\n\nPROSECUTION'S REQUESTED RELIEF (what the prosecution asks the court to grant):\n${lines}${why}`;
 }

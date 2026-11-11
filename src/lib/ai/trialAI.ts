@@ -161,8 +161,6 @@ export interface ProsecutionContext {
   allowed_actions: AllowedAction[];
   trial_duration: number;
   witnesses_called_count: number;
-  /** What the prosecution asks the judge to grant (see reliefPromptBlock). */
-  requestedRelief?: string;
 }
 
 export interface ProsecutionAction {
@@ -184,8 +182,6 @@ export interface ProsecutionOpeningContext {
   availableWitnesses: Array<{ id: string; name: string; role: string }>;
   investigationEvidenceSummary: string;
   investigationWitnessTranscripts: string;
-  /** What the prosecution asks the judge to grant (see reliefPromptBlock). */
-  requestedRelief?: string;
 }
 
 /**
@@ -217,8 +213,6 @@ export interface ClosingArgumentContext {
   trialTranscriptSummary: string;
   evidenceSubmitted: Array<{ id: string; exhibit_label?: string; title: string }>;
   witnessesCalled: Array<{ id: string; name: string }>;
-  /** What the prosecution asks the judge to grant (see reliefPromptBlock). */
-  requestedRelief?: string;
 }
 
 /**
@@ -360,7 +354,7 @@ export async function generateVerdict(
   defendantName?: string,
   trialType: 'judge' | 'jury' = 'judge',
   juryResult?: JuryDeliberationResult,
-  requestedRelief?: string
+  caseDescription?: string
 ): Promise<VerdictResult> {
   const transcript = generateTranscript(events);
   const evidenceCitations = extractEvidenceCitations(events);
@@ -402,7 +396,7 @@ Were there procedural issues that undermine the prosecution's case?`;
 
 CASE: ${caseTitle}
 ${defendantName ? `DEFENDANT: ${defendantName}` : ''}
-${requestedRelief ? `\n${requestedRelief}\n\n` : ''}TRIAL TYPE: ${isJuryTrial ? 'Jury Trial (12 jurors deliberating)' : 'Bench Trial (Judge decides)'}
+${caseDescription ? `\nCASE DESCRIPTION:\n${caseDescription}\n\n` : ''}TRIAL TYPE: ${isJuryTrial ? 'Jury Trial (12 jurors deliberating)' : 'Bench Trial (Judge decides)'}
 
 COURT TRANSCRIPT:
 ${transcript.substring(0, 8000)}${transcript.length > 8000 ? '\n[... transcript continues ...]' : ''}
@@ -867,7 +861,7 @@ ${context.defendantName ? `DEFENDANT: ${context.defendantName}` : ''}
 CASE DESCRIPTION:
 ${context.caseDescription}
 
-${context.requestedRelief ? `${context.requestedRelief}\n\n` : ''}CRITICAL INVESTIGATION FINDINGS - YOU MUST USE THIS INFORMATION:
+CRITICAL INVESTIGATION FINDINGS - YOU MUST USE THIS INFORMATION:
 ${context.investigationEvidenceSummary}
 
 CRITICAL INVESTIGATION FINDINGS - WITNESS STATEMENTS YOU MUST REFERENCE:
@@ -914,7 +908,7 @@ ${context.defendantName ? `DEFENDANT: ${context.defendantName}` : ''}
 CASE DESCRIPTION:
 ${context.caseDescription}
 
-${context.requestedRelief ? `${context.requestedRelief}\n\n` : ''}WHAT ACTUALLY HAPPENED AT TRIAL — YOU MUST BUILD YOUR ARGUMENT FROM THIS, NOT FROM THE PRE-TRIAL THEORY OF THE CASE:
+WHAT ACTUALLY HAPPENED AT TRIAL — YOU MUST BUILD YOUR ARGUMENT FROM THIS, NOT FROM THE PRE-TRIAL THEORY OF THE CASE:
 ${context.trialTranscriptSummary || 'No trial activity was recorded.'}
 
 EVIDENCE ACTUALLY SUBMITTED AT TRIAL:
@@ -946,7 +940,7 @@ PERSONALITY: ${isDefense
 
 ${getProsecutionDifficultyModifier(context.difficulty)}
 
-${context.requestedRelief ? `${context.requestedRelief}\n\n` : ''}TRIAL CONFIGURATION:
+TRIAL CONFIGURATION:
 - Trial Duration: ${context.trial_duration} minutes
 - Maximum Witnesses to Call: ${maxWitnesses}
 - Witnesses Called So Far: ${context.witnesses_called_count}
