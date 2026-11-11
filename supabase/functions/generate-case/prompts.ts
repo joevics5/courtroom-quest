@@ -98,7 +98,14 @@ Return this JSON shape:
     "description": "PUBLIC teaser, 3-5 sentences, creates curiosity, reveals nothing decisive",
     "jurisdiction": "", "court_type": "", "location": "", "time_period": "",
     "estimated_minutes": 30, "min_players": 1, "max_players": 2,
-    "primary_dispute": "", "secondary_disputes": [""]
+    "primary_dispute": "", "secondary_disputes": [""],
+    "requested_relief": {
+      "primary": "main thing the prosecution/claimant asks the judge to grant, e.g. a conviction, or an order to pay",
+      "financial": "compensation or restitution with a specific sum, if any, else empty",
+      "penalty": "criminal penalty requested, e.g. 3 years imprisonment (criminal cases only; the judge decides the real sentence), else empty",
+      "additional": ["other orders: eviction, injunction, retraction, legal costs"],
+      "basis": "one sentence: the legal reasoning behind the demands"
+    }
   },
   "truth": {
     "summary": "what actually happened", "who_did_what": "", "motive": "",

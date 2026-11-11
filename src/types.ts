@@ -43,10 +43,18 @@ export type EventType = 'opening' | 'witness_examination' | 'cross_examination' 
 export type SpeakerRole = 'judge' | 'counsel' | 'witness' | 'opposing_counsel' | 'prosecution' | 'defense' | 'jury';
 export type Outcome = 'win' | 'lose' | 'partial';
 
-/** One count: what the prosecution is charging, or what a claimant is asking the court for. */
-export interface CaseCharge {
-  label: string;
-  detail?: string;
+/** What the prosecution / claimant asks the judge to grant, so the defence knows what it is fighting. */
+export interface RequestedRelief {
+  /** Main request, e.g. a conviction, or an order to pay. */
+  primary?: string;
+  /** Compensation or restitution, with the sum. */
+  financial?: string;
+  /** Criminal penalty asked for. The judge decides the real sentence. */
+  penalty?: string;
+  /** Other orders: eviction, injunction, retraction, costs. */
+  additional?: string[];
+  /** Legal basis or reasoning behind the demands. */
+  basis?: string;
 }
 
 export type CaseCategory = 'popular' | 'trendy' | 'normal';
@@ -68,8 +76,8 @@ export interface Case {
   is_multiplayer?: boolean;
   /** Board section: popular (real famous cases), trendy (modern everyday-life cases), or normal. */
   case_category?: CaseCategory;
-  /** What is being sought, one entry per count, so a jury can rule count by count. */
-  charges?: CaseCharge[];
+  /** What the prosecution / claimant is asking the judge to grant. */
+  requested_relief?: RequestedRelief | null;
   /** Optional thumbnail for case cards; no thumbnail is drawn when empty. */
   image_url?: string | null;
   truth_state?: Record<string, any>;

@@ -410,11 +410,6 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                           {caseItem.difficulty}
                         </span>
                       )}
-                      {caseItem.charges && caseItem.charges.length > 1 && (
-                        <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-white/10 border-white/25 text-white/80">
-                          {caseItem.charges.length} COUNTS
-                        </span>
-                      )}
                       {sortBy === 'trendy' && st && st.week > 0 && (
                         <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-orange-500/20 border-orange-400/60 text-orange-300">
                           {st.week} THIS WEEK

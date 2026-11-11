@@ -54,8 +54,11 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
     difficulty: 'medium' as const,
     image_url: '',
     category: 'normal' as 'popular' | 'trendy' | 'normal',
-    // One count per line: "Label | detail"
-    chargesText: ''
+    relief_primary: '',
+    relief_financial: '',
+    relief_penalty: '',
+    relief_additional: '',
+    relief_basis: ''
   });
 
   const [evidenceItems, setEvidenceItems] = useState<EvidenceForm[]>([]);
@@ -80,7 +83,11 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
           difficulty: caseData.difficulty || 'medium' as any,
           image_url: caseData.image_url || '',
           category: caseData.case_category || 'normal',
-          chargesText: (caseData.charges || []).map(c => (c.detail ? `${c.label} | ${c.detail}` : c.label)).join('\n')
+          relief_primary: caseData.requested_relief?.primary || '',
+          relief_financial: caseData.requested_relief?.financial || '',
+          relief_penalty: caseData.requested_relief?.penalty || '',
+          relief_additional: (caseData.requested_relief?.additional || []).join('\n'),
+          relief_basis: caseData.requested_relief?.basis || ''
         });
 
         // Admin-only prompts live in evidence_secrets (generation.image_prompt)
@@ -296,15 +303,13 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
         // Empty clears it: the case card then shows no thumbnail.
         image_url: caseInfo.image_url.trim() || null,
         case_category: caseInfo.category,
-        charges: caseInfo.chargesText
-          .split('\n')
-          .map(line => line.trim())
-          .filter(Boolean)
-          .map(line => {
-            const [label, ...rest] = line.split('|');
-            const detail = rest.join('|').trim();
-            return detail ? { label: label.trim(), detail } : { label: label.trim() };
-          }),
+        requested_relief: {
+          primary: caseInfo.relief_primary.trim(),
+          financial: caseInfo.relief_financial.trim(),
+          penalty: caseInfo.relief_penalty.trim(),
+          additional: caseInfo.relief_additional.split('\n').map(l => l.trim()).filter(Boolean),
+          basis: caseInfo.relief_basis.trim()
+        },
         updated_at: new Date().toISOString()
       });
 
@@ -493,13 +498,65 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    What is sought: charges or relief, one count per line ("Label | detail")
+                    Prosecution's demands: main request
+                  </label>
+                  <input
+                    type="text"
+                    value={caseInfo.relief_primary}
+                    onChange={(e) => setCaseInfo({ ...caseInfo, relief_primary: e.target.value })}
+                    placeholder="Order the defendant to pay for the steak / A criminal conviction for theft"
+                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Money: compensation or restitution (with the sum)
+                  </label>
+                  <input
+                    type="text"
+                    value={caseInfo.relief_financial}
+                    onChange={(e) => setCaseInfo({ ...caseInfo, relief_financial: e.target.value })}
+                    placeholder="$300 plus $200 in legal costs"
+                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Penalty requested (criminal cases; the judge decides the real sentence)
+                  </label>
+                  <input
+                    type="text"
+                    value={caseInfo.relief_penalty}
+                    onChange={(e) => setCaseInfo({ ...caseInfo, relief_penalty: e.target.value })}
+                    placeholder="3 years imprisonment"
+                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Other orders, one per line (eviction, retraction, costs)
                   </label>
                   <textarea
-                    value={caseInfo.chargesText}
-                    onChange={(e) => setCaseInfo({ ...caseInfo, chargesText: e.target.value })}
-                    rows={4}
-                    placeholder={'Aggravated assault | Breaking a patron\'s jaw\nSimple assault (lesser alternative)'}
+                    value={caseInfo.relief_additional}
+                    onChange={(e) => setCaseInfo({ ...caseInfo, relief_additional: e.target.value })}
+                    rows={3}
+                    placeholder="Order the defendant to vacate within 14 days"
+                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Legal basis or reasoning behind the demands
+                  </label>
+                  <textarea
+                    value={caseInfo.relief_basis}
+                    onChange={(e) => setCaseInfo({ ...caseInfo, relief_basis: e.target.value })}
+                    rows={2}
+                    placeholder="He ate food that was not his, and 'we share food' was never agreed."
                     className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

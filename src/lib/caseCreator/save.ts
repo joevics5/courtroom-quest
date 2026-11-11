@@ -18,6 +18,15 @@ const withTrigger = (text: string, trigger: string, label: string) =>
  * Turns the fact-ID knowledge model into the flat categories the trial engine's
  * buildWitnessPrompt() already understands (WitnessKnowledgeScope).
  */
+/** Trims every part of the demands; null when nothing is filled in. */
+function cleanRelief(r: NonNullable<Draft['case']['requested_relief']>) {
+  const out = {
+    primary: (r.primary ?? '').trim(), financial: (r.financial ?? '').trim(), penalty: (r.penalty ?? '').trim(),
+    additional: (r.additional ?? []).map((a) => a.trim()).filter(Boolean), basis: (r.basis ?? '').trim(),
+  };
+  return out.primary || out.financial || out.penalty || out.additional.length || out.basis ? out : null;
+}
+
 export function deriveKnowledgeScope(w: DraftWitness, evidence: DraftEvidence[]) {
   const by = (state: string) => w.secret.knowledge.filter((k) => k.state === state && k.text.trim());
   const rel = (roles: string[]) =>
@@ -77,6 +86,7 @@ async function insertDraft(d: Draft, asCustom = false): Promise<string> {
       subtitle: c.subtitle?.trim() || null,
     // Only written when the draft carries it, so an AI-made draft never wipes a hand-typed value.
     ...(c.versus !== undefined ? { versus: c.versus.trim() || null } : {}),
+    ...(c.requested_relief ? { requested_relief: cleanRelief(c.requested_relief) } : {}),
       jurisdiction: c.jurisdiction?.trim() || null,
       court_type: c.court_type?.trim() || null,
       location: c.location?.trim() || null,

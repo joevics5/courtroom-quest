@@ -1,3 +1,5 @@
+import { reliefRows, defenceNote } from '../lib/requestedRelief';
+import type { RequestedRelief } from '../types';
 import { useEffect, useState } from 'react';
 import { Shield, Gavel, FileText, ArrowLeft, X, ChevronDown, ChevronUp, FileStack, Users, Loader2, Scale } from 'lucide-react';
 import { db } from '../lib/database';
@@ -16,8 +18,9 @@ interface Props {
   caseTitle: string;
   caseText: string;
   defendantName?: string;
-  /** What the prosecution / claimant is seeking, one entry per count. */
-  charges?: { label: string; detail?: string }[];
+  /** What the prosecution / claimant is asking the judge to grant. */
+  relief?: RequestedRelief | null;
+  caseType?: string;
   onSelect: (role: PlayerRole) => void;
   onCancel: () => void;
   /** Switch this case to a two-player mode instead of playing the AI */
@@ -41,7 +44,7 @@ const ROLE_STYLE = {
   }
 };
 
-export default function CasePreview({ caseId, caseTitle, caseText, defendantName, charges, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0 }: Props) {
+export default function CasePreview({ caseId, caseTitle, caseText, defendantName, relief, caseType, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0 }: Props) {
   const { user } = useAuth();
   const myAvatar = getUserAvatar(user);
   const myRank = getLevelForWins(playerWins);
@@ -151,7 +154,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
         <h2 className="text-2xl font-bold text-white mb-3 leading-snug">{caseTitle}</h2>
         <p className="text-white/80 leading-relaxed whitespace-pre-line mb-5">{caseText}</p>
 
-        {charges && charges.length > 0 && (
+        {reliefRows(relief).length > 0 && (
           <>
             <button
               onClick={() => setChargesExpanded(open => !open)}
@@ -160,23 +163,26 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
             >
               <span className="flex items-center gap-2">
                 <Scale className="w-4 h-4" />
-                {charges.length > 1 ? `What is sought · ${charges.length} counts` : 'What is sought'}
+                Prosecution&apos;s requested relief
               </span>
               {chargesExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
 
             {chargesExpanded && (
-              <ol className="mb-5 space-y-2 rounded-xl border border-white/15 bg-white/5 p-4">
-                {charges.map((c, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className="flex-none w-6 h-6 rounded-full bg-[#FFD43B] text-black text-xs font-black flex items-center justify-center">{i + 1}</span>
-                    <span className="text-white/85 text-sm leading-snug">
-                      <span className="font-bold text-white">{c.label}</span>
-                      {c.detail && <span className="block text-white/60">{c.detail}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ol>
+              <div className="mb-5 rounded-xl border border-red-400/40 bg-red-500/10 p-4">
+                <ul className="space-y-2.5">
+                  {reliefRows(relief).map((r, i) => (
+                    <li key={i} className="flex gap-3 items-start">
+                      <span className="flex-none mt-0.5 w-[4.5rem] text-[10px] font-black tracking-wider text-[#FFD43B]">{r.label}</span>
+                      <span className="text-white/90 text-sm leading-snug">{r.text}</span>
+                    </li>
+                  ))}
+                </ul>
+                {relief?.basis && <p className="mt-3 text-white/60 text-xs leading-snug">Why: {relief.basis}</p>}
+                <p className="mt-3 pt-3 border-t border-white/10 text-white/75 text-xs leading-snug">
+                  <span className="font-black text-white">WHAT THIS MEANS FOR THE DEFENCE: </span>{defenceNote(caseType)}
+                </p>
+              </div>
             )}
           </>
         )}

@@ -90,6 +90,7 @@ export const CoreSchema = obj({
     jurisdiction: S, court_type: S, location: S, time_period: S,
     estimated_minutes: N, min_players: N, max_players: N,
     primary_dispute: S, secondary_disputes: SA,
+    requested_relief: obj({ primary: S, financial: S, penalty: S, additional: SA, basis: S }),
   }),
   truth: obj({
     summary: S, who_did_what: S, motive: S, key_moments: SA,

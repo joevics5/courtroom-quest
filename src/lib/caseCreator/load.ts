@@ -131,6 +131,11 @@ export async function loadExistingCase(caseId: string): Promise<{ draft: Draft; 
       estimated_minutes: c.estimated_minutes ?? null, min_players: c.min_players ?? null, max_players: c.max_players ?? null,
       primary_dispute: cs.primary_dispute ?? '', secondary_disputes: arr(cs.secondary_disputes),
       versus: c.versus ?? '',
+      requested_relief: {
+        primary: c.requested_relief?.primary ?? '', financial: c.requested_relief?.financial ?? '',
+        penalty: c.requested_relief?.penalty ?? '', additional: arr(c.requested_relief?.additional),
+        basis: c.requested_relief?.basis ?? '',
+      },
     },
     truth: { ...BLANK_TRUTH(), ...(cs.truth ?? {}) },
     facts: cs.facts ?? [],

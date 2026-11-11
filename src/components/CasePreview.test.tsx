@@ -136,28 +136,30 @@ describe('CasePreview (accept the case)', () => {
     await waitFor(() => expect(getFeeBoard).toHaveBeenCalledTimes(2));
     expect(screen.queryByLabelText(/coins for a win/)).toBeNull();
   });
-  it('keeps what is sought closed until opened, then lists the counts', () => {
-    const charges = [
-      { label: 'Attempted murder', detail: 'A jogger attacked and left near death' },
-      { label: 'Riot' }
-    ];
-    render(<CasePreview {...props} charges={charges} />);
-    const toggle = screen.getByRole('button', { name: /What is sought · 2 counts/ });
+  it('keeps the requested relief closed until opened, then lists the demands and what they mean for the defence', () => {
+    const relief = {
+      primary: 'Order Tyler Brandt to pay for the wagyu steak',
+      financial: '$300 plus $200 in legal costs',
+      additional: ['Order Tyler to leave the apartment within 14 days'],
+      basis: 'He ate food that was not his.'
+    };
+    render(<CasePreview {...props} relief={relief} caseType="civil" />);
+    const toggle = screen.getByRole('button', { name: /requested relief/i });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText('Attempted murder')).toBeNull();
+    expect(screen.queryByText('$300 plus $200 in legal costs')).toBeNull();
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('Attempted murder')).toBeTruthy();
-    expect(screen.getByText('A jogger attacked and left near death')).toBeTruthy();
-    expect(screen.getByText('Riot')).toBeTruthy();
+    expect(screen.getByText('$300 plus $200 in legal costs')).toBeTruthy();
+    expect(screen.getByText('Order Tyler to leave the apartment within 14 days')).toBeTruthy();
+    expect(screen.getByText(/WHAT THIS MEANS FOR THE DEFENCE/)).toBeTruthy();
     fireEvent.click(toggle);
-    expect(screen.queryByText('Riot')).toBeNull();
+    expect(screen.queryByText('$300 plus $200 in legal costs')).toBeNull();
   });
 
-  it('says "What is sought" for a single count and shows nothing without charges', () => {
-    const { rerender } = render(<CasePreview {...props} charges={[{ label: 'Theft' }]} />);
-    expect(screen.getByRole('button', { name: /^What is sought$/ })).toBeTruthy();
-    rerender(<CasePreview {...props} charges={[]} />);
-    expect(screen.queryByRole('button', { name: /What is sought/ })).toBeNull();
+  it('shows nothing when the case has no requested relief', () => {
+    const { rerender } = render(<CasePreview {...props} relief={null} />);
+    expect(screen.queryByRole('button', { name: /requested relief/i })).toBeNull();
+    rerender(<CasePreview {...props} relief={{}} />);
+    expect(screen.queryByRole('button', { name: /requested relief/i })).toBeNull();
   });
 });
