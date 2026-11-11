@@ -5,7 +5,6 @@ import type { Verdict, TrialEvent, PlayerRole, CaseSession } from '../types';
 import { db } from '../lib/database';
 import CoinAmount from './CoinAmount';
 import WinCelebration from './WinCelebration';
-import { markCelebrated, shouldCelebrate } from '../lib/celebration';
 import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
 import TranscriptViewer from './TranscriptViewer';
 import { JuryVoteHistory } from './JuryDeliberation';
@@ -50,11 +49,6 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [juryRounds, setJuryRounds] = useState<JuryRound[]>([]);
   const [coinsEarned, setCoinsEarned] = useState<number | null>(null);
-  // Balloons and a coin pop, once, for a win that was just delivered (not when reopening an old verdict).
-  const [celebrate] = useState(() => isWin && shouldCelebrate(verdict));
-  useEffect(() => {
-    if (celebrate) markCelebrated(verdict.id);
-  }, [celebrate, verdict.id]);
 
   // The server pays the case fee when it records the win; show what this game paid.
   useEffect(() => {
@@ -136,7 +130,8 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
   return (
     <div className="relative min-h-[100dvh] bg-[#0b0d14] overflow-x-hidden">
       <SceneBackdrop />
-      {celebrate && <WinCelebration coins={coinsEarned} />}
+      {/* Balloons, confetti and the coin pop: whenever this screen shows a win */}
+      {isWin && <WinCelebration coins={coinsEarned} />}
       <div
         className="relative z-10 px-4 sm:px-6"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 20px)', paddingBottom: 'max(env(safe-area-inset-bottom), 32px)' }}
