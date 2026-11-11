@@ -107,4 +107,48 @@ describe('VerdictDisplay', () => {
     expect(screen.queryByLabelText(/You earned/)).toBeNull();
     expect(db.coins.getEarnedForSession).not.toHaveBeenCalled();
   });
+  describe('win celebration', () => {
+    const fresh = (id: string, over: Partial<Verdict> = {}) => verdict({ id, delivered_at: new Date().toISOString(), ...over });
+
+    it('pops balloons and a "You earned" message for a win that was just delivered', async () => {
+      vi.mocked(db.coins.getEarnedForSession).mockResolvedValue(80);
+      render(<VerdictDisplay verdict={fresh('celebrate-1')} {...base} wins={1} />);
+      expect(screen.getByTestId('win-celebration')).toBeTruthy();
+      expect(screen.getAllByTestId('balloon').length).toBeGreaterThan(0);
+      const toast = await screen.findByRole('status');
+      expect(toast.textContent).toContain('You earned');
+      expect(toast.textContent).toContain('80');
+      // what was already on the screen is still there
+      expect(screen.getByText('VICTORY')).toBeTruthy();
+      expect(screen.getByLabelText('You earned 80 coins')).toBeTruthy();
+    });
+
+    it('celebrates a win even when no coins were paid, without the coin message', async () => {
+      vi.mocked(db.coins.getEarnedForSession).mockResolvedValue(null);
+      render(<VerdictDisplay verdict={fresh('celebrate-2')} {...base} wins={1} />);
+      expect(screen.getAllByTestId('balloon').length).toBeGreaterThan(0);
+      await Promise.resolve();
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+
+    it('does not celebrate a loss', () => {
+      render(<VerdictDisplay verdict={fresh('celebrate-3', { outcome: 'win' })} {...base} wins={1} />);
+      expect(screen.getByText('DEFEAT')).toBeTruthy();
+      expect(screen.queryByTestId('win-celebration')).toBeNull();
+    });
+
+    it('does not celebrate an old win opened again from history', () => {
+      render(<VerdictDisplay verdict={verdict({ id: 'celebrate-4' })} {...base} wins={1} />);
+      expect(screen.queryByTestId('win-celebration')).toBeNull();
+    });
+
+    it('celebrates a verdict only once per session', () => {
+      const v = fresh('celebrate-5');
+      const first = render(<VerdictDisplay verdict={v} {...base} wins={1} />);
+      expect(screen.getByTestId('win-celebration')).toBeTruthy();
+      first.unmount();
+      render(<VerdictDisplay verdict={v} {...base} wins={1} />);
+      expect(screen.queryByTestId('win-celebration')).toBeNull();
+    });
+  });
 });
