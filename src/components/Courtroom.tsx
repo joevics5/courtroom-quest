@@ -35,6 +35,7 @@ import {
   getExaminationType,
   type TurnState
 } from '../lib/trialTurnSystem';
+import { reliefPromptBlock } from '../lib/requestedRelief';
 import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateClosingArgument, generateObjectionRuling, generateWitnessResponse, generateVerdict, generateJuryDeliberation, type JurorProfile } from '../lib/ai/trialAI';
 import JuryDeliberation, { type DeliberationState } from './JuryDeliberation';
 import type { VerdictResult } from '../lib/ai/trialAI';
@@ -1405,7 +1406,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         recent_transcript: transcriptSummary,
         allowed_actions: allowedActions,
         trial_duration: trialDuration || 30,
-        witnesses_called_count: turnState.witnesses_called.length
+        witnesses_called_count: turnState.witnesses_called.length,
+        requestedRelief: reliefPromptBlock(caseData?.requested_relief, aiRole === 'defense' ? 'defense' : 'prosecution')
       } as const;
 
       const action = await generateProsecutionAction(prosecutionContext);
@@ -1630,6 +1632,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           difficulty: (session.session_state as any)?.difficulty,
           defendantName: caseData.defendant_name,
           caseDescription: caseData.description,
+          requestedRelief: reliefPromptBlock(caseData.requested_relief, aiRole === 'defense' ? 'defense' : 'prosecution'),
           timeLimitMinutes: timeLimit,
           availableEvidence: evidence.map(e => ({
             id: e.id,
@@ -1735,6 +1738,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           difficulty: (session.session_state as any)?.difficulty,
           defendantName: caseData.defendant_name,
           caseDescription: caseData.description,
+          requestedRelief: reliefPromptBlock(caseData.requested_relief, aiRole === 'defense' ? 'defense' : 'prosecution'),
           timeLimitMinutes: timeLimit,
           trialTranscriptSummary: transcriptSummary,
           evidenceSubmitted: evidenceSubmitted.map(e => ({ id: e.id, exhibit_label: e.exhibit_label, title: e.title })),
@@ -2405,7 +2409,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         caseData?.title || 'Unknown Case',
         caseData?.defendant_name,
         trialType as 'judge' | 'jury',
-        juryResult
+        juryResult,
+        reliefPromptBlock(caseData?.requested_relief, 'judge')
       );
 
       const verdict = await db.verdicts.createVerdict({
