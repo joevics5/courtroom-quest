@@ -1269,7 +1269,6 @@ function AppContent() {
           caseText={currentCase.case_summary || currentCase.description}
           defendantName={currentCase.defendant_name || (currentCase.truth_state as any)?.defendant_name}
           relief={currentCase.requested_relief}
-          caseType={currentCase.case_type}
           onSelect={handleRoleSelect}
           playerWins={userProfile?.wins_count ?? 0}
           onCancel={handleCloseCasePreview}

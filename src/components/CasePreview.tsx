@@ -1,4 +1,4 @@
-import { reliefRows, defenceNote } from '../lib/requestedRelief';
+import { reliefRows } from '../lib/requestedRelief';
 import type { RequestedRelief } from '../types';
 import { useEffect, useState } from 'react';
 import { Shield, Gavel, FileText, ArrowLeft, X, ChevronDown, ChevronUp, FileStack, Users, Loader2, Scale } from 'lucide-react';
@@ -20,7 +20,6 @@ interface Props {
   defendantName?: string;
   /** What the prosecution / claimant is asking the judge to grant. */
   relief?: RequestedRelief | null;
-  caseType?: string;
   onSelect: (role: PlayerRole) => void;
   onCancel: () => void;
   /** Switch this case to a two-player mode instead of playing the AI */
@@ -44,7 +43,7 @@ const ROLE_STYLE = {
   }
 };
 
-export default function CasePreview({ caseId, caseTitle, caseText, defendantName, relief, caseType, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0 }: Props) {
+export default function CasePreview({ caseId, caseTitle, caseText, defendantName, relief, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0 }: Props) {
   const { user } = useAuth();
   const myAvatar = getUserAvatar(user);
   const myRank = getLevelForWins(playerWins);
@@ -178,10 +177,6 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
                     </li>
                   ))}
                 </ul>
-                {relief?.basis && <p className="mt-3 text-white/60 text-xs leading-snug">Why: {relief.basis}</p>}
-                <p className="mt-3 pt-3 border-t border-white/10 text-white/75 text-xs leading-snug">
-                  <span className="font-black text-white">WHAT THIS MEANS FOR THE DEFENCE: </span>{defenceNote(caseType)}
-                </p>
               </div>
             )}
           </>

@@ -20,15 +20,6 @@ export function reliefRows(relief?: RequestedRelief | null): ReliefRow[] {
   return rows;
 }
 
-const CIVIL_TYPES = new Set(['civil', 'constitutional']);
-
-/** What the demands mean for the defence, in plain words. */
-export function defenceNote(caseType?: string): string {
-  return CIVIL_TYPES.has(caseType ?? '')
-    ? 'You now know exactly what you are fighting. Challenge the allegations, dispute the amounts claimed, argue against the other orders, or persuade the court the remedies are not justified.'
-    : 'You now know what the prosecution wants. Challenge the evidence, or argue that the penalty it asks for is too harsh. The judge, not the prosecution, decides the actual sentence.';
-}
-
 /**
  * The case description with the demand written under it, so everything that reads the description
  * (the AI counsel, the judge) gets the demand in the same text. Unchanged when there is no demand.

@@ -143,7 +143,7 @@ describe('CasePreview (accept the case)', () => {
       additional: ['Order Tyler to leave the apartment within 14 days'],
       basis: 'He ate food that was not his.'
     };
-    render(<CasePreview {...props} relief={relief} caseType="civil" />);
+    render(<CasePreview {...props} relief={relief} />);
     const toggle = screen.getByRole('button', { name: /requested relief/i });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText('$300 plus $200 in legal costs')).toBeNull();
@@ -151,7 +151,8 @@ describe('CasePreview (accept the case)', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByText('$300 plus $200 in legal costs')).toBeTruthy();
     expect(screen.getByText('Order Tyler to leave the apartment within 14 days')).toBeTruthy();
-    expect(screen.getByText(/WHAT THIS MEANS FOR THE DEFENCE/)).toBeTruthy();
+    expect(screen.queryByText(/WHAT THIS MEANS FOR THE DEFENCE/)).toBeNull();
+    expect(screen.queryByText(/Why:/)).toBeNull();
     fireEvent.click(toggle);
     expect(screen.queryByText('$300 plus $200 in legal costs')).toBeNull();
   });
