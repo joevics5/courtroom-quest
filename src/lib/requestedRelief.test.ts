@@ -14,7 +14,7 @@ describe('reliefRows', () => {
 });
 
 describe('descriptionWithRelief', () => {
-  const relief = { primary: 'A conviction for theft', financial: '$640 restitution', penalty: '1 year in jail', basis: 'Photo shows another porch.' };
+  const relief = { primary: 'A conviction for theft', financial: '$640 restitution', penalty: '1 year in jail' };
   it('is the plain description when there is no demand', () => {
     expect(descriptionWithRelief('A parcel vanished.', null)).toBe('A parcel vanished.');
     expect(descriptionWithRelief('A parcel vanished.', {})).toBe('A parcel vanished.');
@@ -26,6 +26,6 @@ describe('descriptionWithRelief', () => {
     expect(text).toContain("PROSECUTION'S REQUESTED RELIEF");
     expect(text).toContain('Money: $640 restitution');
     expect(text).toContain('Penalty: 1 year in jail');
-    expect(text).toContain('Why: Photo shows another porch.');
+    expect(text).not.toContain('Why');
   });
 });

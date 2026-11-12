@@ -103,8 +103,7 @@ Return this JSON shape:
       "primary": "main thing the prosecution/claimant asks the judge to grant, e.g. a conviction, or an order to pay",
       "financial": "compensation or restitution with a specific sum, if any, else empty",
       "penalty": "criminal penalty requested, e.g. 3 years imprisonment (criminal cases only; the judge decides the real sentence), else empty",
-      "additional": ["other orders: eviction, injunction, retraction, legal costs"],
-      "basis": "one sentence: the legal reasoning behind the demands"
+      "additional": ["other orders: eviction, injunction, retraction, legal costs"]
     }
   },
   "truth": {

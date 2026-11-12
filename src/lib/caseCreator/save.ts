@@ -22,9 +22,9 @@ const withTrigger = (text: string, trigger: string, label: string) =>
 function cleanRelief(r: NonNullable<Draft['case']['requested_relief']>) {
   const out = {
     primary: (r.primary ?? '').trim(), financial: (r.financial ?? '').trim(), penalty: (r.penalty ?? '').trim(),
-    additional: (r.additional ?? []).map((a) => a.trim()).filter(Boolean), basis: (r.basis ?? '').trim(),
+    additional: (r.additional ?? []).map((a) => a.trim()).filter(Boolean),
   };
-  return out.primary || out.financial || out.penalty || out.additional.length || out.basis ? out : null;
+  return out.primary || out.financial || out.penalty || out.additional.length ? out : null;
 }
 
 export function deriveKnowledgeScope(w: DraftWitness, evidence: DraftEvidence[]) {

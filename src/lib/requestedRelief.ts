@@ -29,6 +29,5 @@ export function descriptionWithRelief(description: string | null | undefined, re
   const rows = reliefRows(relief);
   if (rows.length === 0) return base;
   const lines = rows.map(r => `- ${r.label.charAt(0)}${r.label.slice(1).toLowerCase()}: ${r.text}`).join('\n');
-  const why = relief?.basis?.trim() ? `\nWhy: ${relief.basis.trim()}` : '';
-  return `${base}\n\nPROSECUTION'S REQUESTED RELIEF (what the prosecution asks the court to grant):\n${lines}${why}`;
+  return `${base}\n\nPROSECUTION'S REQUESTED RELIEF (what the prosecution asks the court to grant):\n${lines}`;
 }

@@ -53,8 +53,6 @@ export interface RequestedRelief {
   penalty?: string;
   /** Other orders: eviction, injunction, retraction, costs. */
   additional?: string[];
-  /** Legal basis or reasoning behind the demands. */
-  basis?: string;
 }
 
 export type CaseCategory = 'popular' | 'trendy' | 'normal';

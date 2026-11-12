@@ -93,8 +93,8 @@ export interface Draft {
     primary_dispute: string; secondary_disputes: string[];
     /** "Ella vs. Nelson": shown in brackets under the title on case cards. */
     versus?: string;
-    /** What the prosecution / claimant asks the judge to grant: primary, financial, penalty, additional[], basis. */
-    requested_relief?: { primary: string; financial: string; penalty: string; additional: string[]; basis: string };
+    /** What the prosecution / claimant asks the judge to grant: primary, financial, penalty, additional[]. */
+    requested_relief?: { primary: string; financial: string; penalty: string; additional: string[] };
   };
   truth: Record<string, any>;
   facts: { id: string; text: string; status: string; public: boolean }[];

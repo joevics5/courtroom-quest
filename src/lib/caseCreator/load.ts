@@ -134,7 +134,6 @@ export async function loadExistingCase(caseId: string): Promise<{ draft: Draft; 
       requested_relief: {
         primary: c.requested_relief?.primary ?? '', financial: c.requested_relief?.financial ?? '',
         penalty: c.requested_relief?.penalty ?? '', additional: arr(c.requested_relief?.additional),
-        basis: c.requested_relief?.basis ?? '',
       },
     },
     truth: { ...BLANK_TRUTH(), ...(cs.truth ?? {}) },

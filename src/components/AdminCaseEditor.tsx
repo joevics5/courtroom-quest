@@ -57,8 +57,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
     relief_primary: '',
     relief_financial: '',
     relief_penalty: '',
-    relief_additional: '',
-    relief_basis: ''
+    relief_additional: ''
   });
 
   const [evidenceItems, setEvidenceItems] = useState<EvidenceForm[]>([]);
@@ -86,8 +85,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
           relief_primary: caseData.requested_relief?.primary || '',
           relief_financial: caseData.requested_relief?.financial || '',
           relief_penalty: caseData.requested_relief?.penalty || '',
-          relief_additional: (caseData.requested_relief?.additional || []).join('\n'),
-          relief_basis: caseData.requested_relief?.basis || ''
+          relief_additional: (caseData.requested_relief?.additional || []).join('\n')
         });
 
         // Admin-only prompts live in evidence_secrets (generation.image_prompt)
@@ -307,8 +305,7 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
           primary: caseInfo.relief_primary.trim(),
           financial: caseInfo.relief_financial.trim(),
           penalty: caseInfo.relief_penalty.trim(),
-          additional: caseInfo.relief_additional.split('\n').map(l => l.trim()).filter(Boolean),
-          basis: caseInfo.relief_basis.trim()
+          additional: caseInfo.relief_additional.split('\n').map(l => l.trim()).filter(Boolean)
         },
         updated_at: new Date().toISOString()
       });
@@ -544,19 +541,6 @@ export default function AdminCaseEditor({ caseId, onBack }: AdminCaseEditorProps
                     onChange={(e) => setCaseInfo({ ...caseInfo, relief_additional: e.target.value })}
                     rows={3}
                     placeholder="Order the defendant to vacate within 14 days"
-                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Legal basis or reasoning behind the demands
-                  </label>
-                  <textarea
-                    value={caseInfo.relief_basis}
-                    onChange={(e) => setCaseInfo({ ...caseInfo, relief_basis: e.target.value })}
-                    rows={2}
-                    placeholder="He ate food that was not his, and 'we share food' was never agreed."
                     className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
