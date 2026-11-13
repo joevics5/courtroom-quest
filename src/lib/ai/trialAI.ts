@@ -341,6 +341,8 @@ export interface VerdictResult {
   reasoning: string;
   evidence_cited: string[];
   score: number;
+  /** The ruling on every demand, when the case has a requested relief. The main request decides `outcome`. */
+  demands?: DemandResult[];
 }
 
 /**
@@ -354,7 +356,8 @@ export async function generateVerdict(
   defendantName?: string,
   trialType: 'judge' | 'jury' = 'judge',
   juryResult?: JuryDeliberationResult,
-  caseDescription?: string
+  caseDescription?: string,
+  demands: Demand[] = []
 ): Promise<VerdictResult> {
   const transcript = generateTranscript(events);
   const evidenceCitations = extractEvidenceCitations(events);
@@ -392,7 +395,21 @@ Were there procedural issues that undermine the prosecution's case?`;
     ? `\nTHE JURORS HAVE ALREADY VOTED (final ballot): ${juryResult.guiltyVotes} GUILTY, ${juryResult.notGuiltyVotes} NOT GUILTY — verdict: ${juryResult.outcome === 'win' ? 'GUILTY' : 'NOT GUILTY'}${juryResult.unanimous ? ' (unanimous)' : ''}.\nReasons jurors gave on the final ballot:\n${juryResult.rounds[juryResult.rounds.length - 1].votes.filter(v => v.reason).slice(0, 8).map(v => `- ${v.name} (${v.vote === 'GUILTY' ? 'guilty' : 'not guilty'}): ${v.reason}`).join('\n')}\nYou are NOT deciding the verdict — you are the foreperson explaining the jury's decision. Your "outcome" MUST be "${juryResult.outcome}". Explain the reasoning consistent with the votes and reasons above.\n`
     : '';
 
-  const prompt = `${roleDescription}${juryVoteNote}
+  const hasMain = demands.some(d => d.id === 'main');
+  const otherIds = demands.filter(d => d.id !== 'main').map(d => d.id);
+  const benchDemands = !isJuryTrial && demands.length > 0;
+  const juryFindings = isJuryTrial && juryResult?.demands?.length
+    ? `\nTHE JURY'S FINDINGS ON EACH DEMAND (final ballot):\n${juryResult.demands.map(d => `- ${d.text}: ${d.granted ? 'GRANTED' : 'NOT GRANTED'} (${d.grant} to ${d.deny})`).join('\n')}\nThese findings are final. State each one in your decision, in a short closing paragraph.\n`
+    : '';
+  const benchBlock = benchDemands
+    ? `RULE ON EACH DEMAND. The prosecution is asking you to grant:
+${demands.map(d => `- [${d.id}] ${d.text}`).join('\n')}
+${hasMain ? '"outcome" must be "win" if you grant the MAIN request and "lose" if you refuse it (never "partial").' : ''}${otherIds.length ? ` In "demands", answer true (grant) or false (refuse) for each of: ${otherIds.join(', ')}.${hasMain ? ' The other demands follow the main request: if you refuse it, refuse the rest.' : ''}` : ''} A demand you grant only in part counts as granted; say how much in your decision. End the decision with a short paragraph stating what you grant and what you refuse on each demand.
+
+`
+    : '';
+
+  const prompt = `${roleDescription}${juryVoteNote}${juryFindings}
 
 CASE: ${caseTitle}
 ${defendantName ? `DEFENDANT: ${defendantName}` : ''}
@@ -430,12 +447,13 @@ WRITE A REAL DECISION. The "reasoning" is the written decision the players read 
   4. What decided the case${isJuryTrial ? ', and why the minority voted the other way if the vote was not unanimous' : ''}, and what either side could have done differently.
 Refer to the witnesses and exhibits by name. A one or two sentence decision is not acceptable.
 
-RESPOND WITH VALID JSON:
+${benchBlock}RESPOND WITH VALID JSON:
 {
-  "outcome": "win" or "lose" or "partial",
+  "outcome": ${hasMain && !isJuryTrial ? '"win" or "lose"' : '"win" or "lose" or "partial"'},
   "reasoning": "${isJuryTrial ? 'The jury finds...' : 'The Court finds...'} [the full multi-paragraph decision described above]",
   "evidence_cited": ["Exhibit A", "Exhibit B"],
-  "score": 75
+  "score": 75${benchDemands && otherIds.length ? `,
+  "demands": {${otherIds.map(id => `"${id}": true or false`).join(', ')}}` : ''}
 }`;
 
   // The written decision matters as much as the outcome: ask again once if it comes back thin or the call
@@ -452,8 +470,16 @@ RESPOND WITH VALID JSON:
         temperature: isJuryTrial ? 0.5 : AGENT_TEMPERATURES.verdict, // Jury slightly more variable
         maxTokens: 3500
       });
-      const parsed = parseVerdictResponse(response.text, evidenceCitations);
-      if (isJuryTrial && juryResult) parsed.outcome = juryResult.outcome;
+      const parsed = parseVerdictResponse(response.text, evidenceCitations, otherIds);
+      if (isJuryTrial && juryResult) {
+        parsed.outcome = juryResult.outcome;
+        if (juryResult.demands) parsed.demands = juryResult.demands;
+      } else if (benchDemands) {
+        const ruled = benchRulings(demands, parsed.rulings, parsed.outcome);
+        parsed.outcome = ruled.outcome;
+        parsed.demands = ruled.demands.map(({ id, kind, label, text, grant, deny, granted }) => ({ id, kind, label, text, grant, deny, granted }));
+      }
+      delete parsed.rulings; // internal: already turned into `demands`
       if (!best || (parsed.reasoning || '').length > best.reasoning.length) best = parsed;
       if (!isThinWriteup(parsed.reasoning)) break;
     } catch (error) {
@@ -475,7 +501,8 @@ RESPOND WITH VALID JSON:
         outcome: juryResult.outcome,
         reasoning: composeJuryWriteup({ juryResult, caseTitle, defendantName, evidenceCited: evidenceCitations }),
         evidence_cited: evidenceCitations,
-        score: Math.round((juryResult.guiltyVotes / Math.max(1, juryResult.guiltyVotes + juryResult.notGuiltyVotes)) * 100)
+        score: Math.round((juryResult.guiltyVotes / Math.max(1, juryResult.guiltyVotes + juryResult.notGuiltyVotes)) * 100),
+        ...(juryResult.demands ? { demands: juryResult.demands } : {})
       };
     }
     return {
@@ -508,7 +535,7 @@ export interface JurorProfile {
   biases?: unknown;
 }
 
-import type { Demand } from '../requestedRelief';
+import { benchRulings, type Demand } from '../requestedRelief';
 
 export interface JurorVote {
   jurorId: string;
@@ -1213,7 +1240,7 @@ function parseProsecutionAction(text: string, allowedActions: AllowedAction[]): 
   return { action: allowedActions[0]?.action || 'end_phase' };
 }
 
-function parseVerdictResponse(text: string, evidenceCitations: string[]): VerdictResult {
+function parseVerdictResponse(text: string, evidenceCitations: string[], demandIds: string[] = []): VerdictResult & { rulings?: Record<string, boolean> } {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
@@ -1225,7 +1252,8 @@ function parseVerdictResponse(text: string, evidenceCitations: string[]): Verdic
         outcome: outcome as 'win' | 'lose' | 'partial',
         reasoning: parsed.reasoning || 'The Court has reviewed the evidence and testimony.',
         evidence_cited: Array.isArray(parsed.evidence_cited) ? parsed.evidence_cited : evidenceCitations,
-        score: typeof parsed.score === 'number' ? Math.max(0, Math.min(100, parsed.score)) : 50
+        score: typeof parsed.score === 'number' ? Math.max(0, Math.min(100, parsed.score)) : 50,
+        ...(demandIds.length ? { rulings: Object.fromEntries(demandIds.map(id => [id, asGrant(parsed.demands?.[id]) === true])) } : {})
       };
     } catch (error) {
       console.error('[Verdict AI] Failed to parse JSON:', error);

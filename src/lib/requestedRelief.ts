@@ -43,3 +43,29 @@ export function descriptionWithRelief(description: string | null | undefined, re
   const lines = rows.map(r => `- ${r.label.charAt(0)}${r.label.slice(1).toLowerCase()}: ${r.text}`).join('\n');
   return `${base}\n\nPROSECUTION'S REQUESTED RELIEF (what the prosecution asks the court to grant):\n${lines}`;
 }
+
+/** A demand and how it was ruled on. The judge counts as one vote (1-0 or 0-1). */
+export interface DemandRuling extends Demand {
+  grant: number;
+  deny: number;
+  granted: boolean;
+}
+
+/**
+ * Turns a judge's rulings into one result per demand. The main request decides the verdict:
+ * granted = win, refused = lose. The other demands follow it: if the main request is refused
+ * they fail too, and a demand the judge left out counts as refused.
+ */
+export function benchRulings(
+  demands: Demand[],
+  rulings: Record<string, boolean> | undefined,
+  outcome: 'win' | 'lose' | 'partial'
+): { outcome: 'win' | 'lose' | 'partial'; demands: DemandRuling[] } {
+  const hasMain = demands.some(d => d.id === 'main');
+  const mainGranted = outcome === 'win' ? true : outcome === 'lose' ? false : rulings?.main === true;
+  const results = demands.map((d): DemandRuling => {
+    const granted = d.id === 'main' ? mainGranted : (hasMain && !mainGranted ? false : rulings?.[d.id] === true);
+    return { ...d, grant: granted ? 1 : 0, deny: granted ? 0 : 1, granted };
+  });
+  return { outcome: hasMain ? (mainGranted ? 'win' : 'lose') : outcome, demands: results };
+}
