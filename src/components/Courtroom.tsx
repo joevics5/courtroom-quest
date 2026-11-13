@@ -2417,7 +2417,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       // Keep the ruling on each demand so the verdict screen and any appeal can show it.
       if (verdictResult.demands?.length) {
-        db.sessions.mergeState(session.id, { demandResults: verdictResult.demands }).catch(err => console.error('Failed to save the rulings on each demand:', err));
+        await db.sessions.mergeState(session.id, { demandResults: verdictResult.demands }).catch(err => console.error('Failed to save the rulings on each demand:', err));
       }
 
       const verdict = await db.verdicts.createVerdict({

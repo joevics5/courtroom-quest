@@ -69,25 +69,3 @@ export function benchRulings(
   });
   return { outcome: hasMain ? (mainGranted ? 'win' : 'lose') : outcome, demands: results };
 }
-
-/**
- * Summary of how the demands were ruled on. The verdict follows the main request alone;
- * `partial` is true when the main request was granted but something else asked for was refused
- * (a win, shown as a partial win).
- */
-export function demandSummary(results: { id: string; granted: boolean }[] | null | undefined): {
-  mainGranted: boolean | null;
-  granted: number;
-  total: number;
-  partial: boolean;
-} {
-  const list = results ?? [];
-  const main = list.find(r => r.id === 'main');
-  const granted = list.filter(r => r.granted).length;
-  return {
-    mainGranted: main ? main.granted : null,
-    granted,
-    total: list.length,
-    partial: !!main?.granted && granted < list.length
-  };
-}

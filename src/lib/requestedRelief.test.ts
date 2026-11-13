@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { demandSummary, descriptionWithRelief, reliefRows } from './requestedRelief';
+import { descriptionWithRelief, reliefRows } from './requestedRelief';
 
 describe('reliefRows', () => {
   it('orders main request, money, penalty, then extras and skips empty parts', () => {
@@ -27,23 +27,5 @@ describe('descriptionWithRelief', () => {
     expect(text).toContain('Money: $640 restitution');
     expect(text).toContain('Penalty: 1 year in jail');
     expect(text).not.toContain('Why');
-  });
-});
-
-describe('demandSummary', () => {
-  it('a granted main request with something refused is a partial win', () => {
-    expect(demandSummary([{ id: 'main', granted: true }, { id: 'money', granted: false }, { id: 'also1', granted: true }]))
-      .toEqual({ mainGranted: true, granted: 2, total: 3, partial: true });
-  });
-  it('everything granted is a full win, not partial', () => {
-    expect(demandSummary([{ id: 'main', granted: true }, { id: 'money', granted: true }]).partial).toBe(false);
-  });
-  it('a refused main request is a loss, never a partial win', () => {
-    const s = demandSummary([{ id: 'main', granted: false }, { id: 'money', granted: true }]);
-    expect(s.mainGranted).toBe(false);
-    expect(s.partial).toBe(false);
-  });
-  it('has no main result when the case has no demand', () => {
-    expect(demandSummary(null)).toEqual({ mainGranted: null, granted: 0, total: 0, partial: false });
   });
 });

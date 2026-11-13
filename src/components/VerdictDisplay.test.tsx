@@ -152,4 +152,26 @@ describe('VerdictDisplay', () => {
       expect(screen.queryByTestId('win-celebration')).toBeNull();
     });
   });
+
+  it('shows the ruling on each request when the case had several, and the verdict follows the main one', async () => {
+    (db.sessions.getSession as any).mockResolvedValueOnce({
+      session_state: {
+        demandResults: [
+          { id: 'main', label: 'MAIN REQUEST', text: 'Order Tyler to pay for the steak', grant: 1, deny: 0, granted: true },
+          { id: 'money', label: 'MONEY', text: '$300 plus $200 in legal costs', grant: 0, deny: 1, granted: false }
+        ]
+      }
+    });
+    render(<VerdictDisplay verdict={verdict({ outcome: 'win' })} {...base} playerRole="prosecution" wins={1} />);
+    await waitFor(() => expect(screen.getByText("THE COURT'S RULING ON EACH REQUEST")).toBeTruthy());
+    expect(screen.getByText('VICTORY')).toBeTruthy(); // main request granted = a win, whatever else was refused
+    expect(screen.getByText('GRANTED')).toBeTruthy();
+    expect(screen.getByText('NOT GRANTED')).toBeTruthy();
+  });
+
+  it('has no ruling section for a case with a single request', async () => {
+    render(<VerdictDisplay verdict={verdict()} {...base} wins={1} />);
+    await waitFor(() => expect(db.sessions.getSession).toHaveBeenCalled());
+    expect(screen.queryByText("THE COURT'S RULING ON EACH REQUEST")).toBeNull();
+  });
 });

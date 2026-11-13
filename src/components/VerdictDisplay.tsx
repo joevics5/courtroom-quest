@@ -1,3 +1,4 @@
+import DemandRulings, { type DemandRulingRow } from './DemandRulings';
 import { useState, useEffect } from 'react';
 import { appAlert } from '../lib/appDialog';
 import { ArrowLeft, CheckCircle, FileText, Home, Share2, XCircle } from 'lucide-react';
@@ -48,6 +49,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
   const [transcriptEvents, setTranscriptEvents] = useState<TrialEvent[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [juryRounds, setJuryRounds] = useState<JuryRound[]>([]);
+  const [demandResults, setDemandResults] = useState<DemandRulingRow[]>([]);
   const [coinsEarned, setCoinsEarned] = useState<number | null>(null);
 
   // The server pays the case fee when it records the win; show what this game paid.
@@ -67,6 +69,8 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
       .then(sess => {
         const votes = (sess?.session_state as any)?.juryVotes;
         if (!cancelled && Array.isArray(votes)) setJuryRounds(votes as JuryRound[]);
+        const rulings = (sess?.session_state as any)?.demandResults;
+        if (!cancelled && Array.isArray(rulings)) setDemandResults(rulings as DemandRulingRow[]);
       })
       .catch(err => console.error('Failed to load jury votes:', err));
     return () => { cancelled = true; };
@@ -221,6 +225,13 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                   </span>
                 </div>
               </div>
+
+              {demandResults.length > 1 && (
+                <div>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">THE COURT'S RULING ON EACH REQUEST</h3>
+                  <DemandRulings results={demandResults} playerRole={playerRole} />
+                </div>
+              )}
 
               {hasScore && !appeal.gated && (
                 <div>
