@@ -1,7 +1,10 @@
 /**
  * The witness stage runs on one shared pool of time instead of a fixed clock per phase.
  *
- *   pool = trial length - the four statements - judge deliberation (+ any time left over from the openings)
+ *   pool = trial length - the four statements' standard time - judge deliberation (+ any time left over from the openings)
+ *
+ * The statements now run on their own, longer clocks (see statementMinutes) that sit outside the pool, so the
+ * witness stage is exactly as long as it was before they were lengthened.
  *
  * The pool is split in two halves: the prosecution's case (its witnesses and the defense's cross-examinations
  * of them) comes first, the defense's case second. What the prosecution leaves unused rolls into the defense's
@@ -30,19 +33,34 @@ export const STATEMENT_READ_SECONDS = 20;
 /** Pause after each witness answer while it is read out. The clock does not run during it. */
 export const READOUT_SECONDS = 20;
 
-/** Minutes each opening and each closing statement gets. The clock stops at zero until it is given. */
+/**
+ * Minutes each opening and each closing statement gets (the same for both). The clock stops at zero until
+ * the statement is given, so running out never costs anyone anything. The 5-minute trial keeps its short
+ * statements.
+ */
 export function statementMinutes(duration: number): number {
-  if (duration === 60) return 3;
-  if (duration === 30) return 1.5;
+  if (duration === 60) return 6;
+  if (duration === 30) return 3;
+  if (duration === 15) return 1.5;
   return 0.5;
 }
 
 /**
- * Minutes each opening statement gets: the standard statement time plus one more minute. The extra minute
- * is added to the trial, it does not come out of the witness pool.
+ * Minutes each opening statement gets: the same as a closing, except in the 5-minute trial, which keeps its
+ * extra minute on openings. None of it comes out of the witness pool.
  */
 export function openingMinutes(duration: number): number {
-  return statementMinutes(duration) + 1;
+  return duration === 5 ? statementMinutes(duration) + 1 : statementMinutes(duration);
+}
+
+/**
+ * The statement time the witness pool is sized from. This is what the standard statement used to be, kept
+ * as it was so that lengthening the statements does not shorten the witness stage.
+ */
+function poolStatementMinutes(duration: number): number {
+  if (duration === 60) return 3;
+  if (duration === 30) return 1.5;
+  return 0.5;
 }
 
 /** Minutes of judge deliberation. */
@@ -55,10 +73,11 @@ export function deliberationMinutes(duration: number): number {
 
 /**
  * The witness stage's pool in seconds, before any time saved in the openings is added. It is sized from the
- * standard statement time, so the extra opening minute leaves the witness stage exactly as long as before.
+ * pool's own statement allowance (poolStatementMinutes), so longer statement clocks leave the witness stage
+ * exactly as long as before.
  */
 export function basePoolSeconds(duration: number): number {
-  return Math.round((duration - 4 * statementMinutes(duration) - deliberationMinutes(duration)) * 60);
+  return Math.round((duration - 4 * poolStatementMinutes(duration) - deliberationMinutes(duration)) * 60);
 }
 
 /** Shortest direct or cross worth starting. */
@@ -175,6 +194,41 @@ export function statementGiven(
     const meta = (e.metadata ?? {}) as { phase?: number; rested?: boolean };
     return e.speaker_role === speaker && meta.phase === phase && !meta.rested;
   });
+}
+
+/** A statement typed by a player has to be at least this many words before their side can rest. */
+export const MIN_STATEMENT_WORDS = 50;
+
+export function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/** Words a side has sent in this statement phase so far (the automatic "rests" line does not count). */
+export function statementWordCount(
+  events: Array<{ speaker_role?: string | null; metadata?: unknown; content?: string | null }>,
+  speaker: 'prosecution' | 'defense',
+  phase: number
+): number {
+  return events.reduce((sum, e) => {
+    const meta = (e.metadata ?? {}) as { phase?: number; rested?: boolean };
+    if (e.speaker_role !== speaker || meta.phase !== phase || meta.rested) return sum;
+    return sum + wordCount(e.content ?? '');
+  }, 0);
+}
+
+/**
+ * Is this side's statement complete? What a player types has to reach MIN_STATEMENT_WORDS (over one or
+ * several sends). A side the computer plays only has to have spoken.
+ */
+export function statementComplete(
+  events: Array<{ speaker_role?: string | null; metadata?: unknown; content?: string | null }>,
+  speaker: 'prosecution' | 'defense',
+  phase: number,
+  playedByHuman: boolean
+): boolean {
+  return playedByHuman
+    ? statementWordCount(events, speaker, phase) >= MIN_STATEMENT_WORDS
+    : statementGiven(events, speaker, phase);
 }
 
 /**

@@ -1,6 +1,7 @@
 import { useLockPageScroll } from '@/lib/useLockPageScroll';
 import { questionRestSeconds, questionRestLabel, OBJECTION_WINDOW_SECONDS } from '@/lib/questionRest';
-import { HANDOFF_SECONDS, STATEMENT_READ_SECONDS, statementGiven, legacyStatementMinutes } from '@/lib/witnessPool';
+import HandoffPill from './HandoffPill';
+import { HANDOFF_SECONDS, STATEMENT_READ_SECONDS, MIN_STATEMENT_WORDS, statementComplete, statementWordCount, legacyStatementMinutes } from '@/lib/witnessPool';
 import { planNextPhase as planNextPhasePure } from '@/lib/witnessPlan';
 import { usedBySide, usedByEither } from '@/lib/usedBySide';
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -290,7 +291,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   phaseClocksRef.current = phaseTimeRemaining;
   // The break at every change of counsel in the witness stage: clock stopped, nobody can send anything.
   const [handoff, setHandoff] = useState<{ secondsLeft: number; label: string; skippable?: boolean } | null>(null);
-  const handoffSkipRef = useRef(false);
+  // Ends the break now (the SKIP button), instead of waiting for the next one-second tick.
+  const handoffFinishRef = useRef<(() => void) | null>(null);
   const handoffRef = useRef<number | null>(null);
   // True from the moment a question is sent until its answer is in.
   const questionInFlightRef = useRef(false);
@@ -739,6 +741,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         event_order: events.length + 1
       });
 
+      // The word count of a statement and the "statement given" gate read this list right after sending.
+      eventsRef.current = [...eventsRef.current, event];
       setEvents(prevEvents => [...prevEvents, event]);
       trackObjectableStatement(event);
     } catch (error) {
@@ -903,10 +907,15 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         // on to the other side.
         await addEvent('counsel', input);
         if (!practiceMode && (phaseClocksRef.current[currentPhase] ?? 1) <= 0) {
-          // Their time was up and the game was waiting for this: the statement is in, so their turn ends.
+          // Their time was up and the game was waiting for this. Once the statement has reached the word
+          // minimum their turn ends at once; until then it keeps waiting for the rest of it.
           setInput('');
-          await handleRestPhaseRef.current();
-          return;
+          const spokeAs = statementSideOf(getTrialConfig(trialDuration!).phases.find(p => p.number === currentPhase))
+            ?? (turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense');
+          if (statementComplete(eventsRef.current, spokeAs, currentPhase, statementPlayedByHuman(spokeAs))) {
+            await handleRestPhaseRef.current();
+            return;
+          }
         }
         if (turnState.current_turn === playerRole || sameDevicePlay) {
           setAwaitingUserInput(true);
@@ -943,6 +952,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     return name.includes('prosecution') ? 'prosecution' : name.includes('defense') ? 'defense' : null;
   };
 
+  // Is this side's statement typed by a person (so it has to reach the word minimum) rather than written by the computer?
+  const statementPlayedByHuman = (side: 'prosecution' | 'defense') => sameDevicePlay || onlineTwoPlayer || side === playerRole;
+  const statementKindOf = (phase: { name: string } | undefined): 'opening' | 'closing' =>
+    phase?.name.toLowerCase().includes('closing') ? 'closing' : 'opening';
+
   const handleNextPhase = async () => {
     if (!trialDuration || !aliveRef.current) return;
 
@@ -952,7 +966,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const config = getTrialConfig(trialDuration);
     const currentPhaseInfo = config.phases.find(p => p.number === currentPhase);
     const statementSpeaker = statementSideOf(currentPhaseInfo);
-    if (statementSpeaker && !statementGiven(eventsRef.current, statementSpeaker, currentPhase)) {
+    if (statementSpeaker && !statementComplete(eventsRef.current, statementSpeaker, currentPhase, statementPlayedByHuman(statementSpeaker))) {
       console.log(`[Courtroom] Blocked advance from phase ${currentPhase} (${currentPhaseInfo?.name}) - ${statementSpeaker} has not given their statement yet`);
       return;
     }
@@ -983,24 +997,24 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   const runHandoffBreak = (label: string, seconds: number = HANDOFF_SECONDS, skippable = false) =>
     new Promise<void>(resolve => {
       handoffRef.current = seconds;
-      handoffSkipRef.current = false;
       setHandoff({ secondsLeft: seconds, label, skippable });
+      const finish = () => {
+        clearInterval(id);
+        handoffFinishRef.current = null;
+        handoffRef.current = null;
+        setHandoff(null);
+        resolve();
+      };
+      handoffFinishRef.current = finish;
       const id = setInterval(() => {
-        if (!aliveRef.current || handoffSkipRef.current) {
-          clearInterval(id);
-          handoffSkipRef.current = false;
-          handoffRef.current = null;
-          setHandoff(null);
-          resolve();
+        if (!aliveRef.current) {
+          finish();
           return;
         }
         if (timerPausedRef.current) return;
         const next = (handoffRef.current ?? 0) - 1;
         if (next <= 0) {
-          clearInterval(id);
-          handoffRef.current = null;
-          setHandoff(null);
-          resolve();
+          finish();
         } else {
           handoffRef.current = next;
           setHandoff({ secondsLeft: next, label, skippable });
@@ -2192,7 +2206,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     // An opening or closing statement has to be given first: nothing to rest on yet, so nothing moves.
     const restPhaseInfo = trialDuration ? getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase) : undefined;
     const restStatementSide = statementSideOf(restPhaseInfo);
-    if (restStatementSide && !statementGiven(eventsRef.current, restStatementSide, currentPhase)) return;
+    if (restStatementSide && !statementComplete(eventsRef.current, restStatementSide, currentPhase, statementPlayedByHuman(restStatementSide))) return;
     restInFlightRef.current = true;
 
     try {
@@ -2523,7 +2537,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // An opening or closing statement is due: the clock stands still at zero until the speaker has sent anything.
   const uiPhaseInfo = trialDuration ? getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase) : undefined;
   const statementSide = statementSideOf(uiPhaseInfo);
-  const statementDone = !!statementSide && statementGiven(events, statementSide, currentPhase);
+  const statementPlayedByPerson = !!statementSide && statementPlayedByHuman(statementSide);
+  const statementDone = !!statementSide && statementComplete(events, statementSide, currentPhase, statementPlayedByPerson);
+  const statementWords = statementSide ? statementWordCount(events, statementSide, currentPhase) : 0;
+  const statementKind = statementKindOf(uiPhaseInfo);
   const waitingForStatement = !!statementSide && !statementDone && !practiceMode && phaseClockLeft !== undefined && phaseClockLeft <= 0;
   waitingForStatementRef.current = waitingForStatement;
   const handoffActive = handoff !== null;
@@ -2805,27 +2822,25 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               )}
 
               {handoff && (
-                <div className="rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/85 tabular-nums">
-                  {handoff.label} · {formatTime(handoff.secondsLeft)}
-                  {handoff.skippable && (
-                    <button
-                      type="button"
-                      onClick={() => { handoffSkipRef.current = true; }}
-                      className="ml-2 rounded-full bg-[#FFD43B] px-2.5 py-0.5 text-[11px] font-black text-black"
-                    >
-                      SKIP
-                    </button>
-                  )}
-                </div>
+                <HandoffPill
+                  label={handoff.label}
+                  timeLabel={formatTime(handoff.secondsLeft)}
+                  skippable={handoff.skippable}
+                  onSkip={() => handoffFinishRef.current?.()}
+                />
               )}
 
               {waitingForStatement && (
                 <div className="rounded-full border border-amber-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-amber-200">
-                  {statementSide === playerRole || sameDevicePlay
-                    ? 'Time is up. Send your statement to continue.'
-                    : onlineTwoPlayer
-                      ? 'Waiting for opponent…'
-                      : "Waiting for opposing counsel's statement…"}
+                  {statementSide === playerRole && !sameDevicePlay
+                    ? `Waiting for your ${statementKind} statement${statementWords < MIN_STATEMENT_WORDS ? ` · at least ${MIN_STATEMENT_WORDS} words (${statementWords} so far)` : ''}`
+                    : `Waiting for the ${statementSide}'s ${statementKind} statement${statementPlayedByPerson && statementWords > 0 && statementWords < MIN_STATEMENT_WORDS ? ` · ${statementWords} of ${MIN_STATEMENT_WORDS} words so far` : ''}`}
+                </div>
+              )}
+
+              {statementSide && statementPlayedByPerson && !statementDone && !waitingForStatement && !practiceMode && (statementSide === playerRole || sameDevicePlay) && (
+                <div className="rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/85 tabular-nums">
+                  Your {statementKind} statement: {statementWords} of {MIN_STATEMENT_WORDS} words
                 </div>
               )}
 
