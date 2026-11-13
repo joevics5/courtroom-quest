@@ -395,6 +395,9 @@ Were there procedural issues that undermine the prosecution's case?`;
     ? `\nTHE JURORS HAVE ALREADY VOTED (final ballot): ${juryResult.guiltyVotes} GUILTY, ${juryResult.notGuiltyVotes} NOT GUILTY — verdict: ${juryResult.outcome === 'win' ? 'GUILTY' : 'NOT GUILTY'}${juryResult.unanimous ? ' (unanimous)' : ''}.\nReasons jurors gave on the final ballot:\n${juryResult.rounds[juryResult.rounds.length - 1].votes.filter(v => v.reason).slice(0, 8).map(v => `- ${v.name} (${v.vote === 'GUILTY' ? 'guilty' : 'not guilty'}): ${v.reason}`).join('\n')}\nYou are NOT deciding the verdict — you are the foreperson explaining the jury's decision. Your "outcome" MUST be "${juryResult.outcome}". Explain the reasoning consistent with the votes and reasons above.\n`
     : '';
 
+  const absentNote = isJuryTrial && juryResult?.absentJurors
+    ? `\n${juryResult.absentJurors} juror(s) could not take part in the final ballot and did not vote. Do not say all 12 voted; refer only to the jurors who did.\n`
+    : '';
   const hasMain = demands.some(d => d.id === 'main');
   const otherIds = demands.filter(d => d.id !== 'main').map(d => d.id);
   const benchDemands = !isJuryTrial && demands.length > 0;
@@ -409,7 +412,7 @@ ${hasMain ? '"outcome" must be "win" if you grant the MAIN request and "lose" if
 `
     : '';
 
-  const prompt = `${roleDescription}${juryVoteNote}${juryFindings}
+  const prompt = `${roleDescription}${juryVoteNote}${absentNote}${juryFindings}
 
 CASE: ${caseTitle}
 ${defendantName ? `DEFENDANT: ${defendantName}` : ''}
@@ -556,6 +559,8 @@ export interface JuryRound {
   notGuilty: number;
   /** Grant / refuse counts per demand other than the main request (which is counted from the guilty / not guilty vote). */
   demandTallies?: Record<string, { grant: number; deny: number }>;
+  /** Jurors who could not be reached this round and did not vote. They are not in `votes` or the counts. */
+  absent?: number;
 }
 
 /** How the jury ruled on one demand, from the final ballot. A tie means not granted. */
@@ -575,6 +580,8 @@ export interface JuryDeliberationResult {
   notGuiltyVotes: number;
   unanimous: boolean;
   rounds: JuryRound[];
+  /** Jurors who could not be reached in the last round and did not vote. */
+  absentJurors?: number;
   /** Result on every demand when the case has a requested relief; the main request matches `outcome`. */
   demands?: DemandResult[];
 }
@@ -613,6 +620,27 @@ function parseJurorVote(text: string, demandIds: string[] = []): { vote: 'GUILTY
   return null;
 }
 
+/** Runs `fn` over the items with at most `limit` in flight at once, keeping the order of the results. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
+  return out;
+}
+
+const wait = (ms: number) => (ms > 0 ? new Promise<void>(resolve => setTimeout(resolve, ms)) : Promise.resolve());
+
+/** A few at a time, so a free-tier AI key is not hit with every juror at once. */
+const JURY_CONCURRENCY = 4;
+/** Waits before the 2nd and 3rd try for a juror whose call failed (rate limit or a bad reply). */
+const JUROR_RETRY_DELAYS_MS = [2000, 6000];
+
 /**
  * Runs the jury: each juror casts a real, individual AI vote based on the
  * trial transcript and their own profile. Round 1 is independent; later
@@ -629,10 +657,16 @@ export async function generateJuryDeliberation(params: {
   defendantName?: string;
   /** What the prosecution asks for. Every juror votes on each, inside the same call as the main vote. */
   demands?: Demand[];
+  /** How many jurors are asked at once (default 4). */
+  concurrency?: number;
+  /** Waits before each retry of a failed juror call, in ms (default 2s then 6s; 3 tries in all). */
+  retryDelaysMs?: number[];
   onRoundStart?: (round: number) => void;
   onRoundComplete?: (round: JuryRound) => void;
 }): Promise<JuryDeliberationResult> {
-  const { jurors, events, evidence, caseTitle, defendantName, demands = [], onRoundStart, onRoundComplete } = params;
+  const { jurors, events, evidence, caseTitle, defendantName, demands = [], concurrency = JURY_CONCURRENCY, retryDelaysMs = JUROR_RETRY_DELAYS_MS, onRoundStart, onRoundComplete } = params;
+  // A verdict needs more than half the jury; with fewer, the case is not decided on a handful of votes.
+  const quorum = Math.floor(jurors.length / 2) + 1;
   const mainDemand = demands.find(d => d.id === 'main');
   const otherIds = demands.filter(d => d.id !== 'main').map(d => d.id);
   const demandBlock = demands.length === 0 ? '' : `\nTHE PROSECUTION IS ASKING THE COURT TO GRANT:\n${demands.map(d => `- [${d.id}] ${d.text}${d.id === 'main' ? '  (the MAIN request: your "vote" decides it)' : ''}`).join('\n')}\n${mainDemand ? 'Your "vote" is on the MAIN request: GUILTY means you grant it, NOT_GUILTY means you refuse it.' : 'Your "vote" is on the case as a whole: GUILTY or NOT_GUILTY.'}${otherIds.length ? ` In "demands", answer true (grant) or false (refuse) for each of: ${otherIds.join(', ')}. Judge each on the evidence, as this juror would.` : ''}\n`;
@@ -664,8 +698,9 @@ export async function generateJuryDeliberation(params: {
           .join('\n')
       : '';
 
-    const votes: JurorVote[] = await Promise.all(
-      jurors.map(async (juror): Promise<JurorVote> => {
+    const reached: Array<JurorVote | null> = await mapLimit(
+      jurors, concurrency,
+      async (juror): Promise<JurorVote | null> => {
         const occupation = juror.occupation || 'Citizen';
         const traits = describeJurorTraits(juror.personality_traits).join(', ');
         const biases = describeJurorTraits(juror.biases).join(', ');
@@ -688,7 +723,8 @@ ${prev ? `\nThis is deliberation round ${round} of ${MAX_JURY_ROUNDS}. Last roun
 RESPOND WITH VALID JSON ONLY:
 {"vote": "GUILTY" or "NOT_GUILTY", "reason": "one short sentence in your own voice"${otherIds.length ? `, "demands": {${otherIds.map(id => `"${id}": true or false`).join(', ')}}` : ''}}`;
 
-        for (let attempt = 0; attempt < 2; attempt++) {
+        for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+          if (attempt > 0) await wait(retryDelaysMs[attempt - 1]);
           try {
             const response = await generateAIResponse({
               system,
@@ -705,27 +741,35 @@ RESPOND WITH VALID JSON ONLY:
               };
             }
           } catch (error) {
-            console.error(`[Jury] ${juror.name} vote failed (attempt ${attempt + 1}):`, error);
+            console.error(`[Jury] ${juror.name} vote failed (attempt ${attempt + 1} of ${retryDelaysMs.length + 1}):`, error);
           }
         }
-        // Both attempts failed: keep their previous vote, or presume innocence.
+        // Every try failed. A juror who already voted holds that vote; one who never voted is
+        // absent and does not count. A vote is never made up.
+        if (!myPrevious) return null;
         return {
           jurorId: juror.id,
           name: juror.name,
           occupation,
-          vote: myPrevious ?? 'NOT_GUILTY',
+          vote: myPrevious,
           reason: '',
           fallback: true,
           ...(otherIds.length ? { demands: Object.fromEntries(otherIds.map(id => [id, prev?.find(v => v.jurorId === juror.id)?.demands?.[id] ?? false])) } : {})
         };
-      })
+      }
     );
+    const votes = reached.filter((v): v is JurorVote => v !== null);
+    const absent = jurors.length - votes.length;
+    if (votes.length < quorum) {
+      throw new Error(`Only ${votes.length} of ${jurors.length} jurors could be reached; a verdict needs at least ${quorum}.`);
+    }
 
     const guilty = votes.filter(v => v.vote === 'GUILTY').length;
-    const failed = votes.filter(v => v.fallback).length;
-    if (failed > 0) console.warn(`[Jury] round ${round}: ${failed} of ${votes.length} jurors could not be reached and kept their previous vote.`);
+    const held = votes.filter(v => v.fallback).length;
+    if (absent > 0 || held > 0) console.warn(`[Jury] round ${round}: ${absent} juror(s) could not be reached and did not vote; ${held} held their previous vote.`);
     const result: JuryRound = {
       round, votes, guilty, notGuilty: votes.length - guilty,
+      ...(absent ? { absent } : {}),
       ...(otherIds.length ? { demandTallies: Object.fromEntries(otherIds.map(id => {
         const grant = votes.filter(v => v.demands?.[id] === true).length;
         return [id, { grant, deny: votes.length - grant }];
@@ -746,6 +790,7 @@ RESPOND WITH VALID JSON ONLY:
     notGuiltyVotes: last.notGuilty,
     unanimous: last.guilty === 0 || last.notGuilty === 0,
     rounds,
+    ...(last.absent ? { absentJurors: last.absent } : {}),
     ...(demands.length ? { demands: demands.map((d): DemandResult => {
       const t = d.id === 'main' ? { grant: last.guilty, deny: last.notGuilty } : last.demandTallies?.[d.id] ?? { grant: 0, deny: last.votes.length };
       return { id: d.id, kind: d.kind, label: d.label, text: d.text, grant: t.grant, deny: t.deny, granted: t.grant > t.deny };

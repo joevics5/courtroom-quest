@@ -36,6 +36,9 @@ export function JuryVoteHistory({ rounds }: { rounds: JuryRound[] }) {
                 className={`w-4 h-4 rounded-full ${v.vote === 'GUILTY' ? 'bg-red-500' : 'bg-blue-500'}`}
               />
             ))}
+            {Array.from({ length: r.absent ?? 0 }, (_, i) => (
+              <span key={`absent-${i}`} title="Could not be reached" data-absent="true" className="w-4 h-4 rounded-full border border-dashed border-white/40" />
+            ))}
           </div>
           <span className="text-xs font-semibold text-white/85 shrink-0">
             <span className="text-red-400">{r.guilty}</span>
@@ -47,6 +50,9 @@ export function JuryVoteHistory({ rounds }: { rounds: JuryRound[] }) {
       <div className="flex gap-4 text-[11px] text-white/55 pt-1">
         <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Guilty</span>
         <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Not guilty</span>
+        {rounds.some(r => (r.absent ?? 0) > 0) && (
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full border border-dashed border-white/40" /> Not reached</span>
+        )}
       </div>
     </div>
   );
