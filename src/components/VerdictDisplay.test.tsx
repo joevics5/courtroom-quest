@@ -174,4 +174,23 @@ describe('VerdictDisplay', () => {
     await waitFor(() => expect(db.sessions.getSession).toHaveBeenCalled());
     expect(screen.queryByText("THE COURT'S RULING ON EACH REQUEST")).toBeNull();
   });
+
+  it('puts the ruling on each request under how the jury voted and above the evidence cited', async () => {
+    const vote = (n: number, v: string) => ({ jurorId: `j${n}`, name: `Juror ${n}`, vote: v, reason: 'r' });
+    (db.sessions.getSession as any).mockResolvedValueOnce({
+      session_state: {
+        juryVotes: [{ round: 1, votes: [vote(1, 'GUILTY'), vote(2, 'NOT_GUILTY')], guiltyVotes: 1, notGuiltyVotes: 1 }],
+        demandResults: [
+          { id: 'main', label: 'MAIN REQUEST', text: 'Find the review defamed the restaurant', grant: 1, deny: 11, granted: false },
+          { id: 'money', label: 'MONEY', text: '$6,000 for lost business', grant: 1, deny: 11, granted: false }
+        ]
+      }
+    });
+    render(<VerdictDisplay verdict={verdict({ outcome: 'lose' })} {...base} wins={1} />);
+    const rulings = await screen.findByText("THE COURT'S RULING ON EACH REQUEST");
+    const jury = screen.getByText('HOW THE JURY VOTED');
+    const evidence = screen.getByText('EVIDENCE CITED');
+    expect(jury.compareDocumentPosition(rulings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rulings.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

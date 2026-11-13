@@ -722,6 +722,8 @@ RESPOND WITH VALID JSON ONLY:
     );
 
     const guilty = votes.filter(v => v.vote === 'GUILTY').length;
+    const failed = votes.filter(v => v.fallback).length;
+    if (failed > 0) console.warn(`[Jury] round ${round}: ${failed} of ${votes.length} jurors could not be reached and kept their previous vote.`);
     const result: JuryRound = {
       round, votes, guilty, notGuilty: votes.length - guilty,
       ...(otherIds.length ? { demandTallies: Object.fromEntries(otherIds.map(id => {

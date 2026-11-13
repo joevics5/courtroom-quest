@@ -2391,7 +2391,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               round: r.round,
               guilty: r.guilty,
               notGuilty: r.notGuilty,
-              votes: r.votes.map(v => ({ jurorId: v.jurorId, name: v.name, occupation: v.occupation, vote: v.vote, reason: v.reason, ...(v.demands ? { demands: v.demands } : {}) })),
+              votes: r.votes.map(v => ({ jurorId: v.jurorId, name: v.name, occupation: v.occupation, vote: v.vote, reason: v.reason, ...(v.fallback ? { fallback: true } : {}), ...(v.demands ? { demands: v.demands } : {}) })),
               ...(r.demandTallies ? { demandTallies: r.demandTallies } : {}),
               guiltyVotes: r.guilty,
               notGuiltyVotes: r.notGuilty

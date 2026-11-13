@@ -226,13 +226,6 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                 </div>
               </div>
 
-              {demandResults.length > 1 && (
-                <div>
-                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">THE COURT'S RULING ON EACH REQUEST</h3>
-                  <DemandRulings results={demandResults} playerRole={playerRole} />
-                </div>
-              )}
-
               {hasScore && !appeal.gated && (
                 <div>
                   <h3 className="font-game text-xl text-white/90 leading-none mb-2">PERFORMANCE SCORE</h3>
@@ -264,6 +257,13 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                   <div className="rounded-xl bg-black/35 border border-white/10 p-4">
                     <JuryVoteHistory rounds={juryRounds} />
                   </div>
+                </div>
+              )}
+
+              {demandResults.length > 1 && (
+                <div>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">THE COURT'S RULING ON EACH REQUEST</h3>
+                  <DemandRulings results={demandResults} playerRole={playerRole} />
                 </div>
               )}
 
