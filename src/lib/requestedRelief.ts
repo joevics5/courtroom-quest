@@ -6,6 +6,18 @@ export interface ReliefRow {
   text: string;
 }
 
+/** One thing the prosecution asks for, with a stable id so votes and rulings can point at it. */
+export interface Demand extends ReliefRow {
+  /** 'main', 'money', 'penalty', 'also1', 'also2' ... */
+  id: string;
+}
+
+/** The demands with ids. The main request is the deciding issue; the rest are voted on alongside it. */
+export function reliefDemands(relief?: RequestedRelief | null): Demand[] {
+  let extra = 0;
+  return reliefRows(relief).map(r => ({ ...r, id: r.kind === 'also' ? `also${++extra}` : r.kind }));
+}
+
 /** The demands in reading order: the main request, money, the penalty, then everything else asked for. */
 export function reliefRows(relief?: RequestedRelief | null): ReliefRow[] {
   if (!relief) return [];

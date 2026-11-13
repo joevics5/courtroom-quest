@@ -508,6 +508,8 @@ export interface JurorProfile {
   biases?: unknown;
 }
 
+import type { Demand } from '../requestedRelief';
+
 export interface JurorVote {
   jurorId: string;
   name: string;
@@ -516,6 +518,8 @@ export interface JurorVote {
   reason: string;
   /** true if the AI call failed and the vote was carried over / defaulted */
   fallback?: boolean;
+  /** This juror's vote on each demand other than the main request: true = grant, false = refuse. */
+  demands?: Record<string, boolean>;
 }
 
 export interface JuryRound {
@@ -523,6 +527,19 @@ export interface JuryRound {
   votes: JurorVote[];
   guilty: number;
   notGuilty: number;
+  /** Grant / refuse counts per demand other than the main request (which is counted from the guilty / not guilty vote). */
+  demandTallies?: Record<string, { grant: number; deny: number }>;
+}
+
+/** How the jury ruled on one demand, from the final ballot. A tie means not granted. */
+export interface DemandResult {
+  id: string;
+  kind: Demand['kind'];
+  label: string;
+  text: string;
+  grant: number;
+  deny: number;
+  granted: boolean;
 }
 
 export interface JuryDeliberationResult {
@@ -531,18 +548,33 @@ export interface JuryDeliberationResult {
   notGuiltyVotes: number;
   unanimous: boolean;
   rounds: JuryRound[];
+  /** Result on every demand when the case has a requested relief; the main request matches `outcome`. */
+  demands?: DemandResult[];
 }
 
 const MAX_JURY_ROUNDS = 3;
 
-function parseJurorVote(text: string): { vote: 'GUILTY' | 'NOT_GUILTY'; reason: string } | null {
+const asGrant = (v: unknown): boolean | null => {
+  if (typeof v === 'boolean') return v;
+  const t = String(v ?? '').trim().toUpperCase();
+  if (['TRUE', 'YES', 'GRANT', 'GRANTED', 'GUILTY'].includes(t)) return true;
+  if (['FALSE', 'NO', 'DENY', 'DENIED', 'REFUSE', 'REFUSED', 'NOT_GUILTY', 'NOT GUILTY'].includes(t)) return false;
+  return null;
+};
+
+function parseJurorVote(text: string, demandIds: string[] = []): { vote: 'GUILTY' | 'NOT_GUILTY'; reason: string; demands?: Record<string, boolean> } | null {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]);
       const raw = String(parsed.vote || '').toUpperCase().replace(/[\s-]+/g, '_');
       if (raw === 'GUILTY' || raw === 'NOT_GUILTY') {
-        return { vote: raw, reason: String(parsed.reason || '').slice(0, 220) };
+        const demands: Record<string, boolean> = {};
+        for (const id of demandIds) {
+          const g = asGrant(parsed.demands?.[id]);
+          if (g !== null) demands[id] = g;
+        }
+        return { vote: raw, reason: String(parsed.reason || '').slice(0, 220), ...(demandIds.length ? { demands } : {}) };
       }
     } catch {
       // fall through to keyword parsing
@@ -568,10 +600,15 @@ export async function generateJuryDeliberation(params: {
   evidence: Evidence[];
   caseTitle: string;
   defendantName?: string;
+  /** What the prosecution asks for. Every juror votes on each, inside the same call as the main vote. */
+  demands?: Demand[];
   onRoundStart?: (round: number) => void;
   onRoundComplete?: (round: JuryRound) => void;
 }): Promise<JuryDeliberationResult> {
-  const { jurors, events, evidence, caseTitle, defendantName, onRoundStart, onRoundComplete } = params;
+  const { jurors, events, evidence, caseTitle, defendantName, demands = [], onRoundStart, onRoundComplete } = params;
+  const mainDemand = demands.find(d => d.id === 'main');
+  const otherIds = demands.filter(d => d.id !== 'main').map(d => d.id);
+  const demandBlock = demands.length === 0 ? '' : `\nTHE PROSECUTION IS ASKING THE COURT TO GRANT:\n${demands.map(d => `- [${d.id}] ${d.text}${d.id === 'main' ? '  (the MAIN request: your "vote" decides it)' : ''}`).join('\n')}\n${mainDemand ? 'Your "vote" is on the MAIN request: GUILTY means you grant it, NOT_GUILTY means you refuse it.' : 'Your "vote" is on the case as a whole: GUILTY or NOT_GUILTY.'}${otherIds.length ? ` In "demands", answer true (grant) or false (refuse) for each of: ${otherIds.join(', ')}. Judge each on the evidence, as this juror would.` : ''}\n`;
 
   let transcript = generateTranscript(events);
   if (transcript.length > 9000) {
@@ -617,12 +654,12 @@ ${transcript}
 
 EVIDENCE SUBMITTED DURING TRIAL:
 ${evidenceList || 'No evidence was formally submitted.'}
-
+${demandBlock}
 Decide whether the prosecution proved guilt BEYOND A REASONABLE DOUBT, as this particular person would. Attorney statements (openings, closings, loaded questions) are argument, not evidence — weigh witness testimony and exhibits. Do not use outside information.
 ${prev ? `\nThis is deliberation round ${round} of ${MAX_JURY_ROUNDS}. Last round the jury stood ${prevGuilty} guilty, ${prevNotGuilty} not guilty. You voted ${myPrevious === 'GUILTY' ? 'guilty' : 'not guilty'}. Points other jurors made:\n${discussion || '(none recorded)'}\nChange your vote ONLY if genuinely persuaded; otherwise hold firm.` : '\nThis is the first ballot — vote independently.'}
 
 RESPOND WITH VALID JSON ONLY:
-{"vote": "GUILTY" or "NOT_GUILTY", "reason": "one short sentence in your own voice"}`;
+{"vote": "GUILTY" or "NOT_GUILTY", "reason": "one short sentence in your own voice"${otherIds.length ? `, "demands": {${otherIds.map(id => `"${id}": true or false`).join(', ')}}` : ''}}`;
 
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
@@ -631,11 +668,14 @@ RESPOND WITH VALID JSON ONLY:
               user: 'Cast your vote now.',
               responseFormat: 'json',
               temperature: 0.6,
-              maxTokens: 400
+              maxTokens: otherIds.length ? 600 : 400
             });
-            const parsed = parseJurorVote(response.text);
+            const parsed = parseJurorVote(response.text, otherIds);
             if (parsed) {
-              return { jurorId: juror.id, name: juror.name, occupation, vote: parsed.vote, reason: parsed.reason };
+              return {
+                jurorId: juror.id, name: juror.name, occupation, vote: parsed.vote, reason: parsed.reason,
+                ...(otherIds.length ? { demands: Object.fromEntries(otherIds.map(id => [id, parsed.demands?.[id] ?? prev?.find(v => v.jurorId === juror.id)?.demands?.[id] ?? false])) } : {})
+              };
             }
           } catch (error) {
             console.error(`[Jury] ${juror.name} vote failed (attempt ${attempt + 1}):`, error);
@@ -648,13 +688,20 @@ RESPOND WITH VALID JSON ONLY:
           occupation,
           vote: myPrevious ?? 'NOT_GUILTY',
           reason: '',
-          fallback: true
+          fallback: true,
+          ...(otherIds.length ? { demands: Object.fromEntries(otherIds.map(id => [id, prev?.find(v => v.jurorId === juror.id)?.demands?.[id] ?? false])) } : {})
         };
       })
     );
 
     const guilty = votes.filter(v => v.vote === 'GUILTY').length;
-    const result: JuryRound = { round, votes, guilty, notGuilty: votes.length - guilty };
+    const result: JuryRound = {
+      round, votes, guilty, notGuilty: votes.length - guilty,
+      ...(otherIds.length ? { demandTallies: Object.fromEntries(otherIds.map(id => {
+        const grant = votes.filter(v => v.demands?.[id] === true).length;
+        return [id, { grant, deny: votes.length - grant }];
+      })) } : {})
+    };
     rounds.push(result);
     previous = votes;
     onRoundComplete?.(result);
@@ -669,7 +716,11 @@ RESPOND WITH VALID JSON ONLY:
     guiltyVotes: last.guilty,
     notGuiltyVotes: last.notGuilty,
     unanimous: last.guilty === 0 || last.notGuilty === 0,
-    rounds
+    rounds,
+    ...(demands.length ? { demands: demands.map((d): DemandResult => {
+      const t = d.id === 'main' ? { grant: last.guilty, deny: last.notGuilty } : last.demandTallies?.[d.id] ?? { grant: 0, deny: last.votes.length };
+      return { id: d.id, kind: d.kind, label: d.label, text: d.text, grant: t.grant, deny: t.deny, granted: t.grant > t.deny };
+    }) } : {})
   };
 }
 
