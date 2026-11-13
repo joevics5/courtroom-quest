@@ -35,7 +35,7 @@ import {
   getExaminationType,
   type TurnState
 } from '../lib/trialTurnSystem';
-import { descriptionWithRelief } from '../lib/requestedRelief';
+import { descriptionWithRelief, reliefDemands } from '../lib/requestedRelief';
 import { generateProsecutionAction, buildTranscriptSummary, generateProsecutionOpeningStatement, generateClosingArgument, generateObjectionRuling, generateWitnessResponse, generateVerdict, generateJuryDeliberation, type JurorProfile } from '../lib/ai/trialAI';
 import JuryDeliberation, { type DeliberationState } from './JuryDeliberation';
 import type { VerdictResult } from '../lib/ai/trialAI';
@@ -2346,6 +2346,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       const trialType = session.trial_type || 'judge';
       const submittedEvidence = evidence.filter(e => usedByEither(eventsRef.current).evidence.includes(e.id));
+      // What the prosecution asks for: the jury or judge rules on each, and the main request decides the verdict.
+      const demands = reliefDemands(caseData?.requested_relief);
 
       let juryResult: Awaited<ReturnType<typeof generateJuryDeliberation>> | undefined;
       if (trialType === 'jury') {
@@ -2364,6 +2366,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           evidence: submittedEvidence,
           caseTitle: caseData?.title || 'Unknown Case',
           defendantName: caseData?.defendant_name,
+          demands,
           onRoundStart: round => setDeliberation(d => (d ? { ...d, votingRound: round, stage: 'voting' } : d)),
           onRoundComplete: round => setDeliberation(d => (d ? { ...d, rounds: [...d.rounds, round], votingRound: null } : d))
         });
@@ -2388,7 +2391,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               round: r.round,
               guilty: r.guilty,
               notGuilty: r.notGuilty,
-              votes: r.votes.map(v => ({ jurorId: v.jurorId, name: v.name, occupation: v.occupation, vote: v.vote, reason: v.reason })),
+              votes: r.votes.map(v => ({ jurorId: v.jurorId, name: v.name, occupation: v.occupation, vote: v.vote, reason: v.reason, ...(v.demands ? { demands: v.demands } : {}) })),
+              ...(r.demandTallies ? { demandTallies: r.demandTallies } : {}),
               guiltyVotes: r.guilty,
               notGuiltyVotes: r.notGuilty
             }))
@@ -2407,8 +2411,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         caseData?.defendant_name,
         trialType as 'judge' | 'jury',
         juryResult,
-        descriptionWithRelief(caseData?.description, caseData?.requested_relief)
+        descriptionWithRelief(caseData?.description, caseData?.requested_relief),
+        demands
       );
+
+      // Keep the ruling on each demand so the verdict screen and any appeal can show it.
+      if (verdictResult.demands?.length) {
+        db.sessions.mergeState(session.id, { demandResults: verdictResult.demands }).catch(err => console.error('Failed to save the rulings on each demand:', err));
+      }
 
       const verdict = await db.verdicts.createVerdict({
         session_id: session.id,
