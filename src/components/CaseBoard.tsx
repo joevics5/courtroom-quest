@@ -13,7 +13,7 @@ import { boardSessions } from '../lib/gameCounts';
 import { activeAppeal, appealsEnabled } from '../lib/appeals';
 import type { Case, CaseSession } from '../types';
 
-type BoardTab = 'ongoing' | 'new' | 'trendy' | 'popular' | 'easy';
+type BoardTab = 'ongoing' | 'new' | 'trendy' | 'popular';
 
 interface CaseBoardProps {
   onBack: () => void;
@@ -185,18 +185,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
     const week = (c: Case) => stats[c.id]?.week ?? 0;
     if (sortBy === 'popular') return cases.filter(c => c.case_category === 'popular').sort((a, b) => plays(b) - plays(a));
     if (sortBy === 'trendy') return cases.filter(c => c.case_category === 'trendy').sort((a, b) => week(b) - week(a) || plays(b) - plays(a));
-    if (sortBy === 'easy') return cases.filter(c => c.difficulty === 'easy');
     return cases;
   }, [cases, stats, sortBy]);
-
-  const getDifficultyColor = (difficulty?: string) => {
-    switch (difficulty) {
-      case 'easy': return 'text-green-400 bg-green-500/20 border-green-500/30';
-      case 'medium': return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/30';
-      case 'hard': return 'text-red-400 bg-red-500/20 border-red-500/30';
-      default: return 'text-white/55 bg-slate-500/20 border-slate-500/30';
-    }
-  };
 
   const handleReviewCase = (caseItem: Case) => {
     if (onPick) onPick(caseItem);
@@ -238,8 +228,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
               ['ongoing', `Ongoing (${ongoingCases.length + waitingGames.length + appealRequests.length})`],
               ['new', 'New'],
               ['trendy', 'Trendy'],
-              ['popular', 'Popular'],
-              ['easy', 'Easy']
+              ['popular', 'Popular']
             ] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -270,7 +259,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
           </div>
         ) : (sortBy !== 'ongoing' && visibleCases.length === 0) ? (
           <div className="text-center py-20">
-            <p className="text-white/55 mb-4">{sortBy === 'easy' ? 'No easy cases yet.' : sortBy === 'trendy' ? 'No trendy cases yet.' : sortBy === 'popular' ? 'No popular cases yet.' : 'No cases available'}</p>
+            <p className="text-white/55 mb-4">{sortBy === 'trendy' ? 'No trendy cases yet.' : sortBy === 'popular' ? 'No popular cases yet.' : 'No cases available'}</p>
             <button
               onClick={() => loadCases()}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
@@ -397,31 +386,11 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
 
             {/* Cases to start */}
             {sortBy !== 'ongoing' && visibleCases.map((caseItem) => {
-              const st = stats[caseItem.id];
               return (
                 <div
                   key={`new-${caseItem.id}`}
                   className="flex flex-col bg-black/70 border border-white/15 rounded-2xl p-5 backdrop-blur-sm hover:border-white/30 transition-all group"
                 >
-                  {!onPick && (
-                    <div className="flex items-center gap-2 flex-wrap mb-3">
-                      {caseItem.difficulty && (
-                        <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide uppercase ${getDifficultyColor(caseItem.difficulty)}`}>
-                          {caseItem.difficulty}
-                        </span>
-                      )}
-                      {sortBy === 'trendy' && st && st.week > 0 && (
-                        <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-orange-500/20 border-orange-400/60 text-orange-300">
-                          {st.week} THIS WEEK
-                        </span>
-                      )}
-                      {sortBy === 'popular' && st && st.plays > 0 && (
-                        <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-sky-500/20 border-sky-400/60 text-sky-300">
-                          {st.plays} {st.plays === 1 ? 'PLAY' : 'PLAYS'}
-                        </span>
-                      )}
-                    </div>
-                  )}
                   <div className="flex items-start gap-3 mb-3">
                     <CaseThumb src={caseItem.image_url} />
                     <div className="flex-1 min-w-0 flex items-start justify-between gap-2">

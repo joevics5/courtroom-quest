@@ -101,7 +101,7 @@ export default function CaseHistory({ userId, onBack, onOpen }: CaseHistoryProps
                   <h2 className="font-game text-2xl leading-tight text-white truncate">{e.title}</h2>
                   <p className="text-sm text-white/60 mt-0.5">
                     {e.role === 'prosecution' ? 'Prosecution' : 'Defense'} · Verdict: {e.verdictWord}
-                    {e.difficulty ? ` · ${e.difficulty}` : ''} · {dateLabel(e.finishedAt)}
+                    · {dateLabel(e.finishedAt)}
                   </p>
                 </div>
                 <span
