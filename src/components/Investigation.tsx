@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { appAlert } from '../lib/appDialog';
-import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, FileText, Info, Mic, Send, User, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, FileText, Info, Mic, Send, User, Users, X } from 'lucide-react';
 import { db } from '../lib/database';
 import EvidenceViewer from './EvidenceViewer';
 import HeroBackground from './HeroBackground';
@@ -46,7 +46,8 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
   const [isQuestioningLoading, setIsQuestioningLoading] = useState(false);
   const [showPitchModal, setShowPitchModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
-  const [showWitnessInfo, setShowWitnessInfo] = useState(false);
+  // Open by default: most players would never think to open it. It closes with the button at the top or the one below it.
+  const [showWitnessInfo, setShowWitnessInfo] = useState(true);
 
   // The other player sees what I am looking at as I move around the case file.
   useEffect(() => {
@@ -74,9 +75,9 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
     }
   }, [showCaseReview, caseForReview]);
 
-  // Reset accordion when witness changes
+  // Each witness opens with their info showing
   useEffect(() => {
-    setShowWitnessInfo(false);
+    setShowWitnessInfo(true);
   }, [selectedWitness?.id]);
 
   // Auto-scroll to bottom when new interactions are added or loading state changes
@@ -247,10 +248,11 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
               <button
                 onClick={() => setShowWitnessInfo(!showWitnessInfo)}
                 aria-expanded={showWitnessInfo}
-                className="flex-none flex items-center gap-1 rounded-full bg-white/10 border border-white/15 px-3 h-9 text-xs font-bold text-white"
+                aria-label={showWitnessInfo ? 'Hide witness info' : 'Show witness info'}
+                className="flex-none flex items-center gap-1.5 rounded-full bg-white/10 border border-white/15 px-3 h-9 text-xs font-bold text-white"
               >
-                INFO
-                <ChevronDown className={`w-4 h-4 transition-transform ${showWitnessInfo ? 'rotate-180' : ''}`} />
+                {showWitnessInfo ? 'HIDE INFO' : 'INFO'}
+                {showWitnessInfo ? <X className="w-4 h-4" aria-hidden="true" /> : <ChevronDown className="w-4 h-4" aria-hidden="true" />}
               </button>
             </div>
 
@@ -264,6 +266,14 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
                   <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-1">WRITTEN TESTIMONY</h3>
                   <p className="text-sm text-white/85 whitespace-pre-wrap leading-relaxed">{selectedWitness.base_testimony}</p>
                 </div>
+                <button
+                  onClick={() => setShowWitnessInfo(false)}
+                  aria-label="Close witness info"
+                  className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-white/10 border border-white/15 py-2 text-xs font-bold text-white/80"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                  CLOSE AND START QUESTIONING
+                </button>
               </div>
             )}
           </div>

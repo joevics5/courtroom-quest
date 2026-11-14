@@ -89,6 +89,44 @@ describe('Investigation', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /PROCEED TO TRIAL/ })).toBeInTheDocument());
   });
 
+  it("shows the witness's background and written testimony as soon as you open them", async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /WITNESSES/ }));
+    fireEvent.click(screen.getByText('Dr. Elizabeth Warren'));
+    expect(screen.getByText('Ten years on the job')).toBeInTheDocument();
+    expect(screen.getByText('Time of death was 9pm.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide witness info' })).toHaveTextContent('HIDE INFO');
+  });
+
+  it('closes with the button at the top, and opens again from the same button', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /WITNESSES/ }));
+    fireEvent.click(screen.getByText('Dr. Elizabeth Warren'));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide witness info' }));
+    expect(screen.queryByText('Time of death was 9pm.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show witness info' }));
+    expect(screen.getByText('Time of death was 9pm.')).toBeInTheDocument();
+  });
+
+  it('also closes with the button under the info', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /WITNESSES/ }));
+    fireEvent.click(screen.getByText('Dr. Elizabeth Warren'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close witness info' }));
+    expect(screen.queryByText('Ten years on the job')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show witness info' })).toBeInTheDocument();
+  });
+
+  it('opens again the next time you pick a witness', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /WITNESSES/ }));
+    fireEvent.click(screen.getByText('Dr. Elizabeth Warren'));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide witness info' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to witnesses' }));
+    fireEvent.click(await screen.findByText('Dr. Elizabeth Warren'));
+    expect(screen.getByText('Time of death was 9pm.')).toBeInTheDocument();
+  });
+
   it('reviewing a case before a game exists shows only the brief and lets you accept', async () => {
     const onReviewAccept = vi.fn();
     const caseForReview = { id: 'c1', title: 'The Murder Mystery', description: 'Brief text.', defendant_name: 'Helen John' } as never;
