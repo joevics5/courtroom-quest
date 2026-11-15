@@ -76,9 +76,21 @@ describe('witness stage clocks', () => {
     expect(beginDirect({ [POOL_KEY]: 100, [DEFENSE_HALF_KEY]: 70, [CROSS_RESERVE_KEY]: 0 }, 9, 15)).toBeNull();
   });
 
-  it('gives redirect a short turn or none', () => {
-    expect(beginRedirect(start, 12)![12]).toBe(30);
-    expect(beginRedirect({ [POOL_KEY]: 80, [DEFENSE_HALF_KEY]: 70, [CROSS_RESERVE_KEY]: 0 }, 12)).toBeNull();
+  it('gives redirect its own 30 seconds, outside the pool, even when the pool is nearly empty', () => {
+    const next = beginRedirect(start, 12);
+    expect(next[12]).toBe(30);
+    expect(next[POOL_KEY]).toBe(start[POOL_KEY]);
+    const nearlyEmpty = { [POOL_KEY]: 80, [DEFENSE_HALF_KEY]: 70, [CROSS_RESERVE_KEY]: 0 };
+    expect(beginRedirect(nearlyEmpty, 12)[12]).toBe(30);
+    expect(beginRedirect(nearlyEmpty, 12)[POOL_KEY]).toBe(80);
+  });
+
+  it('does not hand a redirect\'s unused seconds back to the witness time', () => {
+    const clocks = { ...start, 12: 22 };
+    expect(settlePhase(clocks, 12, false)[POOL_KEY]).toBe(start[POOL_KEY]);
+    expect(settlePhase(clocks, 12, false)[12]).toBe(0);
+    // A direct or cross-examination still returns what it did not use.
+    expect(settlePhase(clocks, 12)[POOL_KEY]).toBe(start[POOL_KEY] + 22);
   });
 });
 
@@ -119,16 +131,25 @@ describe('trial lengths still add up', () => {
     }
   });
 
-  it('witness phases have no fixed clock; each side has its slots, direct then cross', () => {
+  it('witness phases have no fixed clock; each side has its slots: direct, cross, then a redirect slot', () => {
     const cfg = getTrialConfig(15);
     const w = cfg.phases.filter(p => /Witness/.test(p.name));
     expect(w.map(p => p.name)).toEqual([
-      'Prosecution Witness 1 - Direct Examination', 'Prosecution Witness 1 - Cross-Examination',
-      'Prosecution Witness 2 - Direct Examination', 'Prosecution Witness 2 - Cross-Examination',
-      'Defense Witness 1 - Direct Examination', 'Defense Witness 1 - Cross-Examination',
-      'Defense Witness 2 - Direct Examination', 'Defense Witness 2 - Cross-Examination'
+      'Prosecution Witness 1 - Direct Examination', 'Prosecution Witness 1 - Cross-Examination', 'Prosecution Witness 1 - Redirect',
+      'Prosecution Witness 2 - Direct Examination', 'Prosecution Witness 2 - Cross-Examination', 'Prosecution Witness 2 - Redirect',
+      'Defense Witness 1 - Direct Examination', 'Defense Witness 1 - Cross-Examination', 'Defense Witness 1 - Redirect',
+      'Defense Witness 2 - Direct Examination', 'Defense Witness 2 - Cross-Examination', 'Defense Witness 2 - Redirect'
     ]);
     w.forEach(p => expect(cfg.phaseDurations[p.number]).toBeUndefined());
+  });
+
+  it('every trial length has a redirect slot after each cross-examination', () => {
+    for (const d of [5, 15, 30, 60] as const) {
+      const names = getTrialConfig(d).phases.map(p => p.name);
+      const crosses = names.filter(n => /Cross-Examination/.test(n));
+      expect(crosses.length).toBeGreaterThan(0);
+      crosses.forEach(c => expect(names[names.indexOf(c) + 1]).toBe(c.replace('Cross-Examination', 'Redirect')));
+    }
   });
 
   it('numbers phases without gaps in every mode', () => {

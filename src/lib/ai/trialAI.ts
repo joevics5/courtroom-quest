@@ -12,7 +12,7 @@ import type { AIRequest, AIResponse } from './types';
 import type { TurnState, AllowedAction } from '../trialTurnSystem';
 import type { Witness, TrialEvent, Evidence } from '../../types';
 import { getJudgeDifficultyModifier, getProsecutionDifficultyModifier } from '../trialConfig';
-import { generateTranscript, extractEvidenceCitations } from '../transcriptGenerator';
+import { generateTranscript, extractEvidenceCitations, examinationLabel } from '../transcriptGenerator';
 import { describeJurorTraits } from '../jurorProfile';
 
 // ============================================================================
@@ -261,7 +261,7 @@ export async function generateProsecutionAction(
 // ============================================================================
 
 /** Who is putting the question: the counsel who called the witness, the other side, or a pre-trial interview. */
-export type WitnessExaminer = 'own_counsel' | 'opposing_counsel' | 'interview';
+export type WitnessExaminer = 'own_counsel' | 'own_counsel_redirect' | 'opposing_counsel' | 'interview';
 
 export interface WitnessContext {
   witness: Witness;
@@ -818,7 +818,7 @@ export function buildTranscriptSummary(
   return recentEvents
     .map(e => {
       const speaker = e.speaker_name || e.speaker_role;
-      return `[${speaker.toUpperCase()}] ${e.content.substring(0, 100)}${e.content.length > 100 ? '...' : ''}`;
+      return `[${speaker.toUpperCase()}${examinationLabel(e.metadata).toUpperCase()}] ${e.content.substring(0, 100)}${e.content.length > 100 ? '...' : ''}`;
     })
     .join('\n');
 }
@@ -931,6 +931,7 @@ COMMON OBJECTION TYPES:
 - Speculation: Witness guessing or speculating
 - Relevance: Question not relevant to the case
 - Argumentative: Question is argumentative rather than seeking facts
+- Outside the scope of cross-examination: a redirect question that opens a new topic the cross-examination did not raise (sustain it); a question that explains or answers something the cross-examination raised is proper (overrule it)
 
 RULES:
 - Rule either "sustained" or "overruled"
@@ -1056,6 +1057,9 @@ ${isDefense
 function buildProsecutionPrompt(context: ProsecutionContext): string {
   const maxWitnesses = context.trial_duration <= 15 ? 1 : context.trial_duration === 30 ? 2 : 3;
   const isDefense = context.side === 'defense';
+  const redirectRules = context.phase.toLowerCase().includes('redirect')
+    ? `\n\nREDIRECT EXAMINATION (this is what you are doing now):\n- Redirect is for repairing damage. You get exactly ONE short question, and only about something the other side's cross-examination raised. Never open a new topic.\n- Look at the cross-examination in the transcript. If it did not hurt your witness or leave something misleading to fix, choose "rest" and ask nothing.\n- If it did, ask ONE question that lets the witness explain or put the damaging answer in context. Do not repeat a question already asked.`
+    : '';
 
   return `You are the ${isDefense ? 'Defense' : 'Prosecution'} in a courtroom trial.
 
@@ -1082,7 +1086,7 @@ RULES:
 - Evidence can only be submitted while witnesses are being called and examined, never during opening or closing statements.
 - When choosing a witness, use a name exactly as it appears in AVAILABLE WITNESSES; when submitting evidence, use an ID exactly as it appears in AVAILABLE EVIDENCE.
 - You may submit only evidence listed as available.
-- Respond ONLY in valid JSON format.
+- Respond ONLY in valid JSON format.${redirectRules}
 
 CURRENT CONTEXT:
 - Phase: ${context.phase}
@@ -1199,6 +1203,7 @@ ${witness.base_testimony}\n\n`;
 
   const manner: Record<WitnessExaminer, string> = {
     own_counsel: `WHO IS QUESTIONING YOU: the lawyer who called you to testify, so you are on their side. Answer plainly and helpfully with what you know, and be willing to explain when asked. Do not gush, and do not volunteer more than the question calls for.`,
+    own_counsel_redirect: `WHO IS QUESTIONING YOU: the lawyer who called you, on redirect examination right after the other side's cross-examination, so you are on their side. Stay completely consistent with everything you already said under cross-examination: never take back or contradict it. You may explain it, put it in context or clarify it when asked, but you do not invent anything new. Keep it short.`,
     opposing_counsel: `WHO IS QUESTIONING YOU: the opposing lawyer, who is cross-examining you. Be guarded but civil, not hostile. Answer only what is asked, keep it short, offer nothing extra, and do not help them build their case. Give a direct answer to a direct question; you simply don't hand them more.`,
     interview: `WHO IS QUESTIONING YOU: a lawyer interviewing you before trial. Answer plainly and responsively with what you know. Less guarded than under cross-examination, but not eager either: do not volunteer more than you are asked.`
   };

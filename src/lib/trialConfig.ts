@@ -55,7 +55,9 @@ function generateWitnessPhases(duration: TrialDuration): TrialPhase[] {
   const phases: TrialPhase[] = [];
   let phaseNumber = 9; // Start after opening statements (phases 7, 8)
   const slots = witnessSlotsPerSide(duration);
-  const withRedirect = duration === 60;
+  // Every trial length has a redirect slot after each cross-examination. Whether it is actually offered depends on
+  // the cross (see witnessPlan), and it is one question on its own small clock outside the shared pool.
+  const withRedirect = true;
 
   for (const side of ['Prosecution', 'Defense']) {
     for (let i = 1; i <= slots; i++) {

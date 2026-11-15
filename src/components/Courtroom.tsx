@@ -1,8 +1,9 @@
 import { useLockPageScroll } from '@/lib/useLockPageScroll';
 import { questionRestSeconds, questionRestLabel, OBJECTION_WINDOW_SECONDS } from '@/lib/questionRest';
 import HandoffPill from './HandoffPill';
+import { REDIRECT_MAX_CHARS, redirectQuestionProblem, redirectQuestionAsked, redirectAnswered } from '@/lib/redirectRules';
 import { HANDOFF_SECONDS, STATEMENT_READ_SECONDS, MIN_STATEMENT_WORDS, statementComplete, statementWordCount, legacyStatementMinutes } from '@/lib/witnessPool';
-import { planNextPhase as planNextPhasePure } from '@/lib/witnessPlan';
+import { planNextPhase as planNextPhasePure, crossQuestionedPhasesOf } from '@/lib/witnessPlan';
 import { usedBySide, usedByEither } from '@/lib/usedBySide';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { appAlert, appConfirm } from '../lib/appDialog';
@@ -316,6 +317,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
    const [defenceModalTab, setDefenceModalTab] = useState<'witnesses' | 'evidence'>('witnesses');
   const [isProsecutionThinking, setIsProsecutionThinking] = useState(false);
   const [awaitingUserInput, setAwaitingUserInput] = useState(false);
+  const [redirectHint, setRedirectHint] = useState<string | null>(null);
+  const redirectEndedRef = useRef<number | null>(null);
   // Pass & play only: which "phase-turn" combo the device has already
   // been handed over for. Reset implicitly every time the key changes
   // (new phase, or turn flips within a phase), which is what makes the
@@ -892,6 +895,16 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     try {
       // If we're in a witness examination phase, treat input as a question
       if (turnState.current_witness_id && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect')) {
+        // Redirect is one short question: nothing longer, and no second question.
+        if (turnState.current_phase_type === 'redirect') {
+          const alreadyAsked = redirectQuestionAsked(eventsRef.current, currentPhase);
+          const problem = alreadyAsked ? 'Redirect is one question only.' : redirectQuestionProblem(input);
+          if (problem) {
+            setRedirectHint(problem);
+            return;
+          }
+        }
+        setRedirectHint(null);
         await handleAskQuestion(input, turnState.current_witness_id, sameDevicePlay ? (turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense') : playerRole);
         // handleAskQuestion re-opens awaitingUserInput itself (for the
         // human's own turn / pass & play) so a follow-up question can be
@@ -942,7 +955,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           .filter(e => e.event_type === 'witness_call')
           .map(e => (e.metadata as any)?.phase)
           .filter((n): n is number => typeof n === 'number')
-      )
+      ),
+      crossQuestionedPhases: crossQuestionedPhasesOf(eventsRef.current)
     });
 
   // The side whose statement a phase is, or null when it is not an opening or closing statement.
@@ -1157,6 +1171,21 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
     return () => clearTimeout(timer);
   }, [currentPhase, trialDuration, caseData, judgeInstructionPending, showPreTrial, isMultiplayer, isProsecutionThinking, turnState, aiRole, timerPaused, aiHold, handoff, questionRestLeft, isProcessingObjection]);
+
+  // Redirect is ONE question. Once it has been asked and answered, and the pause to read the answer is over,
+  // the redirect ends (there is no recross). Only the counsel who is questioning moves the trial on.
+  useEffect(() => {
+    if (showPreTrial || !turnState || turnState.current_phase_type !== 'redirect') return;
+    if (!redirectAnswered(events, currentPhase)) return;
+    if (questionRestLeft !== null || aiHold || handoff || isProcessing || isProcessingObjection || timerPaused) return;
+    const iAmExamining = turnState.current_turn === playerRole || sameDevicePlay || (!isMultiplayer && turnState.current_turn === aiRole);
+    if (!iAmExamining || redirectEndedRef.current === currentPhase) return;
+    const timer = setTimeout(() => {
+      redirectEndedRef.current = currentPhase;
+      void handleRestPhaseRef.current();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [showPreTrial, turnState, events, currentPhase, questionRestLeft, aiHold, handoff, isProcessing, isProcessingObjection, timerPaused, playerRole, sameDevicePlay, isMultiplayer, aiRole]);
 
   // Judge Instruction Sub-Phase Handler
   // Before entering any counsel action phase, show judge instruction first
@@ -1914,7 +1943,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       const previousInteractions = buildWitnessHistory(earlierEvents, witnessId);
 
       // Cross-examination comes from the other side; direct and redirect come from the counsel who called the witness.
-      const response = await generateWitnessResponse(witness, question, previousInteractions, examinationType === 'cross' ? 'opposing_counsel' : 'own_counsel');
+      const response = await generateWitnessResponse(witness, question, previousInteractions, examinationType === 'cross' ? 'opposing_counsel' : examinationType === 'redirect' ? 'own_counsel_redirect' : 'own_counsel');
 
       // The answer is read out for a fixed 20 seconds with the clock stopped. (In the break between counsel
       // the break itself is the time to read it.)
@@ -2057,6 +2086,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         argumentative: 'Argumentative',
         compound: 'Compound question',
         asked_and_answered: 'Asked and answered',
+        outside_scope: 'Outside the scope of cross-examination',
         other: 'Objection'
       };
 
@@ -2530,6 +2560,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // awaitingUserInput flag, and it is NOT locked while a witness answer is
   // being generated (only Submit is) — locking it blurred the field and
   // looked like the box had gone inactive after a single question.
+  // Has this redirect's one question been asked? (Then it is only waiting for the answer to be read.)
+  const redirectAsked = turnState?.current_phase_type === 'redirect' && redirectQuestionAsked(events, currentPhase);
   const inWitnessExam = !!turnState?.current_witness_id &&
     (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect');
   const phaseClockLeft = phaseTimeRemaining[currentPhase];
@@ -2830,6 +2862,12 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 />
               )}
 
+              {redirectHint && (
+                <div className="rounded-full border border-amber-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-amber-200">
+                  {redirectHint}
+                </div>
+              )}
+
               {waitingForStatement && (
                 <div className="rounded-full border border-amber-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-amber-200">
                   {statementSide === playerRole && !sameDevicePlay
@@ -2908,7 +2946,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                        <textarea
                          ref={inputRef}
                          value={input}
-                         onChange={(e) => setInput(e.target.value)}
+                         onChange={(e) => { setInput(e.target.value); if (redirectHint) setRedirectHint(null); }}
                          onKeyDown={(e) => {
                            if (e.key === 'Enter' && !e.shiftKey) {
                              e.preventDefault();
@@ -2918,11 +2956,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                          placeholder={
                            restLabel
                              ? `${restLabel}… (you can draft it now)`
+                             : turnState?.current_phase_type === 'redirect'
+                             ? "Redirect: ask ONE short question, or rest"
                              : turnState?.current_phase_type === 'direct' || turnState?.current_phase_type === 'cross'
                              ? "Ask a question to the witness... (Shift+Enter for a new line)"
                              : "Type your statement or question... (Shift+Enter for a new line)"
                          }
                          disabled={!inputOpen}
+                         maxLength={turnState?.current_phase_type === 'redirect' ? REDIRECT_MAX_CHARS : undefined}
                          rows={2}
                          className="w-full px-4 py-3 pr-12 bg-black/50 border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-[#FFD43B] disabled:opacity-50 text-base resize-y min-h-[3rem] max-h-40"
                        />
@@ -2955,7 +2996,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                            className={`flex-1 sm:flex-none ${gameButton('ghost', 'sm')}`}
                          >
                            <SkipForward className="w-5 h-5" />
-                           Rest
+                           {turnState?.current_phase_type === 'redirect' ? (redirectAsked ? 'Done' : 'No redirect') : 'Rest'}
                          </button>
                        {turnState?.current_turn !== 'judge' && (
                          <button
@@ -3009,6 +3050,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       {/* Objection Selector Modal */}
       {showObjectionSelector && (
         <ObjectionSelector
+          redirect={turnState?.current_phase_type === 'redirect'}
           onSelect={handleObjection}
           onClose={() => setShowObjectionSelector(false)}
         />

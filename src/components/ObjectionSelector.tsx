@@ -4,6 +4,8 @@ import ModalSheet, { CHOICE_ROW } from './ModalSheet';
 interface ObjectionSelectorProps {
   onSelect: (reason: string) => void;
   onClose: () => void;
+  /** During a redirect, "outside the scope" is a ground too. */
+  redirect?: boolean;
 }
 
 const OBJECTION_REASONS = [
@@ -17,7 +19,10 @@ const OBJECTION_REASONS = [
   { value: 'other', label: 'Other', description: 'Other valid objection' }
 ];
 
-export default function ObjectionSelector({ onSelect, onClose }: ObjectionSelectorProps) {
+const OUTSIDE_SCOPE = { value: 'outside_scope', label: 'Outside the Scope', description: 'Redirect question raises something the cross-examination did not' };
+
+export default function ObjectionSelector({ onSelect, onClose, redirect = false }: ObjectionSelectorProps) {
+  const reasons = redirect ? [OUTSIDE_SCOPE, ...OBJECTION_REASONS] : OBJECTION_REASONS;
   return (
     <ModalSheet
       title="OBJECTION!"
@@ -26,7 +31,7 @@ export default function ObjectionSelector({ onSelect, onClose }: ObjectionSelect
       onClose={onClose}
     >
       <div className="space-y-2">
-        {OBJECTION_REASONS.map((reason) => (
+        {reasons.map((reason) => (
           <button key={reason.value} onClick={() => onSelect(reason.value)} className={CHOICE_ROW}>
             <div className="font-semibold text-white">{reason.label}</div>
             <div className="text-sm text-white/55 mt-0.5">{reason.description}</div>

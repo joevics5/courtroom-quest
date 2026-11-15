@@ -5,15 +5,17 @@ import { basePoolSeconds } from './witnessPool';
 describe('Quick Play (5 minute) trial', () => {
   const config = getTrialConfig(5);
 
-  it('has one witness per side, direct and cross only', () => {
+  it('has one witness per side: direct, cross and a redirect slot', () => {
     const names = config.phases.filter(p => p.category === 'trial').map(p => p.name);
     expect(names).toEqual([
       'Opening Statement - Prosecution',
       'Opening Statement - Defense',
       'Prosecution Witness 1 - Direct Examination',
       'Prosecution Witness 1 - Cross-Examination',
+      'Prosecution Witness 1 - Redirect',
       'Defense Witness 1 - Direct Examination',
       'Defense Witness 1 - Cross-Examination',
+      'Defense Witness 1 - Redirect',
       'Closing Statement - Prosecution',
       'Closing Statement - Defense',
       'Judge Deliberation',

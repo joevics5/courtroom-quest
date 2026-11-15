@@ -21,6 +21,15 @@ export function generateTranscript(events: TrialEvent[]): string {
     .join('\n\n');
 }
 
+/**
+ * Marks cross-examination and redirect lines so a reader (the judge, the AI counsel, a shared transcript) can
+ * tell them from direct examination, and weigh a redirect against the cross it answers.
+ */
+export function examinationLabel(metadata: unknown): string {
+  const type = (metadata as { examination_type?: string } | null | undefined)?.examination_type;
+  return type === 'cross' ? ' (cross-examination)' : type === 'redirect' ? ' (redirect)' : '';
+}
+
 function formatTranscriptEntry(event: TrialEvent): string {
   const timestamp = new Date(event.timestamp).toLocaleTimeString();
   const speaker = event.speaker_name || event.speaker_role;
@@ -32,7 +41,7 @@ function formatTranscriptEntry(event: TrialEvent): string {
       return `[${timestamp}] ${speaker.toUpperCase()}: ${event.content}`;
     
     case 'witness_examination':
-      return `[${timestamp}] ${speaker.toUpperCase()}: ${event.content}`;
+      return `[${timestamp}] ${speaker.toUpperCase()}${examinationLabel(event.metadata)}: ${event.content}`;
     
     case 'objection':
       return `[${timestamp}] ${speaker.toUpperCase()} - OBJECTION: ${event.content}`;

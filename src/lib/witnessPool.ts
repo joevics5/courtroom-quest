@@ -107,7 +107,7 @@ export function directAllotment(available: number, duration: number): number {
   return Math.max(0, available - crossReserve(available, duration));
 }
 
-/** Redirect (60-minute trials only) is a short fixed turn paid from the pool. */
+/** Redirect is one question on its own small fixed clock, outside the shared pool (so it never costs witness time). */
 export const REDIRECT_SECONDS = 30;
 
 export type Clocks = Record<number, number>;
@@ -130,11 +130,14 @@ export function startPool(clocks: Clocks, duration: number, openingPhases: numbe
   return next;
 }
 
-/** Gives back the unused part of a witness phase's clock when that phase ends. */
-export function settlePhase(clocks: Clocks, phase: number): Clocks {
+/**
+ * Gives back the unused part of a witness phase's clock when that phase ends. A redirect's clock is not part of
+ * the pool, so it is simply cleared (`toPool` false) and its leftover is never added to the witness time.
+ */
+export function settlePhase(clocks: Clocks, phase: number, toPool = true): Clocks {
   const left = Math.max(0, clocks[phase] ?? 0);
   if (clocks[POOL_KEY] === undefined) return clocks;
-  return { ...clocks, [POOL_KEY]: clocks[POOL_KEY] + left, [phase]: 0 };
+  return { ...clocks, [POOL_KEY]: toPool ? clocks[POOL_KEY] + left : clocks[POOL_KEY], [phase]: 0 };
 }
 
 /** The defense's case has begun: its half is whatever is left, so nothing is held back any more. */
@@ -168,12 +171,9 @@ export function beginCross(clocks: Clocks, phase: number): Clocks {
   };
 }
 
-/** Hands a redirect its short turn. Null: not enough time left. */
-export function beginRedirect(clocks: Clocks, phase: number): Clocks | null {
-  const available = availableInHalf(clocks);
-  const allot = Math.min(REDIRECT_SECONDS, available);
-  if (allot < 15) return null;
-  return { ...clocks, [POOL_KEY]: clocks[POOL_KEY] - allot, [phase]: allot };
+/** Hands a redirect its fixed small window. It does not come out of the pool. */
+export function beginRedirect(clocks: Clocks, phase: number): Clocks {
+  return { ...clocks, [phase]: REDIRECT_SECONDS };
 }
 
 /** The saved clocks for phases only, without the pool's reserved keys. */

@@ -5,14 +5,15 @@ import { planNextPhase } from './witnessPlan';
 import { POOL_KEY, DEFENSE_HALF_KEY, basePoolSeconds, type Clocks } from './witnessPool';
 
 /** Plays the witness stage: each phase says how many seconds of its clock it used and whether a witness was called. */
-function play(duration: TrialDuration, openingLeft: [number, number], script: (name: string, clock: number) => { used: number; called?: boolean }) {
+function play(duration: TrialDuration, openingLeft: [number, number], script: (name: string, clock: number) => { used: number; called?: boolean; asked?: boolean }) {
   const config = getTrialConfig(duration);
   let clocks: Clocks = { 7: openingLeft[0], 8: openingLeft[1] };
   const called = new Set<number>();
+  const questioned = new Set<number>(); // cross-examinations in which the other side asked something
   const visited: Array<{ name: string; clock: number; used: number }> = [];
   let current = 8;
   for (let guard = 0; guard < 60; guard++) {
-    const plan = planNextPhase({ config, duration, currentPhase: current, clocks, witnessCalledPhases: called });
+    const plan = planNextPhase({ config, duration, currentPhase: current, clocks, witnessCalledPhases: called, crossQuestionedPhases: questioned });
     if (plan === 'verdict') return { visited, clocks, config, ended: 'verdict' as const, last: current };
     clocks = plan.clocks;
     current = plan.nextPhase;
@@ -21,6 +22,7 @@ function play(duration: TrialDuration, openingLeft: [number, number], script: (n
     const clock = clocks[current];
     const step = script(phase.name, clock);
     if (step.called) called.add(current);
+    if (step.asked) questioned.add(current);
     clocks = { ...clocks, [current]: Math.max(0, clock - step.used) };
     visited.push({ name: phase.name, clock, used: step.used });
   }
@@ -123,5 +125,50 @@ describe('witness stage in the other modes', () => {
       expect(r.clocks[POOL_KEY]).toBeGreaterThanOrEqual(0);
       expect(r.clocks[DEFENSE_HALF_KEY]).toBe(0);
     }
+  });
+});
+
+describe('redirect', () => {
+  const direct = (name: string) => /Direct/.test(name) && /Witness 1/.test(name);
+
+  it.each([5, 15, 30, 60] as const)('%i minute trial: a redirect follows a cross-examination in which the other side asked something', d => {
+    const r = play(d, [0, 0], (name) => ({ used: 10, called: direct(name), asked: /Cross/.test(name) }));
+    const names = r.visited.map(v => v.name);
+    expect(names.slice(0, 3)).toEqual([
+      'Prosecution Witness 1 - Direct Examination',
+      'Prosecution Witness 1 - Cross-Examination',
+      'Prosecution Witness 1 - Redirect'
+    ]);
+    expect(r.visited[2].clock).toBe(30);
+  });
+
+  it('is skipped when the cross-examination asked nothing', () => {
+    const r = play(15, [0, 0], (name) => ({ used: 10, called: direct(name), asked: false }));
+    expect(r.visited.map(v => v.name).some(n => /Redirect/.test(n))).toBe(false);
+  });
+
+  it('never comes out of the witness time, and the seconds it does not use are not added to it', () => {
+    const config = getTrialConfig(15);
+    const crossNo = config.phases.find(p => p.name === 'Prosecution Witness 1 - Cross-Examination')!.number;
+    const redirectNo = crossNo + 1;
+    const before: Clocks = { [POOL_KEY]: 400, [DEFENSE_HALF_KEY]: 0, 7: 0, 8: 0, [crossNo]: 12 };
+    const toRedirect = planNextPhase({
+      config, duration: 15, currentPhase: crossNo, clocks: before,
+      witnessCalledPhases: new Set([crossNo - 1]), crossQuestionedPhases: new Set([crossNo])
+    });
+    if (toRedirect === 'verdict') throw new Error('expected a redirect');
+    expect(toRedirect.nextPhase).toBe(redirectNo);
+    // The cross's 12 unused seconds go back to the pool; the redirect's 30 are on top, not taken from it.
+    expect(toRedirect.clocks[POOL_KEY]).toBe(412);
+    expect(toRedirect.clocks[redirectNo]).toBe(30);
+    // After the redirect, whatever is left of its 30 seconds is simply dropped.
+    const after = planNextPhase({
+      config, duration: 15, currentPhase: redirectNo, clocks: { ...toRedirect.clocks, [redirectNo]: 21 },
+      witnessCalledPhases: new Set([crossNo - 1]), crossQuestionedPhases: new Set([crossNo])
+    });
+    if (after === 'verdict') throw new Error('expected another phase');
+    // The next direct examination is paid from the pool, so look at pool + that direct's clock together:
+    // it is still the 412 seconds there were (it would be 433 if the redirect's 21 leftover seconds went back).
+    expect(after.clocks[POOL_KEY] + after.clocks[after.nextPhase]).toBe(412);
   });
 });
