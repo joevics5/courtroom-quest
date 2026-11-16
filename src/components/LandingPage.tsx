@@ -1,5 +1,5 @@
 import { getLevelForWins, getNextLevel, getRankProgress } from '../lib/levels';
-import { ArrowLeft, Briefcase, FileText, Mail, ScrollText, Swords, Settings as SettingsIcon, Trophy } from 'lucide-react';
+import { ArrowLeft, Briefcase, FileText, Mail, ScrollText, Swords, Settings as SettingsIcon, Trophy, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getPublicName } from '../lib/userName';
 import CaseOfTheWeek from './CaseOfTheWeek';
@@ -10,6 +10,8 @@ import type { CaseInvitation, UserProfile } from '../types';
 interface LandingPageProps {
   userProfile: UserProfile | null;
   onNavigateToCaseBoard: () => void;
+  /** Opens the Quick Start list of easy starter cases. */
+  onNavigateToQuickStart?: () => void;
   onNavigateToCustomCases: () => void;
   onNavigateToChallengeBoard: () => void;
   onNavigateToCaseHistory?: () => void;
@@ -27,6 +29,7 @@ interface LandingPageProps {
 export default function LandingPage({
   userProfile,
   onNavigateToCaseBoard,
+  onNavigateToQuickStart,
   onNavigateToCustomCases,
   onNavigateToChallengeBoard,
   onNavigateToCaseHistory,
@@ -155,6 +158,15 @@ export default function LandingPage({
           </div>
 
           <div className="space-y-4">
+            {onNavigateToQuickStart && (
+              <PathTile
+                onClick={onNavigateToQuickStart}
+                icon={<Zap className="w-4 h-4 text-black" />}
+                iconBg="bg-[#FFD43B]"
+                title="QUICK START"
+                badge="NEW HERE?"
+              />
+            )}
             <PathTile
               onClick={onNavigateToCaseBoard}
               icon={<Briefcase className="w-4 h-4 text-white" />}

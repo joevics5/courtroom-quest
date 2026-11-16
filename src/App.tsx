@@ -3,6 +3,7 @@ import { appAlert } from './lib/appDialog';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
+import AccessGate from './components/AccessGate';
 import { hasSavedAvatar } from './lib/avatars';
 import HomePage from './components/HomePage';
 import LoadingScreen from './components/LoadingScreen';
@@ -114,6 +115,13 @@ function AppContent() {
   const [subscriptionGateFeature, setSubscriptionGateFeature] = useState('');
   const [subscriptionGateRequired, setSubscriptionGateRequired] = useState<SubscriptionTier>('basic');
   const [showAuth, setShowAuth] = useState(false);
+  const [authStartsOnSignUp, setAuthStartsOnSignUp] = useState(false);
+  // Signed-out Play: ask first (sign up or guest), then carry on with what they tapped.
+  const [showAccessGate, setShowAccessGate] = useState(false);
+  const [gateBusy, setGateBusy] = useState(false);
+  const gateActionRef = useRef<(() => void | Promise<void>) | null>(null);
+  // Quick Start: the side given to the player while they read the case file (null in a normal game).
+  const [quickRole, setQuickRole] = useState<PlayerRole | null>(null);
   // A private-challenge link was opened (?challenge=...): shown instead of the home screen until accepted or dismissed.
   const [linkChallengeId, setLinkChallengeId] = useState<string | null>(() => captureChallengeLink());
 
@@ -392,19 +400,43 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, liveSessionId, liveOnline, view]);
 
-  // Instant play: tapping a button on the home screen starts a guest
-  // account when nobody is signed in. If guest sign-in isn't available
-  // (e.g. not enabled in Supabase yet) fall back to the normal sign-in page.
-  const ensurePlayer = async (): Promise<boolean> => {
-    if (user) return true;
-    const { error } = await signInAsGuest();
-    if (error) {
-      console.error('Guest sign-in failed, falling back to sign-in page:', error);
-      setShowHome(false);
-      setShowAuth(true);
-      return false;
+  // Tapping Play or Settings on the home screen: signed-in players go straight on. Everyone else is asked
+  // first, sign up or continue as a guest, and then carries on with what they tapped.
+  const requirePlayer = (action: () => void | Promise<void>) => {
+    if (user) {
+      void action();
+      return;
     }
-    return true;
+    gateActionRef.current = action;
+    setShowAccessGate(true);
+  };
+
+  const openAuth = (signUp: boolean) => {
+    gateActionRef.current = null;
+    setShowAccessGate(false);
+    setShowHome(false);
+    setAuthStartsOnSignUp(signUp);
+    setShowAuth(true);
+  };
+
+  const continueAsGuest = async () => {
+    if (gateBusy) return;
+    setGateBusy(true);
+    try {
+      const { error } = await signInAsGuest();
+      if (error) {
+        // Guest sign-in isn't available (e.g. not enabled in Supabase yet): fall back to the sign-in page.
+        console.error('Guest sign-in failed, falling back to sign-in page:', error);
+        openAuth(false);
+        return;
+      }
+      const action = gateActionRef.current;
+      gateActionRef.current = null;
+      setShowAccessGate(false);
+      await action?.();
+    } finally {
+      setGateBusy(false);
+    }
   };
 
   const homeScreen = (
@@ -418,8 +450,7 @@ function AppContent() {
           setShowHome(false);
           setView('landing');
         }}
-        onPlay={async mode => {
-          if (!(await ensurePlayer())) return;
+        onPlay={async mode => requirePlayer(() => {
           setShowHome(false);
           if (mode === 'quick') {
             setCaseBoardFromHome(true);
@@ -435,15 +466,19 @@ function AppContent() {
             setChallengeSeed({ tab: mode === 'online' ? 'quick' : 'local', withCase: false });
             setView('challenge-board');
           }
-        }}
-        onOpenSettings={async () => {
-          if (await ensurePlayer()) setShowSettingsPopup(true);
-        }}
-        onSignIn={() => {
-          setShowHome(false);
-          setShowAuth(true);
-        }}
+        })}
+        onOpenSettings={async () => requirePlayer(() => setShowSettingsPopup(true))}
+        onSignIn={() => openAuth(false)}
       />
+      {showAccessGate && (
+        <AccessGate
+          busy={gateBusy}
+          onSignUp={() => openAuth(true)}
+          onSignIn={() => openAuth(false)}
+          onGuest={continueAsGuest}
+          onClose={() => { gateActionRef.current = null; setShowAccessGate(false); }}
+        />
+      )}
       {showSettingsPopup && user && userProfile && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75" onClick={() => setShowSettingsPopup(false)}>
           <div
@@ -474,7 +509,7 @@ function AppContent() {
 
   if (!user) {
     if (showAuth) {
-      return <Auth onBack={() => setShowAuth(false)} />;
+      return <Auth initialSignUp={authStartsOnSignUp} onBack={() => setShowAuth(false)} />;
     }
     if (linkChallengeId) {
       return (
@@ -576,6 +611,7 @@ function AppContent() {
       // the user actually accepts a role (handleRoleSelect), so opening the
       // preview and backing out leaves nothing behind.
       setCurrentSession(null);
+      setQuickRole(null);
       setRoleReturnView(view === 'case-board' || view === 'case-selection' ? view : null);
       setView('role-selection');
     } catch (error) {
@@ -586,10 +622,10 @@ function AppContent() {
     }
   };
 
-  // Quick Start: no role screen. The player gets the easier side and goes straight to the investigation.
-  // Pressing Go to trial then skips the trial-type screen (see handleProceedToTrial).
+  // Quick Start: the player reads the case file first (same accordions as a normal game), is given the easier
+  // side, and presses one button to start. handleRoleSelect then saves the game as a Quick Start game, and
+  // pressing Go to trial skips the trial-type screen (see handleProceedToTrial).
   const handleQuickStartCase = async (caseId: string) => {
-    if (!user) return;
     try {
       setIsLoading(true);
       const caseDetails = await db.cases.getCaseWithDetails(caseId);
@@ -597,18 +633,13 @@ function AppContent() {
         void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be found.', tone: 'error' });
         return;
       }
-      const role: PlayerRole = caseDetails.tough_side === 'defense' ? 'prosecution' : 'defense';
-      const session = await db.sessions.createSession(caseDetails.id, user.id);
-      await db.sessions.updateSession(session.id, {
-        current_phase: 'investigation',
-        session_state: { playerRole: role, practiceMode: false, quickStart: true }
-      });
-      const updatedSession = await db.sessions.getSession(session.id);
       setCurrentCase(caseDetails);
       setIsCurrentCaseCustom(false);
-      setRoleReturnView(null);
-      if (updatedSession) setCurrentSession(updatedSession);
-      setView('investigation');
+      setCurrentSession(null);
+      setQuickRole(caseDetails.tough_side === 'defense' ? 'prosecution' : 'defense');
+      setCaseBoardFilter('quick');
+      setRoleReturnView('case-board');
+      setView('role-selection');
     } catch (error) {
       console.error('Failed to start quick case:', error);
       void appAlert({ title: "COULDN'T START THE CASE", message: 'Please try again.', tone: 'error' });
@@ -757,6 +788,7 @@ function AppContent() {
   /** Closing the Case File popup goes back to where it was opened (Case Board, case list or dashboard). */
   const handleCloseCasePreview = () => {
     setCurrentSession(null);
+    setQuickRole(null);
     setView(roleReturnView ?? (isCurrentCaseCustom ? 'case-selection' : 'landing'));
     setRoleReturnView(null);
   };
@@ -870,9 +902,11 @@ function AppContent() {
         current_phase: 'investigation',
         session_state: {
           playerRole: role,
-          practiceMode
+          practiceMode,
+          ...(quickRole ? { quickStart: true } : {})
         }
       });
+      setQuickRole(null);
       const updatedSession = await db.sessions.getSession(session.id);
       if (updatedSession) {
         setCurrentSession(updatedSession);
@@ -1171,6 +1205,11 @@ function AppContent() {
         <LandingPage
           userProfile={userProfile}
           onNavigateToCaseBoard={handleNavigateToCaseBoard}
+          onNavigateToQuickStart={() => {
+            setCaseBoardFromHome(false);
+            setCaseBoardFilter('quick');
+            setView('case-board');
+          }}
           onNavigateToCustomCases={handleNavigateToCustomCases}
           onNavigateToChallengeBoard={() => setView('challenge-board')}
           onNavigateToCaseHistory={user ? () => setView('case-history') : undefined}
@@ -1263,6 +1302,7 @@ function AppContent() {
       {view === 'investigation' && (currentSession || showCaseReview) && (
         <Investigation
           session={currentSession}
+          showTip={(userProfile?.trial_count ?? 0) < 5}
           onProceedToTrial={handleProceedToTrial}
           onBack={handleBackFromInvestigation}
           onStatus={liveOnline ? reportStatus : undefined}
@@ -1311,6 +1351,7 @@ function AppContent() {
           defendantName={currentCase.defendant_name || (currentCase.truth_state as any)?.defendant_name}
           relief={currentCase.requested_relief}
           onSelect={handleRoleSelect}
+          quickRole={quickRole ?? undefined}
           playerWins={userProfile?.wins_count ?? 0}
           onCancel={handleCloseCasePreview}
           onSwitchMode={mode => {

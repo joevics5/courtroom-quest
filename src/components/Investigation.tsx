@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import QuickStartTip from './QuickStartTip';
+import GameTip from './GameTip';
 import { appAlert } from '../lib/appDialog';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, FileText, Info, Mic, Send, User, Users, X } from 'lucide-react';
 import { db } from '../lib/database';
@@ -25,9 +25,11 @@ interface InvestigationProps {
   caseForReview?: Case | null;
   onReviewAccept?: () => void;
   onReviewReject?: () => void;
+  /** A short tip for newer players on normal (non Quick Start) games. */
+  showTip?: boolean;
 }
 
-export default function Investigation({ session, onProceedToTrial, onBack, liveReady, onStatus, showCaseReview = false, caseForReview, onReviewAccept, onReviewReject }: InvestigationProps) {
+export default function Investigation({ session, onProceedToTrial, onBack, liveReady, onStatus, showCaseReview = false, caseForReview, onReviewAccept, onReviewReject, showTip = false }: InvestigationProps) {
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
   const [selectedTab, setSelectedTab] = useState<'overview' | 'evidence' | 'witnesses'>('overview');
@@ -403,9 +405,15 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
           </header>
 
           {session?.session_state?.quickStart && (
-            <QuickStartTip>
+            <GameTip>
               <strong>Quick Start:</strong> read the case, look at the evidence and talk to the witnesses, then tap Go to trial. The trial is a short judge trial, about 10 minutes.
-            </QuickStartTip>
+            </GameTip>
+          )}
+
+          {showTip && !session?.session_state?.quickStart && (
+            <GameTip>
+              <strong>Tip:</strong> read the case, look through the evidence and talk to every witness to find what helps your side. When you are ready, tap Go to trial.
+            </GameTip>
           )}
 
           <nav className="mt-3 grid grid-cols-3 gap-2" aria-label="Investigation sections">

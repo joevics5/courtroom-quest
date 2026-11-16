@@ -6,10 +6,12 @@ import { gameButton, INPUT, PANEL } from './ui';
 
 interface AuthProps {
   onBack?: () => void;
+  /** Open on the sign-up tab instead of sign-in */
+  initialSignUp?: boolean;
 }
 
-export default function Auth({ onBack }: AuthProps = {}) {
-  const [isSignUp, setIsSignUp] = useState(false);
+export default function Auth({ onBack, initialSignUp = false }: AuthProps = {}) {
+  const [isSignUp, setIsSignUp] = useState(initialSignUp);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

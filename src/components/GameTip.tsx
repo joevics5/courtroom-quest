@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Zap, X } from 'lucide-react';
 
-/** A short, dismissible tip shown on a Quick Start game's first screens. */
-export default function QuickStartTip({ children }: { children: React.ReactNode }) {
+/** A short, dismissible tip for new players. */
+export default function GameTip({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
   if (!open) return null;
   return (

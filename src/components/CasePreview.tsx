@@ -28,6 +28,8 @@ interface Props {
   onlineDisabled?: boolean;
   /** Cases won so far: dresses your avatar in your rank outfit on the briefing. */
   playerWins?: number;
+  /** Quick Start: the side the player is given. Replaces the choose-your-side buttons with one start button. */
+  quickRole?: PlayerRole;
 }
 
 type Step = 'browse' | 'confirm-prosecute' | 'confirm-defend';
@@ -43,7 +45,7 @@ const ROLE_STYLE = {
   }
 };
 
-export default function CasePreview({ caseId, caseTitle, caseText, defendantName, relief, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0 }: Props) {
+export default function CasePreview({ caseId, caseTitle, caseText, defendantName, relief, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0, quickRole }: Props) {
   const { user } = useAuth();
   const myAvatar = getUserAvatar(user);
   const myRank = getLevelForWins(playerWins);
@@ -291,6 +293,20 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
           </div>
         )}
 
+        {quickRole ? (
+          <div className="mb-5">
+            <p className="text-white/75 text-sm leading-relaxed mb-3">
+              Quick Start: you play the <strong className="text-white">{quickRole === 'defense' ? 'defense' : 'prosecution'}</strong>, the easier side of this case. The trial is a short judge trial.
+              {hasFee(fee) && (
+                <> Win it and earn <CoinAmount amount={quickRole === 'prosecution' ? fee.prosecution : fee.defense} />.</>
+              )}
+            </p>
+            <button onClick={() => onSelect(quickRole)} className={`${gameButton('gold', 'md')} w-full`}>
+              START INVESTIGATION
+            </button>
+          </div>
+        ) : (
+          <>
         <p className="font-game text-2xl leading-none text-white mb-3">CHOOSE YOUR SIDE</p>
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button
@@ -311,7 +327,10 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
           </button>
         </div>
 
-        {onSwitchMode && (
+          </>
+        )}
+
+        {onSwitchMode && !quickRole && (
           <div className="flex items-center justify-center gap-2 flex-wrap mb-3 text-xs text-white/50">
             <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">Playing solo</span>
             <span>Switch to:</span>
@@ -332,7 +351,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
             className="flex items-center gap-1 px-4 py-2 text-white/70 active:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            Choose a different case
+            {quickRole ? 'Back to the list' : 'Choose a different case'}
           </button>
         </div>
       </div>
