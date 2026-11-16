@@ -68,9 +68,10 @@ export default function Tutorial({ onComplete, onSkip }: Props) {
   const isLast = stepIndex === STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div role="dialog" aria-modal="true" aria-label={step.title} className={`${PANEL} !bg-[#14161f] sm:p-8 max-w-md w-full shadow-2xl`}>
-        <div className="flex justify-center gap-1.5 mb-6" aria-hidden="true">
+    // A light card over the page the player was heading to: the page behind stays visible and usable.
+    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/20 pointer-events-none">
+      <div role="dialog" aria-label={step.title} className={`${PANEL} pointer-events-auto !bg-[#14161f]/95 sm:p-6 max-w-md w-full shadow-2xl`}>
+        <div className="flex justify-center gap-1.5 mb-4" aria-hidden="true">
           {STEPS.map((_, i) => (
             <div
               key={i}
@@ -79,12 +80,12 @@ export default function Tutorial({ onComplete, onSkip }: Props) {
           ))}
         </div>
 
-        <div className={`w-16 h-16 mx-auto flex items-center justify-center rounded-full border-2 ${step.ring} mb-5`}>
-          <Icon className={`w-8 h-8 ${step.accent}`} />
+        <div className={`w-12 h-12 mx-auto flex items-center justify-center rounded-full border-2 ${step.ring} mb-3`}>
+          <Icon className={`w-6 h-6 ${step.accent}`} />
         </div>
 
-        <h2 className="logo-gold font-game text-3xl leading-none mb-3 text-center uppercase">{step.title}</h2>
-        <p className="text-white/75 leading-relaxed text-center mb-8">{step.body}</p>
+        <h2 className="logo-gold font-game text-3xl leading-none mb-2 text-center uppercase">{step.title}</h2>
+        <p className="text-white/75 text-sm leading-relaxed text-center mb-5">{step.body}</p>
 
         <div className="flex items-center gap-3">
           {stepIndex > 0 ? (

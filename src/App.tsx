@@ -89,7 +89,6 @@ function AppContent() {
   const [caseBoardFilter, setCaseBoardFilter] = useState<'all' | 'new' | 'ongoing' | 'quick'>('all');
   const [caseBoardFromHome, setCaseBoardFromHome] = useState(false);
   // Set right after the avatar is saved, so a new player lands on the Case Board (after the intro, if any)
-  const [goToCasesNext, setGoToCasesNext] = useState(false);
   const [invites, setInvites] = useState<CaseInvitation[]>([]);
   // Opponent appeals waiting for this player's answer: shown on the dashboard like invites.
   const [appealRequestCount, setAppealRequestCount] = useState(0);
@@ -235,15 +234,6 @@ function AppContent() {
 
   // The intro wizard is for brand-new players only, once (see lib/tutorialSeen).
   const needsTutorial = !!user && !!userProfile && !tutorialAlreadySeen(userProfile, user);
-
-  // First-login tutorial: fires as soon as the profile loads, while still
-  // on the landing view. Independent of case selection — previously this
-  // only showed up after picking a case, deep inside the case flow.
-  useEffect(() => {
-    if (view === 'landing' && needsTutorial) {
-      setView('tutorial');
-    }
-  }, [view, needsTutorial]);
 
   // ---- someone accepts MY challenge or invitation: take me into the game at once ----
   const resumeSessionRef = useRef<(session: CaseSession) => Promise<void>>(async () => {});
@@ -540,7 +530,6 @@ function AppContent() {
       <AvatarCreator
         initialUsername={user.user_metadata?.nickname || ''}
         onDone={() => {
-          setGoToCasesNext(true);
           setShowHome(false);
           setCaseBoardFromHome(false);
           setCaseBoardFilter('new');
@@ -573,25 +562,12 @@ function AppContent() {
         .then(updated => setUserProfile(updated))
         .catch(error => console.error('Failed to mark tutorial complete:', error));
     }
-    // New players who picked a two-player mode on the home screen continue into it
-    if (goToCasesNext) {
-      setGoToCasesNext(false);
-      setCaseBoardFromHome(false);
-      setCaseBoardFilter('new');
-      setView('case-board');
-      return;
-    }
-    setView(challengeSeed && !challengeSeed.withCase ? 'challenge-board' : 'landing');
   };
 
-  // First-login tutorial: a hard gate, not an effect reacting to view
-  // changes. This guarantees it shows immediately once the profile loads
-  // and tutorial_completed is false — no race where a quick click into a
-  // case beats the async profile fetch, and no chance of it firing later
-  // mid-case if the user happens to navigate back through 'landing'.
-  if (needsTutorial) {
-    return <Tutorial onComplete={handleTutorialDone} onSkip={handleTutorialDone} />;
-  }
+  // First-login tutorial: a light card floating over wherever the player was going (the Quick Start list, a
+  // challenge, the case board), not a page of its own. It shows once the profile loads and tutorial_completed
+  // is false, and goes away for good when it is finished or skipped.
+  const tutorialOverlay = needsTutorial ? <Tutorial onComplete={handleTutorialDone} onSkip={handleTutorialDone} /> : null;
 
   const handleSelectCase = async (caseId: string, isCustom: boolean) => {
     try {
@@ -1173,6 +1149,8 @@ function AppContent() {
   // Someone opened a challenge link: show it (case, your side, Accept) before anything else.
   if (linkChallengeId) {
     return (
+      <>
+      {tutorialOverlay}
       <ChallengeLink
         challengeId={linkChallengeId}
         userId={user.id}
@@ -1196,11 +1174,13 @@ function AppContent() {
           setView('case-board');
         }}
       />
+      </>
     );
   }
 
   return (
     <>
+      {tutorialOverlay}
       {view === 'landing' && (
         <LandingPage
           userProfile={userProfile}

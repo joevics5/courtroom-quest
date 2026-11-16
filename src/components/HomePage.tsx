@@ -111,6 +111,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
       {showModes && (
         <PlayModePopup
           showMyGames={signedIn}
+          limited={!signedIn}
           myGamesCount={myGamesCount}
           onClose={() => setShowModes(false)}
           onSelect={mode => {

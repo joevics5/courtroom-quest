@@ -12,10 +12,12 @@ interface PlayModePopupProps {
   showMyGames?: boolean;
   /** Running games + challenges/invites still waiting for the other player */
   myGamesCount?: number;
+  /** Not signed in: only Quick Start and Solo are offered (no online or same-device play). */
+  limited?: boolean;
 }
 
 /** "How do you want to play?" — shown from the home screen's PLAY button. */
-export default function PlayModePopup({ onSelect, onClose, showMyGames = false, myGamesCount = 0 }: PlayModePopupProps) {
+export default function PlayModePopup({ onSelect, onClose, showMyGames = false, myGamesCount = 0, limited = false }: PlayModePopupProps) {
   // Escape closes it too.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -49,19 +51,23 @@ export default function PlayModePopup({ onSelect, onClose, showMyGames = false, 
             iconBg="bg-blue-600"
             title="SOLO"
           />
-          <PathTile
-            onClick={() => onSelect('online')}
-            icon={<Swords className="w-4 h-4 text-white" />}
-            iconBg="bg-orange-600"
-            title="VS PLAYER ONLINE"
-            badge="LIVE 1V1"
-          />
-          <PathTile
-            onClick={() => onSelect('local')}
-            icon={<Users className="w-4 h-4 text-white" />}
-            iconBg="bg-purple-600"
-            title="SAME DEVICE"
-          />
+          {!limited && (
+            <>
+              <PathTile
+                onClick={() => onSelect('online')}
+                icon={<Swords className="w-4 h-4 text-white" />}
+                iconBg="bg-orange-600"
+                title="VS PLAYER ONLINE"
+                badge="LIVE 1V1"
+              />
+              <PathTile
+                onClick={() => onSelect('local')}
+                icon={<Users className="w-4 h-4 text-white" />}
+                iconBg="bg-purple-600"
+                title="SAME DEVICE"
+              />
+            </>
+          )}
         </div>
 
         {showMyGames && (

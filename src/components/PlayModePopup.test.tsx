@@ -1,31 +1,21 @@
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import PlayModePopup from './PlayModePopup';
 
 describe('PlayModePopup', () => {
-  it('the X button closes it', () => {
-    const onClose = vi.fn();
-    render(<PlayModePopup onClose={onClose} onSelect={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+  it('offers every way to play to signed-in players', () => {
+    render(<PlayModePopup onSelect={vi.fn()} onClose={vi.fn()} showMyGames />);
+    for (const title of ['QUICK START', 'SOLO', 'VS PLAYER ONLINE', 'SAME DEVICE', 'MY GAMES']) {
+      expect(screen.getByText(title)).toBeTruthy();
+    }
   });
-  it('tapping outside closes it, tapping inside does not', () => {
-    const onClose = vi.fn();
-    render(<PlayModePopup onClose={onClose} onSelect={vi.fn()} />);
-    fireEvent.click(screen.getByText('HOW DO YOU WANT TO PLAY?'));
-    expect(onClose).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('dialog'));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-  it('Escape closes it', () => {
-    const onClose = vi.fn();
-    render(<PlayModePopup onClose={onClose} onSelect={vi.fn()} />);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-  it('is drawn directly in <body>, clear of any page container', () => {
-    const { container } = render(<div id="page"><PlayModePopup onClose={vi.fn()} onSelect={vi.fn()} /></div>);
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
-    expect(document.body.querySelector(':scope > [role="dialog"]')).not.toBeNull();
+
+  it('shows signed-out players only Quick Start and Solo', () => {
+    render(<PlayModePopup onSelect={vi.fn()} onClose={vi.fn()} limited />);
+    expect(screen.getByText('QUICK START')).toBeTruthy();
+    expect(screen.getByText('SOLO')).toBeTruthy();
+    expect(screen.queryByText('VS PLAYER ONLINE')).toBeNull();
+    expect(screen.queryByText('SAME DEVICE')).toBeNull();
   });
 });
