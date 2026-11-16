@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import QuickStartTip from './QuickStartTip';
 import { appAlert } from '../lib/appDialog';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, FileText, Info, Mic, Send, User, Users, X } from 'lucide-react';
 import { db } from '../lib/database';
@@ -400,6 +401,12 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
               <p className="text-white/60 text-xs mt-1 truncate">{caseDetails?.title || 'Examine the evidence. Question the witnesses.'}</p>
             </div>
           </header>
+
+          {session?.session_state?.quickStart && (
+            <QuickStartTip>
+              <strong>Quick Start:</strong> read the case, look at the evidence and talk to the witnesses, then tap Go to trial. The trial is a short judge trial, about 10 minutes.
+            </QuickStartTip>
+          )}
 
           <nav className="mt-3 grid grid-cols-3 gap-2" aria-label="Investigation sections">
             {tabs.map(tab => {

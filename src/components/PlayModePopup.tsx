@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, FolderOpen, Swords, Users, X } from 'lucide-react';
+import { Bot, FolderOpen, Swords, Users, X, Zap } from 'lucide-react';
 import PathTile from './PathTile';
 
-export type PlayMode = 'ai' | 'online' | 'local' | 'games';
+export type PlayMode = 'quick' | 'ai' | 'online' | 'local' | 'games';
 
 interface PlayModePopupProps {
   onSelect: (mode: PlayMode) => void;
@@ -36,6 +36,13 @@ export default function PlayModePopup({ onSelect, onClose, showMyGames = false, 
         <h2 className="logo-gold font-game text-4xl leading-none mb-5 pr-10">HOW DO YOU WANT TO PLAY?</h2>
 
         <div className="space-y-4">
+          <PathTile
+            onClick={() => onSelect('quick')}
+            icon={<Zap className="w-4 h-4 text-black" />}
+            iconBg="bg-[#FFD43B]"
+            title="QUICK START"
+            badge="NEW HERE?"
+          />
           <PathTile
             onClick={() => onSelect('ai')}
             icon={<Bot className="w-4 h-4 text-white" />}

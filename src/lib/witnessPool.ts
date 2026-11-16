@@ -42,7 +42,7 @@ export function statementMinutes(duration: number): number {
   if (duration === 60) return 6;
   if (duration === 30) return 3;
   if (duration === 15) return 1.5;
-  return 0.5;
+  return 1;
 }
 
 /**
@@ -65,7 +65,7 @@ function poolStatementMinutes(duration: number): number {
 
 /** Minutes of judge deliberation. */
 export function deliberationMinutes(duration: number): number {
-  if (duration === 5) return 0.5;
+  if (duration === 5) return 1;
   if (duration === 15) return 1;
   if (duration === 30) return 3;
   return 5;
@@ -77,6 +77,8 @@ export function deliberationMinutes(duration: number): number {
  * exactly as long as before.
  */
 export function basePoolSeconds(duration: number): number {
+  // Quick Play (labelled 10 minutes): 2 min openings x2 + 1 min closings x2 + 1 min deliberation + a 3 minute witness pool.
+  if (duration === 5) return 180;
   return Math.round((duration - 4 * poolStatementMinutes(duration) - deliberationMinutes(duration)) * 60);
 }
 

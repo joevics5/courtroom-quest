@@ -13,11 +13,12 @@ import { boardSessions } from '../lib/gameCounts';
 import { activeAppeal, appealsEnabled } from '../lib/appeals';
 import type { Case, CaseSession } from '../types';
 
-type BoardTab = 'ongoing' | 'new' | 'trendy' | 'popular';
+type BoardTab = 'ongoing' | 'new' | 'trendy' | 'popular' | 'quick';
 
 interface CaseBoardProps {
   onBack: () => void;
-  onSelectCase?: (caseId: string) => void;
+  /** quick is true when the case was chosen from the Quick Start tab. */
+  onSelectCase?: (caseId: string, quick?: boolean) => void;
   /** Resume one specific game (a player can have several of the same case) */
   onContinueSession?: (sessionId: string) => void;
   /** Open a finished game to answer the appeal the other player filed. */
@@ -183,6 +184,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
   const visibleCases = useMemo(() => {
     const plays = (c: Case) => stats[c.id]?.plays ?? 0;
     const week = (c: Case) => stats[c.id]?.week ?? 0;
+    if (sortBy === 'quick') return cases.filter(c => c.quick_start);
     if (sortBy === 'popular') return cases.filter(c => c.case_category === 'popular').sort((a, b) => plays(b) - plays(a));
     if (sortBy === 'trendy') return cases.filter(c => c.case_category === 'trendy').sort((a, b) => week(b) - week(a) || plays(b) - plays(a));
     return cases;
@@ -190,7 +192,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
 
   const handleReviewCase = (caseItem: Case) => {
     if (onPick) onPick(caseItem);
-    else onSelectCase?.(caseItem.id);
+    else onSelectCase?.(caseItem.id, sortBy === 'quick');
   };
 
 
@@ -226,6 +228,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
           <div role="tablist" className="flex gap-2 overflow-x-auto no-scrollbar">
             {([
               ['ongoing', `Ongoing (${ongoingCases.length + waitingGames.length + appealRequests.length})`],
+              ['quick', 'Quick Start'],
               ['new', 'New'],
               ['trendy', 'Trendy'],
               ['popular', 'Popular']
@@ -259,7 +262,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
           </div>
         ) : (sortBy !== 'ongoing' && visibleCases.length === 0) ? (
           <div className="text-center py-20">
-            <p className="text-white/55 mb-4">{sortBy === 'trendy' ? 'No trendy cases yet.' : sortBy === 'popular' ? 'No popular cases yet.' : 'No cases available'}</p>
+            <p className="text-white/55 mb-4">{sortBy === 'quick' ? 'No Quick Start cases yet.' : sortBy === 'trendy' ? 'No trendy cases yet.' : sortBy === 'popular' ? 'No popular cases yet.' : 'No cases available'}</p>
             <button
               onClick={() => loadCases()}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
@@ -415,7 +418,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   </div>
 
                   {/* Only when picking a case for a challenge: there is no details screen there, so the card has to be readable. */}
-                  {onPick && caseItem.description && (
+                  {(onPick || sortBy === 'quick') && caseItem.description && (
                     <p className="text-white/70 text-sm leading-relaxed mb-3 line-clamp-5">
                       {caseItem.description}
                     </p>
@@ -432,7 +435,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     onClick={() => handleReviewCase(caseItem)}
                     className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                   >
-                    {onPick ? 'Choose This Case' : 'Case Details'}
+                    {onPick ? 'Choose This Case' : sortBy === 'quick' ? 'Start This Case' : 'Case Details'}
                   </button>
                 </div>
               );

@@ -98,7 +98,7 @@ describe('witness stage, 15 minute trial', () => {
 });
 
 describe('witness stage in the other modes', () => {
-  it('Quick Play: one witness each, 60 seconds of direct and 15 of cross in the first half', () => {
+  it('Quick Play: one witness each, 72 seconds of direct and 18 of cross in the first half', () => {
     const r = play(5, [0, 0], (name) => ({ used: 0, called: /Direct/.test(name) }));
     expect(r.visited.map(v => v.name)).toEqual([
       'Prosecution Witness 1 - Direct Examination',
@@ -106,8 +106,8 @@ describe('witness stage in the other modes', () => {
       'Defense Witness 1 - Direct Examination',
       'Defense Witness 1 - Cross-Examination'
     ]);
-    expect(r.visited[0].clock).toBe(60);
-    expect(r.visited[1].clock).toBe(15);
+    expect(r.visited[0].clock).toBe(72);
+    expect(r.visited[1].clock).toBe(18);
     expect(r.ended).toBe('Closing Statement - Prosecution');
   });
 

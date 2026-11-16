@@ -35,7 +35,7 @@ const COURTS: Array<{
 ];
 
 const LENGTHS: Array<{ value: TrialDuration; big: string; unit: string; label: string }> = [
-  { value: 5, big: '5', unit: 'MIN', label: 'Quick Play' },
+  { value: 5, big: '10', unit: 'MIN', label: 'Quick Play' },
   { value: 15, big: '15', unit: 'MIN', label: 'Short' },
   { value: 30, big: '30', unit: 'MIN', label: 'Standard' },
   { value: 60, big: '60', unit: 'MIN', label: 'Full trial' }

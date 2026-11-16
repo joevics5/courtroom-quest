@@ -24,10 +24,10 @@ describe('Quick Play (5 minute) trial', () => {
     expect(config.maxWitnesses).toBe(2);
   });
 
-  it('fixed clocks plus the shared witness pool: five minutes plus the extra opening minutes', () => {
+  it('fixed clocks plus the shared witness pool: the 10 minute Quick Play: 7 fixed minutes plus a 3 minute witness pool', () => {
     const fixed = Object.values(config.phaseDurations).reduce((a, b) => a + b, 0);
-    expect(fixed).toBe(4.5); // two 1:30 openings, two 0:30 closings, 30 seconds of deliberation
-    expect(fixed + basePoolSeconds(5) / 60).toBe(7);
+    expect(fixed).toBe(7); // two 2:00 openings, two 1:00 closings, 1 minute of deliberation
+    expect(fixed + basePoolSeconds(5) / 60).toBe(10);
   });
 
   it('numbers its phases without gaps, starting the trial at phase 7 like the others', () => {

@@ -65,6 +65,10 @@ export interface Case {
   difficulty?: Difficulty;
   defendant_name?: string;
   is_preset: boolean;
+  /** Shown in the home screen's Quick Start list (short, easy starter cases for new players). */
+  quick_start?: boolean;
+  /** Which side has the harder job. Quick Start gives the player the other side. */
+  tough_side?: 'prosecution' | 'defense' | null;
   /** 'draft' hides a preset case from players; admins still see it. */
   status?: 'published' | 'draft';
   /** Admin note: the real-world case a fictionalized case is inspired by. */

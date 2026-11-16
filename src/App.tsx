@@ -85,7 +85,7 @@ function AppContent() {
   // My challenges / invites still waiting for the other player
   const [waitingSentCount, setWaitingSentCount] = useState(0);
   // Which tab the Case Board opens on (My games when coming from the Play popup)
-  const [caseBoardFilter, setCaseBoardFilter] = useState<'all' | 'new' | 'ongoing'>('all');
+  const [caseBoardFilter, setCaseBoardFilter] = useState<'all' | 'new' | 'ongoing' | 'quick'>('all');
   const [caseBoardFromHome, setCaseBoardFromHome] = useState(false);
   // Set right after the avatar is saved, so a new player lands on the Case Board (after the intro, if any)
   const [goToCasesNext, setGoToCasesNext] = useState(false);
@@ -421,7 +421,11 @@ function AppContent() {
         onPlay={async mode => {
           if (!(await ensurePlayer())) return;
           setShowHome(false);
-          if (mode === 'ai') {
+          if (mode === 'quick') {
+            setCaseBoardFromHome(true);
+            setCaseBoardFilter('quick');
+            setView('case-board');
+          } else if (mode === 'ai') {
             setView('landing');
           } else if (mode === 'games') {
             setCaseBoardFromHome(true);
@@ -576,6 +580,37 @@ function AppContent() {
       setView('role-selection');
     } catch (error) {
       console.error('Failed to start case:', error);
+      void appAlert({ title: "COULDN'T START THE CASE", message: 'Please try again.', tone: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Quick Start: no role screen. The player gets the easier side and goes straight to the investigation.
+  // Pressing Go to trial then skips the trial-type screen (see handleProceedToTrial).
+  const handleQuickStartCase = async (caseId: string) => {
+    if (!user) return;
+    try {
+      setIsLoading(true);
+      const caseDetails = await db.cases.getCaseWithDetails(caseId);
+      if (!caseDetails) {
+        void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be found.', tone: 'error' });
+        return;
+      }
+      const role: PlayerRole = caseDetails.tough_side === 'defense' ? 'prosecution' : 'defense';
+      const session = await db.sessions.createSession(caseDetails.id, user.id);
+      await db.sessions.updateSession(session.id, {
+        current_phase: 'investigation',
+        session_state: { playerRole: role, practiceMode: false, quickStart: true }
+      });
+      const updatedSession = await db.sessions.getSession(session.id);
+      setCurrentCase(caseDetails);
+      setIsCurrentCaseCustom(false);
+      setRoleReturnView(null);
+      if (updatedSession) setCurrentSession(updatedSession);
+      setView('investigation');
+    } catch (error) {
+      console.error('Failed to start quick case:', error);
       void appAlert({ title: "COULDN'T START THE CASE", message: 'Please try again.', tone: 'error' });
     } finally {
       setIsLoading(false);
@@ -764,6 +799,12 @@ function AppContent() {
       return;
     }
 
+    // Quick Start: skip the trial-type screen. A bench trial of the shortest length, on easy, straight to pre-trial.
+    if (currentSession.session_state?.quickStart) {
+      await handleTrialTypeSelect('judge', 5, 'easy');
+      return;
+    }
+
     // Save progress - user has completed investigation and is proceeding to trial
     try {
       await db.sessions.updateSession(currentSession.id, {
@@ -844,7 +885,7 @@ function AppContent() {
     setView('investigation');
   };
 
-  const handleTrialTypeSelect = async (trialType: TrialType, duration: number) => {
+  const handleTrialTypeSelect = async (trialType: TrialType, duration: number, difficultyOverride?: Difficulty) => {
     if (!currentSession) return;
 
     try {
@@ -867,7 +908,7 @@ function AppContent() {
         });
         await db.sessions.mergeState(
           currentSession.id,
-          { judgeName, prosecutorName, difficulty: userProfile?.difficulty || 'medium' },
+          { judgeName, prosecutorName, difficulty: difficultyOverride || userProfile?.difficulty || 'medium' },
           nextPhase
         );
       } else {
@@ -881,7 +922,7 @@ function AppContent() {
             ...currentSession.session_state,
             judgeName,
             prosecutorName,
-            difficulty: userProfile?.difficulty || 'medium'
+            difficulty: difficultyOverride || userProfile?.difficulty || 'medium'
           }
         });
       }
@@ -1185,7 +1226,7 @@ function AppContent() {
             setView('landing');
           }}
           initialFilter={caseBoardFilter}
-          onSelectCase={(caseId) => handleSelectCase(caseId, false)}
+          onSelectCase={(caseId, quick) => (quick ? handleQuickStartCase(caseId) : handleSelectCase(caseId, false))}
           onContinueSession={handleContinueSession}
         />
       )}
