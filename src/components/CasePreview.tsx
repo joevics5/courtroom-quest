@@ -28,8 +28,8 @@ interface Props {
   onlineDisabled?: boolean;
   /** Cases won so far: dresses your avatar in your rank outfit on the briefing. */
   playerWins?: number;
-  /** Quick Start: the side the player is given. Replaces the choose-your-side buttons with one start button. */
-  quickRole?: PlayerRole;
+  /** Quick Start game: solo only (no mode switch) and a way back to the Quick Start list. */
+  quickStart?: boolean;
 }
 
 type Step = 'browse' | 'confirm-prosecute' | 'confirm-defend';
@@ -45,7 +45,7 @@ const ROLE_STYLE = {
   }
 };
 
-export default function CasePreview({ caseId, caseTitle, caseText, defendantName, relief, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0, quickRole }: Props) {
+export default function CasePreview({ caseId, caseTitle, caseText, defendantName, relief, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0, quickStart = false }: Props) {
   const { user } = useAuth();
   const myAvatar = getUserAvatar(user);
   const myRank = getLevelForWins(playerWins);
@@ -293,34 +293,6 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
           </div>
         )}
 
-        {quickRole ? (
-          <div className="mb-5">
-            <p className="font-game text-2xl leading-none text-white mb-2">YOUR SIDE</p>
-            <p className="text-white/70 text-sm leading-relaxed mb-3">
-              Quick Start gives you the easier side of this case, with a short judge trial.
-            </p>
-            {quickRole === 'prosecution' ? (
-              <button
-                onClick={() => setStep('confirm-prosecute')}
-                className="w-full rounded-2xl border-2 border-[#E5484D]/60 bg-[#E5484D]/10 active:bg-[#E5484D]/25 py-5 flex flex-col items-center gap-2 transition-colors"
-              >
-                <Gavel className="w-8 h-8 text-[#FF7A7E]" />
-                <span className="font-game text-3xl leading-none text-white">PROSECUTE</span>
-                {hasFee(fee) && <span className="text-sm" aria-label={`${fee.prosecution} coins for a win`}><CoinAmount amount={fee.prosecution} /></span>}
-              </button>
-            ) : (
-              <button
-                onClick={() => setStep('confirm-defend')}
-                className="w-full rounded-2xl border-2 border-[#3B82F6]/60 bg-[#3B82F6]/10 active:bg-[#3B82F6]/25 py-5 flex flex-col items-center gap-2 transition-colors"
-              >
-                <Shield className="w-8 h-8 text-[#7FB2FF]" />
-                <span className="font-game text-3xl leading-none text-white">DEFEND</span>
-                {hasFee(fee) && <span className="text-sm" aria-label={`${fee.defense} coins for a win`}><CoinAmount amount={fee.defense} /></span>}
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
         <p className="font-game text-2xl leading-none text-white mb-3">CHOOSE YOUR SIDE</p>
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button
@@ -341,10 +313,8 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
           </button>
         </div>
 
-          </>
-        )}
 
-        {onSwitchMode && !quickRole && (
+        {onSwitchMode && !quickStart && (
           <div className="flex items-center justify-center gap-2 flex-wrap mb-3 text-xs text-white/50">
             <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">Playing solo</span>
             <span>Switch to:</span>
@@ -365,7 +335,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
             className="flex items-center gap-1 px-4 py-2 text-white/70 active:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            {quickRole ? 'Back to the list' : 'Choose a different case'}
+            {quickStart ? 'Back to the list' : 'Choose a different case'}
           </button>
         </div>
       </div>

@@ -119,8 +119,8 @@ function AppContent() {
   const [showAccessGate, setShowAccessGate] = useState(false);
   const [gateBusy, setGateBusy] = useState(false);
   const gateActionRef = useRef<(() => void | Promise<void>) | null>(null);
-  // Quick Start: the side given to the player while they read the case file (null in a normal game).
-  const [quickRole, setQuickRole] = useState<PlayerRole | null>(null);
+  // Quick Start: the player is reading a Quick Start case file (false in a normal game).
+  const [isQuickStart, setIsQuickStart] = useState(false);
   // A private-challenge link was opened (?challenge=...): shown instead of the home screen until accepted or dismissed.
   const [linkChallengeId, setLinkChallengeId] = useState<string | null>(() => captureChallengeLink());
 
@@ -587,7 +587,7 @@ function AppContent() {
       // the user actually accepts a role (handleRoleSelect), so opening the
       // preview and backing out leaves nothing behind.
       setCurrentSession(null);
-      setQuickRole(null);
+      setIsQuickStart(false);
       setRoleReturnView(view === 'case-board' || view === 'case-selection' ? view : null);
       setView('role-selection');
     } catch (error) {
@@ -598,8 +598,8 @@ function AppContent() {
     }
   };
 
-  // Quick Start: the player reads the case file first (same accordions as a normal game), is given the easier
-  // side, and presses one button to start. handleRoleSelect then saves the game as a Quick Start game, and
+  // Quick Start: the player reads the case file first (same accordions as a normal game), picks a side and
+  // accepts the case. handleRoleSelect then saves the game as a Quick Start game, and
   // pressing Go to trial skips the trial-type screen (see handleProceedToTrial).
   const handleQuickStartCase = async (caseId: string) => {
     try {
@@ -612,7 +612,7 @@ function AppContent() {
       setCurrentCase(caseDetails);
       setIsCurrentCaseCustom(false);
       setCurrentSession(null);
-      setQuickRole(caseDetails.tough_side === 'defense' ? 'prosecution' : 'defense');
+      setIsQuickStart(true);
       setCaseBoardFilter('quick');
       setRoleReturnView('case-board');
       setView('role-selection');
@@ -764,7 +764,7 @@ function AppContent() {
   /** Closing the Case File popup goes back to where it was opened (Case Board, case list or dashboard). */
   const handleCloseCasePreview = () => {
     setCurrentSession(null);
-    setQuickRole(null);
+    setIsQuickStart(false);
     setView(roleReturnView ?? (isCurrentCaseCustom ? 'case-selection' : 'landing'));
     setRoleReturnView(null);
   };
@@ -879,10 +879,10 @@ function AppContent() {
         session_state: {
           playerRole: role,
           practiceMode,
-          ...(quickRole ? { quickStart: true } : {})
+          ...(isQuickStart ? { quickStart: true } : {})
         }
       });
-      setQuickRole(null);
+      setIsQuickStart(false);
       const updatedSession = await db.sessions.getSession(session.id);
       if (updatedSession) {
         setCurrentSession(updatedSession);
@@ -1331,7 +1331,7 @@ function AppContent() {
           defendantName={currentCase.defendant_name || (currentCase.truth_state as any)?.defendant_name}
           relief={currentCase.requested_relief}
           onSelect={handleRoleSelect}
-          quickRole={quickRole ?? undefined}
+          quickStart={isQuickStart}
           playerWins={userProfile?.wins_count ?? 0}
           onCancel={handleCloseCasePreview}
           onSwitchMode={mode => {
