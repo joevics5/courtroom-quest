@@ -1,30 +1,49 @@
+import { useState } from 'react';
 import { FileText } from 'lucide-react';
 import type { Evidence } from '../types';
 import ModalSheet, { CHOICE_ROW } from './ModalSheet';
+import { CaseFilePanel, EyeButton, ItemDetail, SelectorTabs, type CaseFileData, type DetailTarget } from './CaseFileView';
 
 interface EvidenceSelectorProps {
   evidence: Evidence[];
   evidenceSubmitted: string[];
   onSelect: (evidence: Evidence) => void;
   onClose: () => void;
+  /** When given, a Case details tab and eye buttons let the player re-read the case without leaving. */
+  caseFile?: CaseFileData;
 }
 
 export default function EvidenceSelector({
   evidence,
   evidenceSubmitted,
   onSelect,
-  onClose
+  onClose,
+  caseFile
 }: EvidenceSelectorProps) {
+  const [tab, setTab] = useState<'select' | 'file'>('select');
+  const [target, setTarget] = useState<DetailTarget | null>(null);
   const availableEvidence = evidence.filter(e => !evidenceSubmitted.includes(e.id));
+
+  if (target) {
+    return (
+      <ModalSheet title="EVIDENCE" icon={<FileText className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
+        <ItemDetail target={target} onBack={() => setTarget(null)} />
+      </ModalSheet>
+    );
+  }
 
   return (
     <ModalSheet title="SUBMIT EVIDENCE" icon={<FileText className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
-      {availableEvidence.length === 0 ? (
+      {caseFile && <SelectorTabs tab={tab} onChange={setTab} selectLabel="Evidence" />}
+      {caseFile && tab === 'file' ? (
+        <CaseFilePanel file={caseFile} onView={setTarget} />
+      ) : availableEvidence.length === 0 ? (
         <p className="text-white/60 text-center py-8">All evidence has been submitted.</p>
       ) : (
         <div className="space-y-3">
           {availableEvidence.map((item) => (
-            <button key={item.id} onClick={() => onSelect(item)} className={`${CHOICE_ROW} flex items-start gap-3`}>
+            <div key={item.id} className="flex items-stretch gap-2">
+            <button onClick={() => onSelect(item)} className={`${CHOICE_ROW} flex-1 min-w-0 flex items-start gap-3`}>
               <span className="flex-none w-9 h-9 rounded-xl bg-[#FFD43B]/15 border border-[#FFD43B]/30 flex items-center justify-center">
                 <FileText className="w-4 h-4 text-[#FFD43B]" />
               </span>
@@ -38,6 +57,8 @@ export default function EvidenceSelector({
                 <div className="text-xs text-white/40 mt-2 capitalize">Type: {item.evidence_type}</div>
               </div>
             </button>
+            {caseFile && <EyeButton label={`View ${item.title}`} onClick={() => setTarget({ kind: 'evidence', item })} />}
+            </div>
           ))}
         </div>
       )}

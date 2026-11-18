@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { User } from 'lucide-react';
 import type { Witness } from '../types';
 import ModalSheet, { CHOICE_ROW } from './ModalSheet';
 import { gameButton } from './ui';
+import { CaseFilePanel, EyeButton, ItemDetail, SelectorTabs, type CaseFileData, type DetailTarget } from './CaseFileView';
 
 interface WitnessSelectorProps {
   witnesses: Witness[];
@@ -11,6 +13,8 @@ interface WitnessSelectorProps {
   /** Locked when it is not your turn or not a direct-examination phase (e.g. during cross-examination). */
   disabled?: boolean;
   onClose?: () => void;
+  /** When given, a Case details tab and eye buttons let the player re-read the case without leaving. */
+  caseFile?: CaseFileData;
 }
 
 export default function WitnessSelector({
@@ -19,24 +23,43 @@ export default function WitnessSelector({
   onSelect,
   onSkip,
   disabled = false,
-  onClose
+  onClose,
+  caseFile
 }: WitnessSelectorProps) {
+  const [tab, setTab] = useState<'select' | 'file'>('select');
+  const [target, setTarget] = useState<DetailTarget | null>(null);
   const availableWitnesses = witnesses.filter(w => !witnessesCalled.includes(w.id));
+
+  if (target) {
+    return (
+      <ModalSheet title="WITNESS" icon={<User className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
+        <ItemDetail target={target} onBack={() => setTarget(null)} />
+      </ModalSheet>
+    );
+  }
 
   return (
     <ModalSheet title="SELECT A WITNESS" icon={<User className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
+      {caseFile && <SelectorTabs tab={tab} onChange={setTab} selectLabel="Witnesses" />}
+      {caseFile && tab === 'file' ? (
+        <CaseFilePanel file={caseFile} onView={setTarget} />
+      ) : (
+      <>
       {availableWitnesses.length === 0 ? (
         <p className="text-white/60 text-center py-8">All witnesses have been called.</p>
       ) : (
         <div className="space-y-3 mb-5">
           {availableWitnesses.map((witness) => (
-            <button key={witness.id} onClick={() => onSelect(witness)} disabled={disabled} className={`${CHOICE_ROW} disabled:opacity-50 disabled:cursor-not-allowed`}>
-              <div className="font-semibold text-white">{witness.name}</div>
-              <div className="text-sm text-[#FFD43B]/80 mt-0.5">{witness.role}</div>
-              {witness.background && (
-                <div className="text-xs text-white/50 mt-2 line-clamp-2">{witness.background}</div>
-              )}
-            </button>
+            <div key={witness.id} className="flex items-stretch gap-2">
+              <button onClick={() => onSelect(witness)} disabled={disabled} className={`${CHOICE_ROW} flex-1 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed`}>
+                <div className="font-semibold text-white">{witness.name}</div>
+                <div className="text-sm text-[#FFD43B]/80 mt-0.5">{witness.role}</div>
+                {witness.background && (
+                  <div className="text-xs text-white/50 mt-2 line-clamp-2">{witness.background}</div>
+                )}
+              </button>
+              {caseFile && <EyeButton label={`View ${witness.name}`} onClick={() => setTarget({ kind: 'witness', item: witness })} />}
+            </div>
           ))}
         </div>
       )}
@@ -47,6 +70,8 @@ export default function WitnessSelector({
       <button onClick={onSkip} disabled={disabled} className={`w-full ${gameButton('ghost', 'sm')}`}>
         Skip Calling Witness
       </button>
+      </>
+      )}
     </ModalSheet>
   );
 }

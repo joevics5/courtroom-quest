@@ -26,6 +26,7 @@ import { aiRank, castAvatars } from '../lib/stageCast';
 import ModalSheet, { CHOICE_ROW } from './ModalSheet';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
+import type { CaseFileData } from './CaseFileView';
 import ObjectionSelector from './ObjectionSelector';
 import { getTrialConfig, getTotalTrialTime, BAILIFF_PROMPTS, JUDGE_PROMPTS, getPhaseInfo, getRandomJudgeName, getRandomProsecutorName, formatTime, aiDefenseName, plainLawyerName } from '../lib/trialConfig';
 import {
@@ -2541,6 +2542,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // Evidence can only be submitted while witnesses are called and examined (direct, cross, redirect),
   // never during opening or closing statements: there the Evidence tab is greyed out and does nothing.
   const evidenceAllowed = canSubmitEvidence(phase);
+  // What the Case details tab and the eye buttons show: the case file, re-readable mid-trial.
+  const caseFile: CaseFileData = {
+    caseData,
+    witnesses,
+    evidence,
+    witnessesCalled: turnState?.witnesses_called || [],
+    evidenceSubmitted: turnState?.evidence_submitted || []
+  };
   // Calling a witness is only possible on your own turn, in a direct-examination phase, with nobody on the
   // stand. During cross-examination or redirect the other side is still questioning, so the list stays locked.
   // After a granted appeal the earlier trial folds into an accordion; only the appeal hearing stays in view.
@@ -3034,6 +3043,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           disabled={!witnessCallAllowed}
           onSkip={handleRestPhase}
           onClose={() => setShowWitnessSelector(false)}
+          caseFile={caseFile}
         />
       )}
 
@@ -3044,6 +3054,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           evidenceSubmitted={turnState?.evidence_submitted || []}
           onSelect={handleSubmitEvidence}
           onClose={() => setShowEvidenceSelector(false)}
+          caseFile={caseFile}
         />
       )}
 
