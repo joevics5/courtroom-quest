@@ -8,16 +8,21 @@ interface AuthProps {
   onBack?: () => void;
   /** Open on the sign-up tab instead of sign-in */
   initialSignUp?: boolean;
+  /** A signed-in guest saving their progress: sign-up only, and the guest's games carry over. */
+  upgrade?: boolean;
+  /** Called when an upgrade has finished (or the player carries on after the confirmation notice). */
+  onDone?: () => void;
 }
 
-export default function Auth({ onBack, initialSignUp = false }: AuthProps = {}) {
-  const [isSignUp, setIsSignUp] = useState(initialSignUp);
+export default function Auth({ onBack, initialSignUp = false, upgrade = false, onDone }: AuthProps = {}) {
+  const [isSignUp, setIsSignUp] = useState(initialSignUp || upgrade);
+  const [confirmEmail, setConfirmEmail] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, upgradeGuest } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +31,17 @@ export default function Auth({ onBack, initialSignUp = false }: AuthProps = {}) 
 
     try {
       // No name asked here: new players pick their username (and avatar) right after signing up.
+      if (upgrade) {
+        const result = await upgradeGuest(email, password);
+        if (result.error) {
+          setError(result.error.message);
+        } else if (result.needsConfirmation) {
+          setConfirmEmail(true);
+        } else {
+          onDone?.();
+        }
+        return;
+      }
       const { error } = isSignUp ? await signUp(email, password, '') : await signIn(email, password);
 
       if (error) {
@@ -43,15 +59,29 @@ export default function Auth({ onBack, initialSignUp = false }: AuthProps = {}) 
     setError('');
   };
 
+  if (confirmEmail) {
+    return (
+      <ScreenShell title="CHECK YOUR EMAIL" subtitle="One last step." maxWidth="max-w-md">
+        <div className={`${PANEL} space-y-4 text-center`}>
+          <p className="text-white/80 leading-relaxed">
+            We sent a confirmation link to <strong className="text-white">{email}</strong>. Open it to finish saving your account.
+            Your games and wins are kept, and you can carry on playing in the meantime.
+          </p>
+          <button type="button" onClick={() => onDone?.()} className={`${gameButton('gold', 'md')} w-full`}>CARRY ON</button>
+        </div>
+      </ScreenShell>
+    );
+  }
+
   return (
     <ScreenShell
-      title={isSignUp ? 'JOIN THE BAR' : 'WELCOME BACK'}
-      subtitle={isSignUp ? 'Create your account, then choose your name and avatar.' : 'Sign in to continue your cases.'}
+      title={upgrade ? 'SAVE YOUR PROGRESS' : isSignUp ? 'JOIN THE BAR' : 'WELCOME BACK'}
+      subtitle={upgrade ? 'Add an email and password to keep your wins, rank and games.' : isSignUp ? 'Create your account, then choose your name and avatar.' : 'Sign in to continue your cases.'}
       onBack={onBack}
       maxWidth="max-w-md"
     >
       <div className={`${PANEL} space-y-5`}>
-        <div role="tablist" className="grid grid-cols-2 gap-2 rounded-2xl bg-black/40 p-1">
+        {!upgrade && <div role="tablist" className="grid grid-cols-2 gap-2 rounded-2xl bg-black/40 p-1">
           {[
             { id: false, label: 'SIGN IN' },
             { id: true, label: 'SIGN UP' }
@@ -69,7 +99,7 @@ export default function Auth({ onBack, initialSignUp = false }: AuthProps = {}) 
               {tab.label}
             </button>
           ))}
-        </div>
+        </div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

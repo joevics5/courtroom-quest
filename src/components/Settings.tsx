@@ -18,6 +18,8 @@ interface Props {
   userProfile: UserProfile;
   onBack: () => void;
   onProfileUpdated: (profile: UserProfile) => void;
+  /** Guests: opens the save-your-progress sign-up */
+  onSaveProgress?: () => void;
   /** Render as a compact popup body (no full-page chrome) — used from the home screen */
   popup?: boolean;
 }
@@ -30,7 +32,7 @@ const TIER_STYLE: Record<Difficulty, { icon: typeof Feather; iconBg: string }> =
 
 const PANEL = 'rounded-3xl bg-black/65 border border-white/15 p-5 backdrop-blur-sm';
 
-export default function Settings({ userId, userProfile, onBack, onProfileUpdated, popup = false }: Props) {
+export default function Settings({ userId, userProfile, onBack, onProfileUpdated, onSaveProgress, popup = false }: Props) {
   const [selected, setSelected] = useState<Difficulty>(userProfile.difficulty || 'medium');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -210,9 +212,19 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
         <div className={PANEL}>
           <h2 className="font-game text-3xl text-white leading-none mb-2">ACCOUNT</h2>
           {isGuest && (
-            <p className="text-sm text-[#FFD43B]/90 mb-3">
-              You're playing as a guest. Signing out will permanently lose your progress and wins.
-            </p>
+            <>
+              <p className="text-sm text-[#FFD43B]/90 mb-3">
+                You're playing as a guest. Signing out will permanently lose your progress and wins.
+              </p>
+              {onSaveProgress && (
+                <button
+                  onClick={onSaveProgress}
+                  className="w-full mb-3 rounded-xl bg-[#FFD43B] text-black font-game text-2xl py-2.5 border-b-[5px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
+                >
+                  SAVE MY PROGRESS
+                </button>
+              )}
+            </>
           )}
           {!confirmSignOut ? (
             <button

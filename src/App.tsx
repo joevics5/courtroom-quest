@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
 import AccessGate from './components/AccessGate';
+import GuestSavePrompt from './components/GuestSavePrompt';
+import { guestNeedsAccount, recordGuestGame, GUEST_GAME_LIMIT } from './lib/guestLimit';
+import { hasSeen, markSeen } from './lib/firstVisit';
 import { hasSavedAvatar } from './lib/avatars';
 import HomePage from './components/HomePage';
 import LoadingScreen from './components/LoadingScreen';
@@ -121,6 +124,10 @@ function AppContent() {
   const gateActionRef = useRef<(() => void | Promise<void>) | null>(null);
   // Quick Start: the player is reading a Quick Start case file (false in a normal game).
   const [isQuickStart, setIsQuickStart] = useState(false);
+  // Guests: save-your-progress screen, the wall after a few games, and the soft nudge after the first game.
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [showGuestWall, setShowGuestWall] = useState(false);
+  const [guestNudgeDismissed, setGuestNudgeDismissed] = useState(false);
   // A private-challenge link was opened (?challenge=...): shown instead of the home screen until accepted or dismissed.
   const [linkChallengeId, setLinkChallengeId] = useState<string | null>(() => captureChallengeLink());
 
@@ -481,6 +488,7 @@ function AppContent() {
               userProfile={userProfile}
               onBack={() => setShowSettingsPopup(false)}
               onProfileUpdated={setUserProfile}
+              onSaveProgress={() => { setShowSettingsPopup(false); setShowUpgrade(true); }}
             />
           </div>
         </div>
@@ -521,6 +529,11 @@ function AppContent() {
       );
     }
     return homeScreen;
+  }
+
+  // A guest saving their progress: a sign-up form that keeps their games (see upgradeGuest).
+  if (user.is_anonymous && showUpgrade) {
+    return <Auth upgrade onBack={() => setShowUpgrade(false)} onDone={() => setShowUpgrade(false)} />;
   }
 
   // Right after signup: pick a username, then build an avatar. Guests skip this
@@ -777,6 +790,11 @@ function AppContent() {
   const handleProceedToTrial = async () => {
     if (!currentSession) return;
 
+    if (guestNeedsAccount(user, userProfile)) {
+      setShowGuestWall(true);
+      return;
+    }
+
     if (!userProfile.is_admin) {
       const trialLimit = getTrialLimit(userProfile.subscription_tier);
       if (userProfile.trial_count >= trialLimit) {
@@ -785,6 +803,8 @@ function AppContent() {
         setShowSubscriptionGate(true);
         return;
       }
+
+      if (user.is_anonymous) recordGuestGame();
 
       await db.users.updateProfile(user.id, {
         trial_count: userProfile.trial_count + 1
@@ -871,6 +891,10 @@ function AppContent() {
 
   const handleRoleSelect = async (role: PlayerRole, practiceMode: boolean = false) => {
     if (!currentCase || !user) return;
+    if (guestNeedsAccount(user, userProfile)) {
+      setShowGuestWall(true);
+      return;
+    }
 
     try {
       const session = await db.sessions.createSession(currentCase.id, user.id);
@@ -1181,6 +1205,25 @@ function AppContent() {
   return (
     <>
       {tutorialOverlay}
+      {showGuestWall && (
+        <GuestSavePrompt
+          title="KEEP PLAYING"
+          message={`You've played ${GUEST_GAME_LIMIT} games as a guest. Create a free account to keep playing and keep your wins and rank.`}
+          primaryLabel="SAVE MY PROGRESS"
+          closeLabel="Maybe later"
+          onPrimary={() => { setShowGuestWall(false); setShowUpgrade(true); }}
+          onClose={() => setShowGuestWall(false)}
+        />
+      )}
+      {view === 'verdict' && user.is_anonymous && !guestNudgeDismissed && !showGuestWall && !hasSeen('guest-nudge', user.id) && (
+        <GuestSavePrompt
+          title="NICE TRIAL"
+          message="Create a free account to save your wins, your rank and your games. Guest progress is lost if you clear your browser or switch phones."
+          primaryLabel="SAVE MY PROGRESS"
+          onPrimary={() => { markSeen('guest-nudge', user.id); setGuestNudgeDismissed(true); setShowUpgrade(true); }}
+          onClose={() => { markSeen('guest-nudge', user.id); setGuestNudgeDismissed(true); }}
+        />
+      )}
       {view === 'landing' && (
         <LandingPage
           userProfile={userProfile}
@@ -1348,6 +1391,7 @@ function AppContent() {
           userProfile={userProfile}
           onBack={() => setView('landing')}
           onProfileUpdated={setUserProfile}
+          onSaveProgress={() => setShowUpgrade(true)}
         />
       )}
 
@@ -1435,6 +1479,11 @@ function AppContent() {
           onClose={() => setShowSubscriptionGate(false)}
           onUpgrade={() => {
             setShowSubscriptionGate(false);
+            // Paying needs a real account (refunds, receipts, restoring on a new phone), never a guest or a device id.
+            if (user.is_anonymous) {
+              setShowUpgrade(true);
+              return;
+            }
             void appAlert({ title: 'UPGRADES ARE COMING SOON', message: "Paid plans aren't available just yet. Hang tight!", tone: 'info' });
           }}
         />

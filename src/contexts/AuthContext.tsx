@@ -10,6 +10,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signInAsGuest: () => Promise<{ error: AuthError | null }>;
+  /** Turns the signed-in guest into a real account, keeping their games, wins and rank. */
+  upgradeGuest: (email: string, password: string) => Promise<{ error: AuthError | null; needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -66,12 +68,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  // Same user id, so every game, win and rank carries over. Depending on the project's email settings the
+  // new email may first have to be confirmed; until then the player simply stays a guest on this device.
+  const upgradeGuest = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.updateUser({ email, password });
+    if (error) return { error, needsConfirmation: false };
+    await supabase.auth.refreshSession();
+    return { error: null, needsConfirmation: !!data.user?.new_email };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInAsGuest, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInAsGuest, upgradeGuest, signOut }}>
       {children}
     </AuthContext.Provider>
   );
