@@ -295,15 +295,29 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
 
         {quickRole ? (
           <div className="mb-5">
-            <p className="text-white/75 text-sm leading-relaxed mb-3">
-              Quick Start: you play the <strong className="text-white">{quickRole === 'defense' ? 'defense' : 'prosecution'}</strong>, the easier side of this case. The trial is a short judge trial.
-              {hasFee(fee) && (
-                <> Win it and earn <CoinAmount amount={quickRole === 'prosecution' ? fee.prosecution : fee.defense} />.</>
-              )}
+            <p className="font-game text-2xl leading-none text-white mb-2">YOUR SIDE</p>
+            <p className="text-white/70 text-sm leading-relaxed mb-3">
+              Quick Start gives you the easier side of this case, with a short judge trial.
             </p>
-            <button onClick={() => onSelect(quickRole)} className={`${gameButton('gold', 'md')} w-full`}>
-              START INVESTIGATION
-            </button>
+            {quickRole === 'prosecution' ? (
+              <button
+                onClick={() => setStep('confirm-prosecute')}
+                className="w-full rounded-2xl border-2 border-[#E5484D]/60 bg-[#E5484D]/10 active:bg-[#E5484D]/25 py-5 flex flex-col items-center gap-2 transition-colors"
+              >
+                <Gavel className="w-8 h-8 text-[#FF7A7E]" />
+                <span className="font-game text-3xl leading-none text-white">PROSECUTE</span>
+                {hasFee(fee) && <span className="text-sm" aria-label={`${fee.prosecution} coins for a win`}><CoinAmount amount={fee.prosecution} /></span>}
+              </button>
+            ) : (
+              <button
+                onClick={() => setStep('confirm-defend')}
+                className="w-full rounded-2xl border-2 border-[#3B82F6]/60 bg-[#3B82F6]/10 active:bg-[#3B82F6]/25 py-5 flex flex-col items-center gap-2 transition-colors"
+              >
+                <Shield className="w-8 h-8 text-[#7FB2FF]" />
+                <span className="font-game text-3xl leading-none text-white">DEFEND</span>
+                {hasFee(fee) && <span className="text-sm" aria-label={`${fee.defense} coins for a win`}><CoinAmount amount={fee.defense} /></span>}
+              </button>
+            )}
           </div>
         ) : (
           <>

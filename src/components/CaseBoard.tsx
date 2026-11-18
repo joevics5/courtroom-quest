@@ -435,7 +435,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                     onClick={() => handleReviewCase(caseItem)}
                     className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                   >
-                    {onPick ? 'Choose This Case' : sortBy === 'quick' ? 'Start This Case' : 'Case Details'}
+                    {onPick ? 'Choose This Case' : 'Case Details'}
                   </button>
                 </div>
               );

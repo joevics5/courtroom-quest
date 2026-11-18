@@ -69,7 +69,7 @@ export default function Tutorial({ onComplete, onSkip }: Props) {
 
   return (
     // A light card over the page the player was heading to: the page behind stays visible and usable.
-    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/20 pointer-events-none">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-4 bg-black/20 pointer-events-none">
       <div role="dialog" aria-label={step.title} className={`${PANEL} pointer-events-auto !bg-[#14161f]/95 sm:p-6 max-w-md w-full shadow-2xl`}>
         <div className="flex justify-center gap-1.5 mb-4" aria-hidden="true">
           {STEPS.map((_, i) => (
