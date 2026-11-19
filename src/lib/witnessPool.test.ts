@@ -1,3 +1,4 @@
+import { hasRested } from './witnessPool';
 import { describe, expect, it } from 'vitest';
 import {
   POOL_KEY, DEFENSE_HALF_KEY, CROSS_RESERVE_KEY, basePoolSeconds, statementMinutes, crossReserve, canCallWitness,
@@ -190,5 +191,21 @@ describe('statement word minimum', () => {
   it('a statement the computer gave only has to have been given, so a short one cannot stall the trial', () => {
     expect(statementComplete([ev('defense', 'The defense will show reasonable doubt.')], 'defense', 7, false)).toBe(true);
     expect(statementComplete([], 'defense', 7, false)).toBe(false);
+  });
+});
+
+describe('hasRested', () => {
+  const rests = (speaker: string, phase: number) => ({ speaker_role: speaker, metadata: { phase, rested: true } });
+  const spoke = (speaker: string, phase: number) => ({ speaker_role: speaker, metadata: { phase } });
+
+  it('is true only once that side has said it rests in that phase', () => {
+    expect(hasRested([spoke('prosecution', 7)], 'prosecution', 7)).toBe(false);
+    expect(hasRested([spoke('prosecution', 7), rests('prosecution', 7)], 'prosecution', 7)).toBe(true);
+  });
+
+  it('does not mix up sides or phases', () => {
+    const events = [rests('defense', 7), rests('prosecution', 8)];
+    expect(hasRested(events, 'prosecution', 7)).toBe(false);
+    expect(hasRested(events, 'defense', 8)).toBe(false);
   });
 });

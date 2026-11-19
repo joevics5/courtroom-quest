@@ -198,6 +198,18 @@ export function statementGiven(
   });
 }
 
+/** Has this side already said "rests" in this phase? */
+export function hasRested(
+  events: Array<{ speaker_role?: string | null; metadata?: unknown }>,
+  speaker: 'prosecution' | 'defense',
+  phase: number
+): boolean {
+  return events.some(e => {
+    const meta = (e.metadata ?? {}) as { phase?: number; rested?: boolean };
+    return e.speaker_role === speaker && meta.phase === phase && meta.rested === true;
+  });
+}
+
 /** A statement typed by a player has to be at least this many words before their side can rest. */
 export const MIN_STATEMENT_WORDS = 50;
 

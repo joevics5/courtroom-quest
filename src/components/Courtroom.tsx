@@ -2,7 +2,7 @@ import { useLockPageScroll } from '@/lib/useLockPageScroll';
 import { questionRestSeconds, questionRestLabel, OBJECTION_WINDOW_SECONDS } from '@/lib/questionRest';
 import HandoffPill from './HandoffPill';
 import { REDIRECT_MAX_CHARS, redirectQuestionProblem, redirectQuestionAsked, redirectAnswered } from '@/lib/redirectRules';
-import { HANDOFF_SECONDS, STATEMENT_READ_SECONDS, MIN_STATEMENT_WORDS, statementComplete, statementWordCount, legacyStatementMinutes } from '@/lib/witnessPool';
+import { HANDOFF_SECONDS, STATEMENT_READ_SECONDS, MIN_STATEMENT_WORDS, statementComplete, statementWordCount, legacyStatementMinutes, hasRested } from '@/lib/witnessPool';
 import { planNextPhase as planNextPhasePure, crossQuestionedPhasesOf } from '@/lib/witnessPlan';
 import { usedBySide, usedByEither } from '@/lib/usedBySide';
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -1477,7 +1477,12 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       case 'make_statement':
         // Handle opening/closing statements
         if (action.content) {
-          await handleMakeStatement(action.content);
+          const phaseAtStatement = currentPhase;
+          try {
+            await handleMakeStatement(action.content);
+          } finally {
+            void aiRestsAfterStatement(phaseAtStatement);
+          }
         } else {
           // Generate the statement automatically — route to whichever kind
           // the current phase actually calls for. This used to always call
@@ -1576,6 +1581,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       console.log('[Courtroom] ✅ Event saved to database:', event.id);
 
       console.log('[Courtroom] 📋 Updating events state...');
+      // The rest that follows reads eventsRef straight away, before React re-renders, so the statement has to
+      // be in it already or the AI's "rests" is refused ("nothing to rest on yet") and the AI never rests.
+      eventsRef.current = [...eventsRef.current, event];
       setEvents(prevEvents => [...prevEvents, event]);
 
       // Track prosecution event for objections
@@ -1598,7 +1606,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       const fallbackEvent: TrialEvent = {
         id: `temp-${Date.now()}`,
         session_id: session.id,
-        event_type: 'opening',
+        event_type: statementKindOf(trialDuration ? getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase) : undefined),
         speaker_role: aiRole,
         speaker_name: aiRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
         content: statement,
@@ -1606,10 +1614,24 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         metadata: { phase: currentPhase },
         event_order: events.length + 1
       };
+      eventsRef.current = [...eventsRef.current, fallbackEvent];
       setEvents(prev => [...prev, fallbackEvent]);
       speakAs('counsel', statement);
       setLastProsecutionEvent(fallbackEvent);
       throw error; // Re-throw so caller knows it failed
+    }
+  };
+
+  // The AI always rests once its opening or closing statement is in. If a rest is refused (the trial state
+  // is not ready yet, say) it is asked again a moment later, a few times, until the "rests" line is there.
+  const aiRestsAfterStatement = async (phaseAtStart: number) => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (!aliveRef.current || currentPhaseRef.current !== phaseAtStart) return;
+      if (hasRested(eventsRef.current, aiRole, phaseAtStart)) return;
+      await handleRestPhaseRef.current(); // the fixed read time inside it is the time to read the statement
+      if (!aliveRef.current || currentPhaseRef.current !== phaseAtStart) return;
+      if (hasRested(eventsRef.current, aiRole, phaseAtStart)) return;
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
   };
 
@@ -1633,6 +1655,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       return;
     }
 
+    const phaseAtStatement = currentPhase;
     // Opening statements don't require turnState - it's initialized later
     console.log('[Courtroom] ✅ All checks passed - Generating opening statement...');
     setIsProsecutionThinking(true);
@@ -1735,7 +1758,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     } finally {
       setIsProsecutionThinking(false);
       console.log('[Courtroom] ✅ Opening statement generation complete (finally block executed)');
-      void handleRestPhaseRef.current(); // the fixed read time in handleRestPhase is the time to read it
+      void aiRestsAfterStatement(phaseAtStatement);
     }
   };
 
@@ -1753,6 +1776,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       return;
     }
 
+    const phaseAtStatement = currentPhase;
     setIsProsecutionThinking(true);
 
     const timeoutPromise = new Promise((_, reject) => {
@@ -1820,7 +1844,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       }
     } finally {
       setIsProsecutionThinking(false);
-      void handleRestPhaseRef.current(); // the fixed read time in handleRestPhase is the time to read it
+      void aiRestsAfterStatement(phaseAtStatement);
     }
   };
 
