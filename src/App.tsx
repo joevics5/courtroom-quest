@@ -13,6 +13,7 @@ import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './components/LandingPage';
 import { countMyGames } from './lib/gameCounts';
 import CaseSelection from './components/CaseSelection';
+import { setAiUsageContext } from './lib/ai/usageContext';
 import SubscriptionGate, { getTrialLimit, canCreateCustomCase } from './components/SubscriptionGate';
 import { db } from './lib/database';
 import { getLevelForWins, STARTING_RANK } from './lib/levels';
@@ -301,6 +302,14 @@ function AppContent() {
   }, [user?.id]);
 
   // ---- two players, two devices: keep both screens in step ----
+  // Tell the AI layer which game is open, so each call's cost is counted against it (and its trial length).
+  const usageSessionId = currentSession?.id;
+  const usageTrialDuration = currentSession?.trial_duration;
+  useEffect(() => {
+    setAiUsageContext(usageSessionId && usageTrialDuration ? { sessionId: usageSessionId, trialDuration: usageTrialDuration } : null);
+    return () => setAiUsageContext(null);
+  }, [usageSessionId, usageTrialDuration]);
+
   const liveOnline = isOnlineTwoPlayer(currentSession);
   const liveSessionId = currentSession?.id;
   const opponentId = user ? opponentUserIdIn(currentSession, user.id) : null;

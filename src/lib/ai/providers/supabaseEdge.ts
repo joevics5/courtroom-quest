@@ -9,6 +9,7 @@
 import { BaseAIProvider } from './base';
 import { supabase } from '@/integrations/supabase/client';
 import type { AIRequest, AIResponse, AIProvider } from '../types';
+import { getAiUsageContext } from '../usageContext';
 
 export class SupabaseEdgeProvider extends BaseAIProvider {
   name: AIProvider = 'gemini';
@@ -23,6 +24,8 @@ export class SupabaseEdgeProvider extends BaseAIProvider {
   async generate(request: AIRequest): Promise<AIResponse> {
     this.validateRequest(request);
 
+    // Which game this call is for (cost tracking only).
+    const usage = getAiUsageContext();
     const { data, error } = await supabase.functions.invoke('ai-generate', {
       body: {
         system: request.system,
@@ -30,6 +33,8 @@ export class SupabaseEdgeProvider extends BaseAIProvider {
         maxTokens: request.maxTokens ?? 2048,
         temperature: request.temperature ?? 0.7,
         responseFormat: request.responseFormat,
+        sessionId: usage?.sessionId,
+        trialDuration: usage?.trialDuration,
       },
     });
 

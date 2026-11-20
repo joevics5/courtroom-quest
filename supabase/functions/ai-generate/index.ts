@@ -31,6 +31,32 @@ interface AIRequest {
   maxTokens?: number;
   temperature?: number;
   responseFormat?: "text" | "json";
+  /** Which game this call belongs to and its trial length, only for cost tracking. */
+  sessionId?: string;
+  trialDuration?: number;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TRIAL_DURATIONS = [5, 15, 30, 60];
+
+/**
+ * Cost tracking: records the tokens one call used. Best effort: it is bounded to 1.5 seconds and any failure
+ * (for example the table not existing yet) is only logged, so it can never delay or break an AI reply.
+ */
+async function logUsage(row: Record<string, unknown>): Promise<void> {
+  try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !key) return;
+    const admin = createClient(url, key);
+    const result = await Promise.race([
+      admin.from("ai_usage_log").insert(row),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+    ]);
+    if (result && "error" in result && result.error) console.error("[ai-generate] usage log failed:", result.error.message);
+  } catch (err) {
+    console.error("[ai-generate] usage log failed:", err instanceof Error ? err.message : "unknown");
+  }
 }
 
 // gemini-2.0-flash was retired by Google in 2026 — removed.
@@ -146,6 +172,19 @@ Deno.serve(async (req: Request) => {
           const jsonMatch = text.match(/\{[\s\S]*\}/);
           if (jsonMatch) text = jsonMatch[0];
         }
+
+        // Cost tracking (see logUsage). Thinking tokens are billed as output, so they are kept separately.
+        const usage = data?.usageMetadata ?? {};
+        await logUsage({
+          user_id: u.user.id,
+          session_id: typeof body.sessionId === "string" && UUID_RE.test(body.sessionId) ? body.sessionId : null,
+          trial_duration: TRIAL_DURATIONS.includes(Number(body.trialDuration)) ? Number(body.trialDuration) : null,
+          kind: system.slice(0, 60).replace(/\s+/g, " ").trim() || null,
+          model,
+          prompt_tokens: Number(usage.promptTokenCount) || 0,
+          output_tokens: Number(usage.candidatesTokenCount) || 0,
+          thought_tokens: Number(usage.thoughtsTokenCount) || 0,
+        });
 
         return new Response(
           JSON.stringify({ text: text.trim(), content: text.trim(), metadata: { model } }),
