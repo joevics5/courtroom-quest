@@ -23,6 +23,7 @@ import { describeJurorTraits } from '../jurorProfile';
 const AGENT_TEMPERATURES: Record<string, number> = {
   judge: 0.4,        // Formal, consistent, predictable rulings
   prosecution: 0.8,  // Aggressive, creative, strategic
+  opening: 0.5,      // Opening statements stick to the case file
   witness: 0.7,      // Natural, varied responses (overridden per-witness)
   verdict: 0.3,      // Most impartial, analytical, consistent
 };
@@ -195,7 +196,8 @@ export async function generateProsecutionOpeningStatement(
   const response = await generateAIResponse({
     system: prompt,
     user: 'Deliver your opening statement. Begin directly without greetings - the judge has already spoken.',
-    temperature: AGENT_TEMPERATURES.prosecution,
+    // Lower than the other counsel work: an opening is a statement of what the evidence will show, not a place to invent.
+    temperature: AGENT_TEMPERATURES.opening,
     maxTokens: Math.min(4000, Math.max(1500, context.timeLimitMinutes * 200))
   });
 
@@ -1002,6 +1004,13 @@ ${evidenceList || 'No evidence listed yet.'}
 
 AVAILABLE WITNESSES:
 ${witnessList || 'No witnesses listed yet.'}
+
+OPENING STATEMENT RULES (strict, they come before everything else):
+- An opening statement is FACTUAL. It tells the court what the case is about and what the evidence and the witnesses will show. It argues nothing yet.
+- Use ONLY the facts in the case description, the investigation findings and the witness statements above. Never invent an event, a quote, a name, a date, a time, an amount or a detail that is not written there. If something is not written there, leave it out.
+- The other side has NOT spoken yet. Never say or imply that the ${isDefense ? 'prosecution' : 'defense'}, the defendant or opposing counsel has said, claimed, argued, admitted, denied or promised anything (no "the ${isDefense ? 'prosecution' : 'defense'} says", "the ${isDefense ? 'prosecution' : 'defense'} will tell you", "my opponent claims"). Do not attack arguments nobody has made. You may speak only about your own case and about what the evidence will show.
+- Do not describe testimony as given in court. Witnesses have not testified yet: say what a witness told investigators, and only if their statement above says it.
+- Do not quote evidence or witnesses word for word unless the words are written above.
 
 MANDATORY REQUIREMENTS:
 ${isDefense
