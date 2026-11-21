@@ -1,3 +1,4 @@
+import { Gavel } from 'lucide-react';
 import AvatarFace from '../AvatarFace';
 import { TurnPill } from '../ui';
 import { LEVELS } from '../../lib/levels';
@@ -9,6 +10,7 @@ function Tile({
   active,
   moving,
   showRank = true,
+  gavel = false,
   compact
 }: {
   role: string;
@@ -16,6 +18,8 @@ function Tile({
   active: boolean;
   moving: boolean;
   showRank?: boolean;
+  /** The judge's tile carries a gavel. */
+  gavel?: boolean;
   compact?: boolean;
 }) {
   return (
@@ -26,6 +30,11 @@ function Tile({
       aria-current={active ? 'true' : undefined}
     >
       <AvatarFace config={participant.avatar} speaking={moving} rank={participant.rank} label={`${role}: ${participant.name}`} />
+      {gavel && (
+        <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-7 h-7 rounded-full bg-black/60 border border-[#FFD43B]/60" aria-label="Gavel">
+          <Gavel className="w-4 h-4 text-[#FFD43B]" aria-hidden="true" />
+        </span>
+      )}
       <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-black/90 to-transparent">
         <p className={`text-white font-medium truncate ${compact ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>{participant.name}</p>
         {!compact && (
@@ -56,7 +65,7 @@ export default function AvatarScene({ cast, active, talking, turn, compact }: Sc
       </div>
       <div className={`grid grid-cols-3 gap-2 sm:gap-3 items-center mx-auto ${compact ? 'max-w-[15rem]' : 'max-w-2xl'}`}>
         <Tile role="Prosecution" participant={cast.prosecution} active={active === 'prosecution'} moving={moving('prosecution')} compact={compact} />
-        <Tile role="Judge" participant={cast.judge} active={active === 'judge'} moving={moving('judge')} showRank={false} compact={compact} />
+        <Tile role="Judge" participant={cast.judge} active={active === 'judge'} moving={moving('judge')} showRank={false} gavel compact={compact} />
         <Tile role="Defense" participant={cast.defense} active={active === 'defense'} moving={moving('defense')} compact={compact} />
       </div>
     </div>

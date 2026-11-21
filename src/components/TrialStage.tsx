@@ -25,6 +25,8 @@ interface TrialStageProps {
   witness?: StageParticipant;
   jurors?: StageJuror[];
   jurorVotes?: Record<string, 'GUILTY' | 'NOT_GUILTY'>;
+  /** Counts up each time the judge speaks or rules (the gavel falls on every increase). */
+  gavel?: number;
 }
 
 /**
@@ -46,7 +48,8 @@ export default function TrialStage({
   scene = DEFAULT_SCENE,
   witness,
   jurors,
-  jurorVotes
+  jurorVotes,
+  gavel
 }: TrialStageProps) {
   const ttsSpeaking = useTtsSpeaking();
   const recentMessage = useRecentPulse(lastEventKey, 3500);
@@ -68,6 +71,7 @@ export default function TrialStage({
       witness={witness}
       jurors={jurors}
       jurorVotes={jurorVotes}
+      gavel={gavel}
     />
   );
 }

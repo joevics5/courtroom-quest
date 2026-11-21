@@ -69,6 +69,8 @@ export interface Character {
   smile: THREE.Mesh;
   mouth: THREE.Mesh;
   gavelProp: THREE.Group;
+  /** The judge keeps the gavel in hand whenever seated; it is raised and struck on the gavel pose. */
+  holdsGavel: boolean;
   label: THREE.Sprite | null;
   /** The plain 3D face bits (eyes, brows, smile, beard, glasses) that the player's real face replaces. */
   faceParts: THREE.Object3D[];
@@ -219,7 +221,7 @@ export function makeCharacter(o: Look): Character {
   aR.k.add(gavelProp);
 
   const c: Character = {
-    g, b, P, C, H, lL: leg(-1), lR: leg(1), aL: arm(-1), aR, eyes, brows, smile, mouth, gavelProp, label: null, faceParts, face: null,
+    g, b, P, C, H, lL: leg(-1), lR: leg(1), aL: arm(-1), aR, eyes, brows, smile, mouth, gavelProp, holdsGavel: !!o.robe, label: null, faceParts, face: null,
     ph: Math.random() * 6, po: Math.random() * 6, sa: 0, sitTarget: 0, wk: 0, look: null,
     nb: 1 + Math.random() * 3, bt: 0, hy: 0, hp: 0, mood: 0.1, moodT: 0.1, mo: 0, gavelT: -1, height: o.height,
     s: { al: 0, ar: 0, alz: -0.06, arz: 0.06, el: -0.1, er: -0.1, hpS: 0, lean: 0, cy: 0 }
@@ -343,7 +345,7 @@ export function pose(c: Character, st: PoseName, dt: number, dist: number, t: nu
     c.brows[0].position.y = c.brows[1].position.y = 0.315 + m * 0.012;
     c.brows[0].rotation.z = -dn * 0.35; c.brows[1].rotation.z = dn * 0.35;
   }
-  c.gavelProp.visible = gavel;
+  c.gavelProp.visible = gavel || (c.holdsGavel && c.sa > 0.6);
 }
 
 /**

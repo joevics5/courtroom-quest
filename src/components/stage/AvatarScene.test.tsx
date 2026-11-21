@@ -19,6 +19,11 @@ describe('AvatarScene', () => {
     expect(current()[0].textContent).toContain('Ada');
   });
 
+  it('gives only the judge a gavel', () => {
+    render(<AvatarScene cast={cast} active="judge" talking={false} />);
+    expect(screen.getAllByLabelText('Gavel')).toHaveLength(1);
+  });
+
   it('shows rank titles for counsel but not for the judge', () => {
     render(<AvatarScene cast={cast} active="judge" talking={false} />);
     expect(screen.getByText(/Prosecution · Senior Attorney/)).toBeTruthy();

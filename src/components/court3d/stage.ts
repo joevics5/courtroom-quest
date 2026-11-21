@@ -25,6 +25,8 @@ export interface StageInput {
   audience: number;
   /** Pre-trial: the player pressed Start. */
   begun: boolean;
+  /** Counts up each time the judge speaks or rules; every increase is one strike of the gavel. */
+  gavelStrikes?: number;
 }
 
 export interface StageEvents {
@@ -122,6 +124,9 @@ export class CourtStage {
     this.input = input;
     const key = [input.mode, input.playerRole, avKey(input.judge), avKey(input.prosecution), avKey(input.defense), input.bailiff ? avKey(input.bailiff) : ''].join('|');
     if (key !== this.keyOf) { this.keyOf = key; this.buildCast(first || !prev || prev.mode !== input.mode); }
+    if (prev && (input.gavelStrikes ?? 0) > (prev.gavelStrikes ?? 0) && this.judge && this.judge.sa > 0.9) {
+      this.judge.gavelT = 0; this.gaveling = 1.3;
+    }
     this.syncAudience();
     this.syncJurors();
     this.syncWitness();

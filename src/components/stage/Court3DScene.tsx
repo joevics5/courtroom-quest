@@ -12,7 +12,7 @@ const Court3D = lazy(() => import('../court3d/Court3D'));
  * witness phases. Falls back to the avatar tiles when WebGL is not available.
  */
 export default function Court3DScene(props: SceneProps) {
-  const { cast, active, talking, phaseName, turn, compact, witness, jurors = [], jurorVotes, playerRole } = props;
+  const { cast, active, talking, phaseName, turn, compact, witness, jurors = [], jurorVotes, playerRole, gavel } = props;
   const [failed, setFailed] = useState(false);
   const phaseFlash = useRecentPulse(phaseName, 2800);
   if (failed) return <AvatarScene {...props} />;
@@ -32,6 +32,7 @@ export default function Court3DScene(props: SceneProps) {
           witness={witness}
           jurors={jurors}
           jurorVotes={jurorVotes}
+          gavel={gavel}
           onFailed={() => setFailed(true)}
         >
           <div className="absolute top-1.5 left-1.5 right-1.5 flex items-start justify-between gap-2 pointer-events-none z-20">

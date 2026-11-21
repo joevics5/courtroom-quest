@@ -210,6 +210,15 @@ export function getExaminationType(phase: TrialPhase | undefined): PhaseType | n
 }
 
 /**
+ * Is this turn state the one for the phase the trial is in? For a moment after a phase changes the old turn
+ * state is still there (it is rebuilt a beat later, after the judge's line). Until it is rebuilt nobody's
+ * controls may open: it still says it is the previous side's turn.
+ */
+export function turnMatchesPhase(turnState: { current_phase_number: number } | null | undefined, currentPhase: number): boolean {
+  return !!turnState && turnState.current_phase_number === currentPhase;
+}
+
+/**
  * Initialize turn state for a new phase
  */
 export function initializeTurnState(

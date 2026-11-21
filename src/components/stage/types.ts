@@ -46,6 +46,8 @@ export interface SceneProps {
   jurors?: StageJuror[];
   /** Votes by juror id while the jury deliberates, shown over each seat. */
   jurorVotes?: Record<string, 'GUILTY' | 'NOT_GUILTY'>;
+  /** Counts up each time the judge speaks or rules: scenes bang the gavel on every increase. */
+  gavel?: number;
 }
 
 export interface StageJuror {

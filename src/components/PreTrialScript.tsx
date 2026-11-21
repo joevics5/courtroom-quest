@@ -369,6 +369,8 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
 
   // Once the bailiff has announced the case and the plea is asked, the text area goes away so the plea buttons rise (no scrolling).
   const pleaPrompt = phase === 'defendant_plea' && canPlead && !canSkip && transcript.length > 0;
+  /** The plea is in: the court shrinks and the spoken line goes, so START TRIAL / CONTINUE is on screen with no scrolling. */
+  const pleaDone = phase === 'plea_complete';
   /** Online prosecution: the defense is still entering the plea. */
   const awaitingPlea = online && !iDrive && phase === 'defendant_plea';
   /** Who may press START TRIAL / CONTINUE once the plea is in: the prosecution online; the one holding the phone otherwise. */
@@ -428,7 +430,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
             <Suspense fallback={<div className="w-full h-[46dvh] rounded-2xl bg-black/40 grid place-items-center text-white/60 text-sm">Entering the courtroom...</div>}>
               <Court3D
                 mode="pretrial"
-                className="w-full h-[46dvh] lg:h-[62dvh] rounded-2xl ring-1 ring-white/20 lg:col-start-1 lg:row-start-1 lg:row-span-2"
+                className={`w-full ${pleaDone ? 'h-[32dvh]' : 'h-[46dvh]'} lg:h-[62dvh] rounded-2xl ring-1 ring-white/20 lg:col-start-1 lg:row-start-1 lg:row-span-2`}
                 {...stagePeople}
                 playerRole={playerRole}
                 active={activeRole}
@@ -448,7 +450,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
           {/* the speaker, large */}
           <div className="flex flex-col items-center lg:col-start-1 lg:row-start-1">
             <div
-              className={`w-52 h-52 sm:w-60 sm:h-60 lg:w-72 lg:h-72 rounded-3xl overflow-hidden border-4 border-[#FFD43B] transition-shadow ${
+              className={`${pleaDone ? 'w-28 h-28' : 'w-52 h-52'} sm:w-60 sm:h-60 lg:w-72 lg:h-72 rounded-3xl overflow-hidden border-4 border-[#FFD43B] transition-shadow ${
                 talking ? 'shadow-[0_8px_0_#B8860B,0_0_40px_rgba(255,212,59,0.45)]' : 'shadow-[0_8px_0_#B8860B]'
               }`}
             >
@@ -459,7 +461,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                 label={`${star.role}: ${star.name}`}
               />
             </div>
-            <p className="mt-5 font-game text-3xl text-white leading-none text-center">{star.name}</p>
+            <p className={`${pleaDone ? 'mt-2' : 'mt-5'} font-game text-3xl text-white leading-none text-center`}>{star.name}</p>
             <p className="mt-1 text-sm text-white/60">
               {star.role}
               {activeRole !== 'judge' && activeRole !== 'bailiff' ? ` · ${LEVELS[star.rank - 1].title}` : ''}
@@ -489,9 +491,9 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
             </>
           )}
 
-          {/* subtitle: the line being spoken (hidden while the plea is asked) */}
+          {/* subtitle: the line being spoken (hidden while the plea is asked; a slim one once it is in) */}
           {!pleaPrompt && (
-          <div className={`${PANEL_SOFT} w-full p-4 min-h-[6.5rem] lg:col-start-2 lg:row-start-1 lg:self-end`} aria-live="polite">
+          <div className={`${PANEL_SOFT} w-full ${pleaDone ? 'p-3' : 'p-4 min-h-[6.5rem]'} lg:col-start-2 lg:row-start-1 lg:self-end`} aria-live="polite">
             {latest ? (
               <div key={transcript.length} className="animate-fade-in">
                 <p className={`text-sm font-semibold mb-1 ${speakerTone[roleOf(latest.speaker)]}`}>{latest.speaker}</p>
@@ -503,7 +505,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                 <p className="text-white/60 text-sm mt-1">Tap the button to begin proceedings</p>
               </div>
             )}
-            <div className="mt-3 flex items-center justify-between gap-3">
+            <div className={`${pleaDone ? 'hidden' : 'mt-3 flex'} items-center justify-between gap-3`}>
               {transcript.length > 1 ? (
                 <button
                   type="button"

@@ -152,6 +152,8 @@ export function buildCourtroom(scene: THREE.Scene, opts: { shadows: boolean }): 
   box(7.2, 0.08, 0.95, panelMat, 0, 0.75 + 0.89, -7.55);
   box(1.0, 0.24, 0.04, gold, 0, 0.75 + 0.5, -7.14, { cast: false });
   box(0.5, 0.12, 0.1, lam(0xd9b23c), -1.9, 0.75 + 0.99, -7.45, { cast: false });
+  // the judge's gavel block, in front of the chair
+  box(0.2, 0.05, 0.2, lam(0x6b4a2b), 0.35, 0.75 + 0.89 + 0.065, -7.72, { cast: false });
   solid(0, -8.5, 7.6, 3.4);
   // judge's chair
   box(0.85, 0.12, 0.8, lam(0x2a1a14), 0, 0.75 + 0.42, -8.75);

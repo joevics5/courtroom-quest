@@ -16,6 +16,8 @@ export interface Court3DProps {
   jurors?: { id: string; name?: string }[];
   jurorVotes?: Record<string, 'GUILTY' | 'NOT_GUILTY'>;
   audience?: number;
+  /** Counts up each time the judge speaks or rules: the gavel falls on every increase. */
+  gavel?: number;
   /** Pre-trial: true once the player has pressed Start. */
   begun?: boolean;
   /** Pre-trial: called when the player is sitting in their chair. */
@@ -44,8 +46,8 @@ export default function Court3D(p: Court3DProps) {
   const input: StageInput = useMemo(() => ({
     mode: p.mode, judge: p.judge, prosecution: p.prosecution, defense: p.defense, bailiff: p.bailiff, playerRole: p.playerRole,
     active: p.active, talking: p.talking, shot: p.shot ?? null, witness: p.witness ?? null, jurors: p.jurors ?? [], jurorVotes: p.jurorVotes,
-    audience: p.audience ?? 22, begun: !!p.begun
-  }), [p.mode, p.judge, p.prosecution, p.defense, p.bailiff, p.playerRole, p.active, p.talking, p.shot, p.witness, p.jurors, p.jurorVotes, p.audience, p.begun]);
+    audience: p.audience ?? 22, begun: !!p.begun, gavelStrikes: p.gavel ?? 0
+  }), [p.gavel, p.mode, p.judge, p.prosecution, p.defense, p.bailiff, p.playerRole, p.active, p.talking, p.shot, p.witness, p.jurors, p.jurorVotes, p.audience, p.begun]);
   const inputRef = useRef(input); inputRef.current = input;
 
   useEffect(() => {

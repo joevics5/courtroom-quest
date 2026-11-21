@@ -36,6 +36,7 @@ import {
   getTurnForPhase,
   canSubmitEvidence,
   getExaminationType,
+  turnMatchesPhase,
   type TurnState
 } from '../lib/trialTurnSystem';
 import { descriptionWithRelief, reliefDemands } from '../lib/requestedRelief';
@@ -2564,7 +2565,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   // an action right now — used to disable (not hide) the action buttons
   // rather than letting them silently do nothing, or worse, let a human
   // act on the AI's behalf, when it isn't their turn.
-  const isPlayerTurn = (turnState?.current_turn === playerRole) || sameDevicePlay;
+  // Only on the turn state of the phase the trial is in: for a beat after a phase changes the old one is still
+  // there and would hand the controls to the side that just finished (the gap before the other counsel starts).
+  const turnInSync = turnMatchesPhase(turnState, currentPhase);
+  const isPlayerTurn = turnInSync && ((turnState?.current_turn === playerRole) || sameDevicePlay);
   // Evidence can only be submitted while witnesses are called and examined (direct, cross, redirect),
   // never during opening or closing statements: there the Evidence tab is greyed out and does nothing.
   const evidenceAllowed = canSubmitEvidence(phase);
@@ -2619,8 +2623,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   const actionsPaused = timerPaused;
   // Sending only works on your own turn: during witness examination the box closes the moment the turn
   // (or the clock) is over, and during the break between counsel.
-  const inputOpen = (awaitingUserInput || (inWitnessExam && isPlayerTurn && !judgeInstructionPending && clockRunning)) && !pendingHandoff &&
-    !handoffActive && !(inWitnessExam && (!isPlayerTurn || !clockRunning));
+  // Own turn only, however the flag stands: awaitingUserInput is switched on at the start of the player's own
+  // turns and is not switched off again, so on its own it would leave the box open on the other side's turn.
+  const inputOpen = isPlayerTurn && !judgeInstructionPending &&
+    (awaitingUserInput || (inWitnessExam && clockRunning)) && !pendingHandoff &&
+    !handoffActive && !(inWitnessExam && !clockRunning);
 
   // Put the cursor back in the box after each question finishes so the
   // next one can be typed straight away (the keyboard stays up on mobile).
@@ -2791,6 +2798,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                     witness={stageWitnessName ? { name: stageWitnessName, avatar: witnessAvatar(stageWitnessName) } : undefined}
                     jurors={deliberation?.jurors?.length ? deliberation.jurors.map(j => ({ id: j.id, name: j.name })) : seatedJurorIds.map(id => ({ id }))}
                     jurorVotes={stageJurorVotes}
+                    gavel={events.filter(e => e.speaker_role === 'judge').length}
                     judge={{ name: judgeName || 'Judge', avatar: cast.judge, rank: 6 }}
                     prosecution={{ name: stageProsecutorName, avatar: cast.prosecution, rank: prosecutionRank }}
                     defense={{ name: stageDefenseName, avatar: cast.defense, rank: defenseRank }}
@@ -3026,6 +3034,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                          <Send className="w-5 h-5" />
                          Submit
                        </button>
+                        {/* The other counsel's redirect is theirs alone: no "No redirect" / "Done" for the player. */}
+                        {!(getExaminationType(uiPhaseInfo) === 'redirect' && !isPlayerTurn) && (
                         <button
                            onClick={handleRestPhase}
                            disabled={!isPlayerTurn || actionsPaused || handoffActive || (!!statementSide && !statementDone)}
@@ -3034,6 +3044,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                            <SkipForward className="w-5 h-5" />
                            {turnState?.current_phase_type === 'redirect' ? (redirectAsked ? 'Done' : 'No redirect') : 'Rest'}
                          </button>
+                        )}
                        {turnState?.current_turn !== 'judge' && (
                          <button
                            onClick={() => setShowObjectionSelector(true)}
