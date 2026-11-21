@@ -26,7 +26,7 @@ import { aiRank, castAvatars } from '../lib/stageCast';
 import ModalSheet, { CHOICE_ROW } from './ModalSheet';
 import WitnessSelector from './WitnessSelector';
 import EvidenceSelector from './EvidenceSelector';
-import type { CaseFileData } from './CaseFileView';
+import { CaseFilePanel, EyeButton, ItemDetail, type CaseFileData, type DetailTarget } from './CaseFileView';
 import ObjectionSelector from './ObjectionSelector';
 import { getTrialConfig, getTotalTrialTime, BAILIFF_PROMPTS, JUDGE_PROMPTS, getPhaseInfo, getRandomJudgeName, getRandomProsecutorName, formatTime, aiDefenseName, plainLawyerName } from '../lib/trialConfig';
 import {
@@ -315,7 +315,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
    const [floatingButtonOffset, setFloatingButtonOffset] = useState(0);
    const floatingButtonDragRef = useRef<{ startY: number; startOffset: number } | null>(null);
    const floatingButtonWasDraggedRef = useRef(false);
-   const [defenceModalTab, setDefenceModalTab] = useState<'witnesses' | 'evidence'>('witnesses');
+   const [defenceModalTab, setDefenceModalTab] = useState<'witnesses' | 'evidence' | 'case'>('witnesses');
+  // The eye buttons in the actions pop-up: one witness or exhibit in full, with a way back to the list.
+  const [defenceDetail, setDefenceDetail] = useState<DetailTarget | null>(null);
   const [isProsecutionThinking, setIsProsecutionThinking] = useState(false);
   const [awaitingUserInput, setAwaitingUserInput] = useState(false);
   const [redirectHint, setRedirectHint] = useState<string | null>(null);
@@ -2584,7 +2586,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     return { earlier: events.slice(0, at), marker: events[at], current: events.slice(at + 1) };
   })();
   const witnessCallAllowed = !!turnState && turnState.current_phase_type === 'direct' && !turnState.current_witness_id && isPlayerTurn && !timerPaused;
-  const activeModalTab: 'witnesses' | 'evidence' = evidenceAllowed ? defenceModalTab : 'witnesses';
+  const activeModalTab: 'witnesses' | 'evidence' | 'case' =
+    defenceModalTab === 'case' ? 'case' : evidenceAllowed ? defenceModalTab : 'witnesses';
 
   // Witness examination (direct/cross/redirect) with a witness on the
   // stand: the examiner's text box stays open for as many questions as
@@ -3093,7 +3096,11 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       {/* Defence Actions Modal */}
       {showDefenceModal && (
-        <ModalSheet title="DEFENCE ACTIONS" onClose={() => setShowDefenceModal(false)}>
+        <ModalSheet title="DEFENCE ACTIONS" onClose={() => { setShowDefenceModal(false); setDefenceDetail(null); }}>
+          {defenceDetail ? (
+            <ItemDetail target={defenceDetail} onBack={() => setDefenceDetail(null)} />
+          ) : (
+          <>
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setDefenceModalTab('witnesses')}
@@ -3109,7 +3116,17 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
             >
               <FileText className="w-4 h-4" /> Evidence
             </button>
+            <button
+              onClick={() => setDefenceModalTab('case')}
+              className={`${gameButton(activeModalTab === 'case' ? 'gold' : 'ghost', 'sm')} flex-1`}
+            >
+              Case details
+            </button>
           </div>
+
+          {activeModalTab === 'case' && (
+            <CaseFilePanel file={caseFile} onView={setDefenceDetail} />
+          )}
 
           {activeModalTab === 'witnesses' && (
             <div className="space-y-3">
@@ -3117,21 +3134,23 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 <p className="text-white/60 text-center py-8">All witnesses have been called.</p>
               ) : (
                 witnesses.filter(w => !turnState?.witnesses_called.includes(w.id)).map((witness) => (
-                  <button
-                    key={witness.id}
-                    onClick={() => {
-                      handleCallWitness(witness);
-                      setShowDefenceModal(false);
-                    }}
-                    className={`${CHOICE_ROW} disabled:opacity-50 disabled:cursor-not-allowed`}
-                    disabled={!witnessCallAllowed}
-                  >
-                    <div className="font-semibold text-white">{witness.name}</div>
-                    <div className="text-sm text-white/60 mt-1">{witness.role}</div>
-                    {witness.background && (
-                      <div className="text-xs text-white/45 mt-2 line-clamp-2">{witness.background}</div>
-                    )}
-                  </button>
+                  <div key={witness.id} className="flex items-stretch gap-2">
+                    <button
+                      onClick={() => {
+                        handleCallWitness(witness);
+                        setShowDefenceModal(false);
+                      }}
+                      className={`${CHOICE_ROW} flex-1 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                      disabled={!witnessCallAllowed}
+                    >
+                      <div className="font-semibold text-white">{witness.name}</div>
+                      <div className="text-sm text-white/60 mt-1">{witness.role}</div>
+                      {witness.background && (
+                        <div className="text-xs text-white/45 mt-2 line-clamp-2">{witness.background}</div>
+                      )}
+                    </button>
+                    <EyeButton label={`View ${witness.name}`} onClick={() => setDefenceDetail({ kind: 'witness', item: witness })} />
+                  </div>
                 ))
               )}
               {!isWitnessPhase(phase) && (
@@ -3163,21 +3182,23 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 <p className="text-white/60 text-center py-8">All evidence has been submitted.</p>
               ) : (
                 evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      handleSubmitEvidence(item);
-                      setShowDefenceModal(false);
-                    }}
-                    disabled={!isPlayerTurn || !evidenceAllowed}
-                    className={`${CHOICE_ROW} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    <div className="font-semibold text-white">{item.title}</div>
-                    <div className="text-sm text-white/60 mt-1">{item.evidence_type.replace('_', ' ')}</div>
-                    {item.description && (
-                      <div className="text-xs text-white/45 mt-2 line-clamp-2">{item.description}</div>
-                    )}
-                  </button>
+                  <div key={item.id} className="flex items-stretch gap-2">
+                    <button
+                      onClick={() => {
+                        handleSubmitEvidence(item);
+                        setShowDefenceModal(false);
+                      }}
+                      disabled={!isPlayerTurn || !evidenceAllowed}
+                      className={`${CHOICE_ROW} flex-1 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <div className="font-semibold text-white">{item.title}</div>
+                      <div className="text-sm text-white/60 mt-1">{item.evidence_type.replace('_', ' ')}</div>
+                      {item.description && (
+                        <div className="text-xs text-white/45 mt-2 line-clamp-2">{item.description}</div>
+                      )}
+                    </button>
+                    <EyeButton label={`View ${item.title}`} onClick={() => setDefenceDetail({ kind: 'evidence', item })} />
+                  </div>
                 ))
               )}
               {!isPlayerTurn && evidence.filter(e => !turnState?.evidence_submitted.includes(e.id)).length > 0 && (
@@ -3186,6 +3207,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 </p>
               )}
             </div>
+          )}
+          </>
           )}
         </ModalSheet>
       )}
