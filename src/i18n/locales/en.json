@@ -1,0 +1,74 @@
+{
+  "language": {
+    "title": "LANGUAGE",
+    "switcher": "Change language",
+    "choose": "Choose your language",
+    "hint": "Changes the game's menus and text. Case files and the trial itself stay in English for now.",
+    "close": "Close"
+  },
+  "ranks": {
+    "1": "Junior Counsel",
+    "2": "Associate Attorney",
+    "3": "Trial Lawyer",
+    "4": "Senior Attorney",
+    "5": "Trial Counsel",
+    "6": "Senior Advocate",
+    "7": "Lead Attorney",
+    "8": "Principal Counsel",
+    "9": "Master Advocate",
+    "10": "Legendary Attorney"
+  },
+  "settings": {
+    "title": "SETTINGS",
+    "back": "Back",
+    "close": "Close settings",
+    "difficulty": {
+      "heading": "DIFFICULTY",
+      "saved": "Saved",
+      "note": "Changes the judge and prosecution — not the case. Applies to every trial.",
+      "easy": {
+        "label": "Easy",
+        "tagline": "Learning the ropes",
+        "description": "The judge explains rulings and gives you room to find your footing. The prosecution argues plainly, without tricks."
+      },
+      "medium": {
+        "label": "Medium",
+        "tagline": "A fair fight",
+        "description": "Standard courtroom conduct. The judge is even-handed, and the prosecution argues competently and pushes back when warranted."
+      },
+      "hard": {
+        "label": "Hard",
+        "tagline": "No mercy",
+        "description": "The judge holds you strictly to procedure and courtroom decorum. The prosecution is sharp, aggressive, and looks for every opening."
+      }
+    },
+    "nickname": {
+      "heading": "NICKNAME",
+      "help": "Shown on leaderboards and in court. Your email is never shown. You appear as <name>{{name}}</name>.",
+      "placeholder": "Pick a nickname",
+      "save": "SAVE",
+      "saved": "Saved",
+      "errLength": "Use 3–20 characters.",
+      "errChars": "Letters, numbers, spaces, _ - . only.",
+      "errTaken": "That username is taken. Try another one.",
+      "errInvalid": "Use 3–20 characters, no @.",
+      "errSave": "Could not save. Try again."
+    },
+    "avatar": {
+      "heading": "AVATAR",
+      "label": "Your avatar",
+      "help": "{{rank}}. Your outfit gets better as you win cases.",
+      "change": "CHANGE AVATAR"
+    },
+    "account": {
+      "heading": "ACCOUNT",
+      "guestWarning": "You're playing as a guest. Signing out will permanently lose your progress and wins.",
+      "saveProgress": "SAVE MY PROGRESS",
+      "signOut": "SIGN OUT",
+      "loseProgress": "LOSE PROGRESS",
+      "cancel": "CANCEL"
+    },
+    "terms": "Terms of Use",
+    "privacy": "Privacy Policy"
+  }
+}

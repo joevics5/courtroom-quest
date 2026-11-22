@@ -1,0 +1,74 @@
+{
+  "language": {
+    "title": "IDIOMA",
+    "switcher": "Cambiar idioma",
+    "choose": "Elige tu idioma",
+    "hint": "Cambia los menús y los textos del juego. Los casos y el juicio siguen en inglés por ahora.",
+    "close": "Cerrar"
+  },
+  "ranks": {
+    "1": "Abogado/a junior",
+    "2": "Abogado/a asociado/a",
+    "3": "Litigante",
+    "4": "Abogado/a sénior",
+    "5": "Abogado/a litigante",
+    "6": "Letrado/a sénior",
+    "7": "Abogado/a principal",
+    "8": "Letrado/a principal",
+    "9": "Maestro/a del litigio",
+    "10": "Abogado/a legendario/a"
+  },
+  "settings": {
+    "title": "AJUSTES",
+    "back": "Volver",
+    "close": "Cerrar ajustes",
+    "difficulty": {
+      "heading": "DIFICULTAD",
+      "saved": "Guardado",
+      "note": "Cambia al juez y a la fiscalía, no el caso. Se aplica a todos los juicios.",
+      "easy": {
+        "label": "Fácil",
+        "tagline": "Primeros pasos",
+        "description": "El juez explica sus decisiones y te da margen para ubicarte. La fiscalía argumenta de forma directa, sin trucos."
+      },
+      "medium": {
+        "label": "Medio",
+        "tagline": "Un duelo parejo",
+        "description": "Conducta estándar en la sala. El juez es imparcial, y la fiscalía argumenta con solvencia y responde cuando corresponde."
+      },
+      "hard": {
+        "label": "Difícil",
+        "tagline": "Sin piedad",
+        "description": "El juez te exige respetar estrictamente el procedimiento y el decoro de la sala. La fiscalía es incisiva, agresiva y aprovecha cada oportunidad."
+      }
+    },
+    "nickname": {
+      "heading": "APODO",
+      "help": "Se muestra en las clasificaciones y en la sala. Tu correo nunca se muestra. Apareces como <name>{{name}}</name>.",
+      "placeholder": "Elige un apodo",
+      "save": "GUARDAR",
+      "saved": "Guardado",
+      "errLength": "Usa entre 3 y 20 caracteres.",
+      "errChars": "Solo letras, números, espacios, _ - .",
+      "errTaken": "Ese nombre ya está en uso. Prueba con otro.",
+      "errInvalid": "Usa entre 3 y 20 caracteres, sin @.",
+      "errSave": "No se pudo guardar. Inténtalo de nuevo."
+    },
+    "avatar": {
+      "heading": "AVATAR",
+      "label": "Tu avatar",
+      "help": "{{rank}}. Tu atuendo mejora a medida que ganas casos.",
+      "change": "CAMBIAR AVATAR"
+    },
+    "account": {
+      "heading": "CUENTA",
+      "guestWarning": "Estás jugando como invitado. Si cierras sesión, perderás para siempre tu progreso y tus victorias.",
+      "saveProgress": "GUARDAR MI PROGRESO",
+      "signOut": "CERRAR SESIÓN",
+      "loseProgress": "PERDER PROGRESO",
+      "cancel": "CANCELAR"
+    },
+    "terms": "Términos de uso (en inglés)",
+    "privacy": "Política de privacidad (en inglés)"
+  }
+}

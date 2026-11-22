@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { ArrowLeft, X, Feather, Scale as ScaleIcon, Flame, Check } from 'lucide-react';
 import HeroBackground from './HeroBackground';
 import AvatarCreator from './AvatarCreator';
@@ -10,7 +11,7 @@ import { db } from '../lib/database';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getPublicName } from '../lib/userName';
-import { DIFFICULTY_INFO } from '../lib/trialConfig';
+import { LanguageList } from './LanguageSwitcher';
 import type { Difficulty, UserProfile } from '../types';
 
 interface Props {
@@ -33,6 +34,9 @@ const TIER_STYLE: Record<Difficulty, { icon: typeof Feather; iconBg: string }> =
 const PANEL = 'rounded-3xl bg-black/65 border border-white/15 p-5 backdrop-blur-sm';
 
 export default function Settings({ userId, userProfile, onBack, onProfileUpdated, onSaveProgress, popup = false }: Props) {
+  const { t, i18n } = useTranslation();
+  const upper = (text: string) => text.toLocaleUpperCase(i18n.resolvedLanguage);
+  const rankTitle = t(`ranks.${getLevelForWins(userProfile.wins_count ?? 0).level}`);
   const [selected, setSelected] = useState<Difficulty>(userProfile.difficulty || 'medium');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -48,12 +52,12 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
   const handleSaveNickname = async () => {
     const value = nickname.trim().replace(/\s+/g, ' ');
     if (value.length < 3 || value.length > 20) {
-      setNameError('Use 3–20 characters.');
+      setNameError(t('settings.nickname.errLength'));
       setNameStatus('error');
       return;
     }
     if (!/^[A-Za-z0-9 _.-]+$/.test(value)) {
-      setNameError('Letters, numbers, spaces, _ - . only.');
+      setNameError(t('settings.nickname.errChars'));
       setNameStatus('error');
       return;
     }
@@ -62,7 +66,7 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
     const claimed = await savePublicProfile({ username: value });
     if (!claimed.ok) {
       setNameError(
-        claimed.error === 'taken' ? 'That username is taken. Try another one.' : claimed.error === 'invalid' ? 'Use 3–20 characters, no @.' : 'Could not save. Try again.'
+        claimed.error === 'taken' ? t('settings.nickname.errTaken') : claimed.error === 'invalid' ? t('settings.nickname.errInvalid') : t('settings.nickname.errSave')
       );
       setNameStatus('error');
       return;
@@ -70,7 +74,7 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
     const { error } = await supabase.auth.updateUser({ data: { nickname: value } });
     if (error) {
       console.error('Failed to save nickname:', error);
-      setNameError('Could not save. Try again.');
+      setNameError(t('settings.nickname.errSave'));
       setNameStatus('error');
       return;
     }
@@ -101,29 +105,28 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
       <div className="flex items-center gap-3 mb-5">
         <button
           onClick={onBack}
-          aria-label={popup ? 'Close settings' : 'Back'}
+          aria-label={popup ? t('settings.close') : t('settings.back')}
           className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
         >
           {popup ? <X className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
         </button>
-        <h1 className="logo-gold font-game text-5xl leading-none">SETTINGS</h1>
+        <h1 className="logo-gold font-game text-5xl leading-none">{t('settings.title')}</h1>
       </div>
 
       <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start">
         {/* Difficulty */}
         <div className={`${PANEL} lg:row-span-3`}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-game text-3xl text-white leading-none">DIFFICULTY</h2>
+            <h2 className="font-game text-3xl text-white leading-none">{t('settings.difficulty.heading')}</h2>
             {saved && (
               <span className="flex items-center gap-1 text-sm font-bold text-green-400">
-                <Check className="w-4 h-4" /> Saved
+                <Check className="w-4 h-4" /> {t('settings.difficulty.saved')}
               </span>
             )}
           </div>
 
           <div className="space-y-3">
             {tiers.map((tier) => {
-              const info = DIFFICULTY_INFO[tier];
               const style = TIER_STYLE[tier];
               const Icon = style.icon;
               const isSelected = selected === tier;
@@ -141,10 +144,10 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
                   </span>
                   <span className="flex-1 min-w-0">
                     <span className="flex items-center gap-2">
-                      <span className="font-game text-3xl text-white leading-none">{info.label.toUpperCase()}</span>
-                      <span className="text-xs font-bold tracking-wide text-[#FFD43B]">{info.tagline.toUpperCase()}</span>
+                      <span className="font-game text-3xl text-white leading-none">{upper(t(`settings.difficulty.${tier}.label`))}</span>
+                      <span className="text-xs font-bold tracking-wide text-[#FFD43B]">{upper(t(`settings.difficulty.${tier}.tagline`))}</span>
                     </span>
-                    {isSelected && <span className="block mt-1.5 text-sm text-white/70 leading-snug">{info.description}</span>}
+                    {isSelected && <span className="block mt-1.5 text-sm text-white/70 leading-snug">{t(`settings.difficulty.${tier}.description`)}</span>}
                   </span>
                   {isSelected && (
                     <span className="flex-none flex items-center justify-center w-7 h-7 rounded-full bg-[#FFD43B]">
@@ -155,22 +158,25 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
               );
             })}
           </div>
-          <p className="mt-3 text-xs text-white/50">Changes the judge and prosecution — not the case. Applies to every trial.</p>
+          <p className="mt-3 text-xs text-white/50">{t('settings.difficulty.note')}</p>
         </div>
 
         {/* Nickname */}
         <div className={PANEL}>
-          <h2 className="font-game text-3xl text-white leading-none mb-1">NICKNAME</h2>
+          <h2 className="font-game text-3xl text-white leading-none mb-1">{t('settings.nickname.heading')}</h2>
           <p className="text-sm text-white/60 mb-3">
-            Shown on leaderboards and in court. Your email is never shown. You appear as{' '}
-            <span className="font-bold text-[#FFD43B]">{getPublicName(user)}</span>.
+            <Trans
+              i18nKey="settings.nickname.help"
+              values={{ name: getPublicName(user) }}
+              components={{ name: <span className="font-bold text-[#FFD43B]" /> }}
+            />
           </p>
           <div className="flex gap-2">
             <input
               value={nickname}
               onChange={e => { setNickname(e.target.value); if (nameStatus !== 'idle') setNameStatus('idle'); }}
               maxLength={20}
-              placeholder="Pick a nickname"
+              placeholder={t('settings.nickname.placeholder')}
               className="flex-1 min-w-0 rounded-xl bg-black/50 border border-white/20 px-3 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FFD43B]"
             />
             <button
@@ -178,50 +184,57 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
               disabled={nameStatus === 'saving' || !nickname.trim()}
               className="rounded-xl bg-[#FFD43B] text-black font-game text-2xl px-5 border-b-[5px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-50"
             >
-              {nameStatus === 'saving' ? '…' : 'SAVE'}
+              {nameStatus === 'saving' ? '…' : t('settings.nickname.save')}
             </button>
           </div>
           {nameStatus === 'saved' && (
-            <p className="mt-3 flex items-center gap-1 text-sm font-bold text-green-400"><Check className="w-4 h-4" /> Saved</p>
+            <p className="mt-3 flex items-center gap-1 text-sm font-bold text-green-400"><Check className="w-4 h-4" /> {t('settings.nickname.saved')}</p>
           )}
           {nameStatus === 'error' && <p className="mt-3 text-sm text-red-400">{nameError}</p>}
         </div>
 
         {/* Avatar */}
         <div className={PANEL}>
-          <h2 className="font-game text-3xl text-white leading-none mb-3">AVATAR</h2>
+          <h2 className="font-game text-3xl text-white leading-none mb-3">{t('settings.avatar.heading')}</h2>
           <div className="flex items-center gap-4">
             <div className="flex-none w-24 h-24 rounded-2xl overflow-hidden border-4 border-[#FFD43B]">
-              <AvatarFace config={getUserAvatar(user)} rank={getLevelForWins(userProfile.wins_count ?? 0).level} label="Your avatar" />
+              <AvatarFace config={getUserAvatar(user)} rank={getLevelForWins(userProfile.wins_count ?? 0).level} label={t('settings.avatar.label')} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm text-white/60 mb-3">
-                {getLevelForWins(userProfile.wins_count ?? 0).title}. Your outfit gets better as you win cases.
+                {t('settings.avatar.help', { rank: rankTitle })}
               </p>
               <button
                 onClick={() => setChangingAvatar(true)}
                 className="rounded-xl bg-[#FFD43B] text-black font-game text-xl px-4 py-2 border-b-[5px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
               >
-                CHANGE AVATAR
+                {t('settings.avatar.change')}
               </button>
             </div>
           </div>
         </div>
 
+        {/* Language */}
+        <div className={PANEL}>
+          <h2 className="font-game text-3xl text-white leading-none mb-1">{t('language.title')}</h2>
+          <p className="text-sm text-white/60 mb-3">{t('language.hint')}</p>
+          <LanguageList />
+        </div>
+
         {/* Account */}
         <div className={PANEL}>
-          <h2 className="font-game text-3xl text-white leading-none mb-2">ACCOUNT</h2>
+          <h2 className="font-game text-3xl text-white leading-none mb-2">{t('settings.account.heading')}</h2>
           {isGuest && (
             <>
               <p className="text-sm text-[#FFD43B]/90 mb-3">
-                You're playing as a guest. Signing out will permanently lose your progress and wins.
+                {t('settings.account.guestWarning')}
               </p>
               {onSaveProgress && (
                 <button
                   onClick={onSaveProgress}
                   className="w-full mb-3 rounded-xl bg-[#FFD43B] text-black font-game text-2xl py-2.5 border-b-[5px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
                 >
-                  SAVE MY PROGRESS
+                  {t('settings.account.saveProgress')}
                 </button>
               )}
             </>
@@ -231,7 +244,7 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
               onClick={() => (isGuest ? setConfirmSignOut(true) : signOut())}
               className="w-full rounded-xl bg-white/10 border border-white/20 text-white font-game text-2xl py-2.5 active:translate-y-0.5 transition-transform"
             >
-              SIGN OUT
+              {t('settings.account.signOut')}
             </button>
           ) : (
             <div className="grid grid-cols-2 gap-3">
@@ -239,22 +252,22 @@ export default function Settings({ userId, userProfile, onBack, onProfileUpdated
                 onClick={() => signOut()}
                 className="rounded-xl bg-red-600 text-white font-game text-xl py-2.5 border-b-[5px] border-red-900 active:translate-y-1 active:border-b-2 transition-all"
               >
-                LOSE PROGRESS
+                {t('settings.account.loseProgress')}
               </button>
               <button
                 onClick={() => setConfirmSignOut(false)}
                 className="rounded-xl bg-white/10 border border-white/20 text-white font-game text-xl py-2.5"
               >
-                CANCEL
+                {t('settings.account.cancel')}
               </button>
             </div>
           )}
         </div>
 
         <p className="text-center text-xs text-white/60">
-          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Terms of Use</a>
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{t('settings.terms')}</a>
           {' · '}
-          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy Policy</a>
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{t('settings.privacy')}</a>
         </p>
       </div>
     </div>

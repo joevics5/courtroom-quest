@@ -6,13 +6,14 @@ import AppDialogHost from './components/AppDialogHost.tsx';
 import AppErrorBoundary from './components/AppErrorBoundary.tsx';
 import { installGlobalErrorReporting } from './lib/errorReporting';
 import './index.css';
+import { i18nReady } from './i18n';
 
 installGlobalErrorReporting();
 
 const SharedTranscript = lazy(() => import('./components/SharedTranscript.tsx'));
 const WatchBoard = lazy(() => import('./components/WatchBoard.tsx'));
 
-createRoot(document.getElementById('root')!).render(
+i18nReady.then(() => createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppErrorBoundary>
       <BrowserRouter>
@@ -27,4 +28,4 @@ createRoot(document.getElementById('root')!).render(
       <AppDialogHost />
     </AppErrorBoundary>
   </StrictMode>
-);
+));

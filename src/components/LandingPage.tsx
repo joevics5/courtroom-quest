@@ -5,6 +5,7 @@ import { getPublicName } from '../lib/userName';
 import CaseOfTheWeek from './CaseOfTheWeek';
 import HeroBackground from './HeroBackground';
 import PathTile from './PathTile';
+import LanguageSwitcher from './LanguageSwitcher';
 import type { CaseInvitation, UserProfile } from '../types';
 
 interface LandingPageProps {
@@ -73,6 +74,7 @@ export default function LandingPage({
               ADMIN
             </button>
           )}
+          <LanguageSwitcher />
           <button
             onClick={onOpenSettings}
             aria-label="Settings"
