@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Scale, Users } from 'lucide-react';
 import HeroBackground from './HeroBackground';
@@ -12,34 +13,34 @@ const COURTS: Array<{
   type: TrialType;
   icon: typeof Scale;
   iconBg: string;
-  title: string;
-  tagline: string;
-  perks: string[];
+  titleKey: string;
+  taglineKey: string;
+  perkKeys: string[];
 }> = [
   {
     type: 'judge',
     icon: Scale,
     iconBg: 'bg-blue-600',
-    title: 'BENCH TRIAL',
-    tagline: 'The judge alone decides the verdict.',
-    perks: ['Faster', 'Legal expertise', 'Simpler']
+    titleKey: 'trialType.bench',
+    taglineKey: 'trialType.benchTag',
+    perkKeys: ['trialType.benchPerk1', 'trialType.benchPerk2', 'trialType.benchPerk3']
   },
   {
     type: 'jury',
     icon: Users,
     iconBg: 'bg-purple-600',
-    title: 'JURY TRIAL',
-    tagline: 'You pick 6 jurors. 12 citizens decide.',
-    perks: ['Pick your jurors', 'Persuade people', 'More realistic']
+    titleKey: 'trialType.jury',
+    taglineKey: 'trialType.juryTag',
+    perkKeys: ['trialType.juryPerk1', 'trialType.juryPerk2', 'trialType.juryPerk3']
   }
 ];
 
 // 15 and 60 are retired: they no longer appear here, but games already started with them still play out.
-const LENGTHS: Array<{ value: TrialDuration; big: string; unit: string; label: string }> = [
-  { value: 5, big: '5', unit: 'MIN', label: 'Lightning' },
-  { value: 10, big: '10', unit: 'MIN', label: 'Quick Play' },
-  { value: 20, big: '20', unit: 'MIN', label: 'Short' },
-  { value: 30, big: '30', unit: 'MIN', label: 'Standard' }
+const LENGTHS: Array<{ value: TrialDuration; big: string; labelKey: string }> = [
+  { value: 5, big: '5', labelKey: 'trialType.lightning' },
+  { value: 10, big: '10', labelKey: 'trialType.quickPlay' },
+  { value: 20, big: '20', labelKey: 'trialType.short' },
+  { value: 30, big: '30', labelKey: 'trialType.standard' }
 ];
 
 /**
@@ -47,6 +48,7 @@ const LENGTHS: Array<{ value: TrialDuration; big: string; unit: string; label: s
  * The confirm button is always on screen at the bottom.
  */
 export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
+  const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState<TrialType | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<TrialDuration>(30);
 
@@ -65,14 +67,14 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
         <header className="flex-none flex items-center gap-3">
           <button
             onClick={onCancel}
-            aria-label="Back"
+            aria-label={t('casefile.back')}
             className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
-            <h1 className="logo-gold font-game text-4xl leading-none truncate">CHOOSE YOUR COURT</h1>
-            <p className="text-white/60 text-xs mt-1">Who decides the outcome, and for how long?</p>
+            <h1 className="logo-gold font-game text-4xl leading-none truncate">{t('trialType.heading')}</h1>
+            <p className="text-white/60 text-xs mt-1">{t('trialType.sub')}</p>
           </div>
         </header>
 
@@ -99,12 +101,12 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
                   <Icon className="w-8 h-8 text-white" />
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block font-game text-3xl text-white leading-none">{court.title}</span>
-                  <span className="block mt-1 text-sm text-white/70 leading-snug">{court.tagline}</span>
+                  <span className="block font-game text-3xl text-white leading-none">{t(court.titleKey)}</span>
+                  <span className="block mt-1 text-sm text-white/70 leading-snug">{t(court.taglineKey)}</span>
                   <span className="mt-2 flex flex-wrap gap-1.5">
-                    {court.perks.map(perk => (
+                    {court.perkKeys.map(perk => (
                       <span key={perk} className="rounded-full bg-white/10 border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/80">
-                        {perk}
+                        {t(perk)}
                       </span>
                     ))}
                   </span>
@@ -116,7 +118,7 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
           {/* No backdrop blur and no animated colour change here: some phone browsers stop painting the text of
               tiles that change colour inside a blurred panel, which left the 15 and 30 tiles looking empty. */}
           <div className="rounded-3xl bg-black/75 border border-white/15 p-3 lg:col-span-2">
-            <h2 className="font-game text-2xl text-white/90 leading-none mb-2.5 px-1">HOW LONG?</h2>
+            <h2 className="font-game text-2xl text-white/90 leading-none mb-2.5 px-1">{t('trialType.howLong')}</h2>
             <div className="grid grid-cols-4 gap-2">
               {LENGTHS.map(len => {
                 const selected = selectedDuration === len.value;
@@ -132,8 +134,8 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
                     }`}
                   >
                     <span className={`block font-game text-4xl leading-none ${selected ? 'text-black' : 'text-white'}`}>{len.big}</span>
-                    <span className={`block text-[11px] font-black tracking-widest ${selected ? 'text-black' : 'text-white'}`}>{len.unit}</span>
-                    <span className={`block text-[11px] font-semibold whitespace-nowrap ${selected ? 'text-black/75' : 'text-white/70'}`}>{len.label}</span>
+                    <span className={`block text-[11px] font-black tracking-widest ${selected ? 'text-black' : 'text-white'}`}>{t('trialType.min')}</span>
+                    <span className={`block text-[11px] font-semibold whitespace-nowrap ${selected ? 'text-black/75' : 'text-white/70'}`}>{t(len.labelKey)}</span>
                   </button>
                 );
               })}
@@ -146,7 +148,7 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
           disabled={!selectedType}
           className="flex-none w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale"
         >
-          {selectedType === 'jury' ? 'PICK YOUR JURY' : selectedType === 'judge' ? 'TO THE COURTROOM' : 'PICK A COURT'}
+          {selectedType === 'jury' ? t('trialType.goJury') : selectedType === 'judge' ? t('trialType.goCourt') : t('trialType.pick')}
           {selectedType && <ArrowRight className="w-6 h-6" />}
         </button>
       </div>

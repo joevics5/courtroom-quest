@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { User } from 'lucide-react';
 import type { Witness } from '../types';
@@ -26,27 +27,28 @@ export default function WitnessSelector({
   onClose,
   caseFile
 }: WitnessSelectorProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<'select' | 'file'>('select');
   const [target, setTarget] = useState<DetailTarget | null>(null);
   const availableWitnesses = witnesses.filter(w => !witnessesCalled.includes(w.id));
 
   if (target) {
     return (
-      <ModalSheet title="WITNESS" icon={<User className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
+      <ModalSheet title={t('selectors.witnessTitle')} icon={<User className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
         <ItemDetail target={target} onBack={() => setTarget(null)} />
       </ModalSheet>
     );
   }
 
   return (
-    <ModalSheet title="SELECT A WITNESS" icon={<User className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
-      {caseFile && <SelectorTabs tab={tab} onChange={setTab} selectLabel="Witnesses" />}
+    <ModalSheet title={t('selectors.selectWitness')} icon={<User className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
+      {caseFile && <SelectorTabs tab={tab} onChange={setTab} selectLabel={t('selectors.tabWitnesses')} />}
       {caseFile && tab === 'file' ? (
         <CaseFilePanel file={caseFile} onView={setTarget} />
       ) : (
       <>
       {availableWitnesses.length === 0 ? (
-        <p className="text-white/60 text-center py-8">All witnesses have been called.</p>
+        <p className="text-white/60 text-center py-8">{t('selectors.allCalled')}</p>
       ) : (
         <div className="space-y-3 mb-5">
           {availableWitnesses.map((witness) => (
@@ -58,17 +60,17 @@ export default function WitnessSelector({
                   <div className="text-xs text-white/50 mt-2 line-clamp-2">{witness.background}</div>
                 )}
               </button>
-              {caseFile && <EyeButton label={`View ${witness.name}`} onClick={() => setTarget({ kind: 'witness', item: witness })} />}
+              {caseFile && <EyeButton label={t('casefile.viewItem', { name: witness.name })} onClick={() => setTarget({ kind: 'witness', item: witness })} />}
             </div>
           ))}
         </div>
       )}
 
       {disabled && (
-        <p className="text-center text-white/60 text-sm mb-3">Witnesses can only be called on your own turn, during direct examination.</p>
+        <p className="text-center text-white/60 text-sm mb-3">{t('selectors.turnOnly')}</p>
       )}
       <button onClick={onSkip} disabled={disabled} className={`w-full ${gameButton('ghost', 'sm')}`}>
-        Skip Calling Witness
+        {t('selectors.skipCalling')}
       </button>
       </>
       )}

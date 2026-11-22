@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { currentLocale } from '../i18n';
 import { FileText, Image, Video, Mic, Users, Package, Database, FileCheck, MessageSquare, Clock } from 'lucide-react';
 import type { Evidence } from '../types';
 import ScreenShell from './ScreenShell';
@@ -32,13 +34,14 @@ const formatEvidenceType = (type: string) => {
 };
 
 export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps) {
+  const { t } = useTranslation();
   const Icon = getEvidenceIcon(evidence.evidence_type);
   const label = 'text-xs font-black tracking-widest text-[#FFD43B] mb-2';
   const urls = parseFileUrls(evidence.file_url);
   const attachments = { images: urls.filter(isImageUrl), files: urls.filter((u) => !isImageUrl(u)) };
 
   return (
-    <ScreenShell title={evidence.exhibit_label || 'EVIDENCE'} subtitle="Back to the investigation with the arrow." onBack={onBack} maxWidth="max-w-3xl">
+    <ScreenShell title={evidence.exhibit_label || t('evidenceViewer.title')} subtitle={t('evidenceViewer.sub')} onBack={onBack} maxWidth="max-w-3xl">
       <div className={`${PANEL} space-y-5`}>
         <div className="flex items-start gap-4">
           <div className="flex items-center justify-center w-12 h-12 bg-[#FFD43B]/15 border border-[#FFD43B]/40 rounded-2xl flex-shrink-0">
@@ -47,7 +50,7 @@ export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps
           <div className="flex-1 min-w-0">
             <h2 className="font-game text-3xl leading-tight text-white">{evidence.title}</h2>
             <span className="inline-block mt-1 text-xs font-bold text-white/60 uppercase tracking-wide">
-              {formatEvidenceType(evidence.evidence_type)}
+              {t(`evidenceType.${evidence.evidence_type}`, { defaultValue: formatEvidenceType(evidence.evidence_type) })}
             </span>
             {evidence.description && <p className="text-white/75 mt-2">{evidence.description}</p>}
           </div>
@@ -55,14 +58,14 @@ export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps
 
         {evidence.content && (
           <div className="rounded-2xl bg-white/[0.05] border border-white/15 p-4 sm:p-5">
-            <h3 className={label}>EVIDENCE CONTENT</h3>
+            <h3 className={label}>{t('evidenceViewer.content')}</h3>
             <div className="text-white/90 whitespace-pre-wrap leading-relaxed">{evidence.content}</div>
           </div>
         )}
 
         {evidence.file_data && (
           <div className="rounded-2xl bg-white/[0.05] border border-white/15 p-4 sm:p-5">
-            <h3 className={label}>FILE DATA</h3>
+            <h3 className={label}>{t('evidenceViewer.fileData')}</h3>
             <div className="text-white/85 text-sm break-all">{evidence.file_data}</div>
           </div>
         )}
@@ -85,12 +88,12 @@ export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps
 
         {attachments.files.length > 0 && (
           <div>
-            <h3 className={label}>ATTACHMENT</h3>
+            <h3 className={label}>{t('evidenceViewer.attachment')}</h3>
             <div className="flex flex-wrap gap-2">
               {attachments.files.map((url, i) => (
                 <a key={url} href={url} target="_blank" rel="noopener noreferrer" className={gameButton('gold', 'sm')}>
                   <FileText className="w-4 h-4" />
-                  {attachments.files.length > 1 ? `View File ${i + 1}` : 'View File'}
+                  {attachments.files.length > 1 ? t('evidenceViewer.viewFileN', { n: i + 1 }) : t('evidenceViewer.viewFile')}
                 </a>
               ))}
             </div>
@@ -99,7 +102,7 @@ export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps
 
         {evidence.tags && evidence.tags.length > 0 && (
           <div>
-            <h3 className={label}>TAGS</h3>
+            <h3 className={label}>{t('evidenceViewer.tags')}</h3>
             <div className="flex flex-wrap gap-2">
               {evidence.tags.map((tag, index) => (
                 <span key={index} className="px-3 py-1 bg-white/10 border border-white/15 text-white/80 text-sm rounded-full">{tag}</span>
@@ -110,7 +113,7 @@ export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps
 
         {evidence.relevance && (
           <div>
-            <h3 className={label}>RELEVANCE</h3>
+            <h3 className={label}>{t('evidenceViewer.relevance')}</h3>
             <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold border ${
               evidence.relevance === 'favorable'
                 ? 'bg-green-500/15 text-green-300 border-green-400/40'
@@ -118,14 +121,14 @@ export default function EvidenceViewer({ evidence, onBack }: EvidenceViewerProps
                 ? 'bg-red-500/15 text-red-300 border-red-400/40'
                 : 'bg-white/10 text-white/70 border-white/20'
             }`}>
-              {evidence.relevance.charAt(0).toUpperCase() + evidence.relevance.slice(1)}
+              {t(`evidenceRelevance.${evidence.relevance}`, { defaultValue: evidence.relevance.charAt(0).toUpperCase() + evidence.relevance.slice(1) })}
             </span>
           </div>
         )}
 
         {evidence.discovered_at && (
           <p className="text-sm text-white/50 pt-4 border-t border-white/10">
-            Discovered on {new Date(evidence.discovered_at).toLocaleDateString()}
+            {t('evidenceViewer.discovered', { date: new Date(evidence.discovered_at).toLocaleDateString(currentLocale()) })}
           </p>
         )}
       </div>

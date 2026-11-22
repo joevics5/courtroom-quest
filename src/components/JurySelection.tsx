@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { db } from '../lib/database';
@@ -25,6 +26,9 @@ const sameSelections = (a: JurySelectionType[], b: JurySelectionType[]) =>
   a.length === b.length && a.every((x, i) => x.id === b[i].id);
 
 export default function JurySelection({ sessionId, maxJurors, onComplete, onBack, mySide = 'defense', mode = 'ai', isHost = true, opponentName }: Props) {
+  const { t, i18n } = useTranslation();
+  const sideName = (side: 'prosecution' | 'defense') => t(side === 'prosecution' ? 'roles.prosecution' : 'roles.defense');
+  const up = (text: string) => text.toLocaleUpperCase(i18n.resolvedLanguage);
   const [jurorPool, setJurorPool] = useState<Juror[]>([]);
   const [selectedJurors, setSelectedJurors] = useState<JurySelectionType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,7 +178,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
   const remaining = perSide - (mySide === 'defense' ? defenseJurors : prosecutionJurors).length;
   const available = jurorPool.filter(j => !selectedJurors.some(s => s.juror_id === j.id));
   const canPick = pickingSide !== null && !isPicking;
-  const opponentLabel = online ? opponentName || 'Your opponent' : 'The ' + aiSide;
+  const opponentLabel = online ? opponentName || t('jury.yourOpponent') : t('jury.theSide', { side: sideName(aiSide).toLocaleLowerCase(i18n.resolvedLanguage) });
   const waitingOnOther = !isComplete && mode !== 'device' && turn !== null && turn !== mySide;
 
   if (loading) {
@@ -182,8 +186,8 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
       <div className="relative min-h-[100dvh] bg-[#0b0d14] flex items-center justify-center">
         <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
         <div className="relative z-10 text-center">
-          <h1 className="logo-gold font-game text-5xl leading-none">JURY SELECTION</h1>
-          <p className="mt-3 text-xs font-bold tracking-[0.3em] text-white/50">CALLING THE JURY POOL…</p>
+          <h1 className="logo-gold font-game text-5xl leading-none">{t('jury.title')}</h1>
+          <p className="mt-3 text-xs font-bold tracking-[0.3em] text-white/50">{t('jury.calling')}</p>
         </div>
       </div>
     );
@@ -192,7 +196,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
   /** One row of seats for a side; filled seats show the juror, tap to strike them */
   const renderSeats = (side: 'prosecution' | 'defense', picks: JurySelectionType[]) => {
     const isDefense = side === 'defense';
-    const label = mode === 'device' ? side.toUpperCase() : side === mySide ? 'YOUR PICKS' : online ? (opponentName || 'OPPONENT').toUpperCase() : side.toUpperCase();
+    const label = mode === 'device' ? up(sideName(side)) : side === mySide ? t('jury.yourPicks') : online ? up(opponentName || t('jury.opponent')) : up(sideName(side));
     return (
       <div className="flex items-center gap-2">
         <div className="w-[88px] flex-none">
@@ -222,8 +226,8 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
                 <button
                   key={pick.id}
                   onClick={() => handleRemoveJuror(pick.id)}
-                  aria-label={`Remove ${juror.name}`}
-                  title={`${juror.name} — tap to remove`}
+                  aria-label={t('jury.remove', { name: juror.name })}
+                  title={t('jury.removeTitle', { name: juror.name })}
                   className={`relative rounded-full ring-2 ${isDefense ? 'ring-blue-400' : 'ring-red-400'}`}
                 >
                   <JurorAvatar seed={juror.id} name={juror.name} size="sm" />
@@ -254,14 +258,14 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
             {onBack && (
               <button
                 onClick={onBack}
-                aria-label="Back"
+                aria-label={t('jury.back')}
                 className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
             )}
             <div className="min-w-0">
-              <h1 className="logo-gold font-game text-4xl leading-none">JURY SELECTION</h1>
+              <h1 className="logo-gold font-game text-4xl leading-none">{t('jury.title')}</h1>
               <p className="text-white/60 text-xs mt-1">Each side picks {perSide} jurors.</p>
             </div>
           </header>
@@ -282,18 +286,18 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
             }`}
           >
             {isComplete
-              ? 'The jury is seated.'
+              ? t('jury.seated')
               : waitingOnOther
-                ? `${opponentLabel} is choosing a juror…`
+                ? t('jury.choosing', { who: opponentLabel })
                 : mode === 'device'
-                  ? `${turn === 'prosecution' ? 'Prosecution' : 'Defense'}: your pick — ${perSide - (turn === 'prosecution' ? prosecutionJurors : defenseJurors).length} more`
-                  : `Your pick — ${remaining} more for the ${mySide}`}
+                  ? t('jury.deviceTurn', { side: sideName(turn === 'prosecution' ? 'prosecution' : 'defense'), count: perSide - (turn === 'prosecution' ? prosecutionJurors : defenseJurors).length })
+                  : t('jury.yourTurn', { count: remaining, side: sideName(mySide).toLocaleLowerCase(i18n.resolvedLanguage) })}
           </div>
         </div>
 
         {/* Pool */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-3 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:content-start">
-          <h2 className="font-game text-2xl text-white/90 leading-none lg:col-span-2">JUROR POOL</h2>
+          <h2 className="font-game text-2xl text-white/90 leading-none lg:col-span-2">{t('jury.pool')}</h2>
           {available.map(juror => (
             <article key={juror.id} className="rounded-2xl bg-black/60 border border-white/15 backdrop-blur-sm p-3">
               <div className="flex items-center gap-3">
@@ -322,7 +326,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
               )}
             </article>
           ))}
-          {available.length === 0 && <p className="text-center text-white/50 text-sm py-6">No more jurors in the pool.</p>}
+          {available.length === 0 && <p className="text-center text-white/50 text-sm py-6">{t('jury.empty')}</p>}
         </div>
 
         {/* Always-visible footer */}
@@ -332,7 +336,7 @@ export default function JurySelection({ sessionId, maxJurors, onComplete, onBack
             disabled={!isComplete}
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale"
           >
-            {isComplete ? 'PROCEED TO TRIAL' : waitingOnOther || mineFull ? 'WAITING…' : `PICK ${mode === 'device' ? perSide - (turn === 'prosecution' ? prosecutionJurors : defenseJurors).length : remaining} MORE JUROR${(mode === 'device' ? 1 : remaining) === 1 ? '' : 'S'}`}
+            {isComplete ? t('jury.proceed') : waitingOnOther || mineFull ? t('jury.waiting') : t('jury.pickMore', { count: mode === 'device' ? perSide - (turn === 'prosecution' ? prosecutionJurors : defenseJurors).length : remaining })}
             {isComplete && <ArrowRight className="w-6 h-6" />}
           </button>
         </div>

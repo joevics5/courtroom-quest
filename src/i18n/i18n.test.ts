@@ -51,10 +51,21 @@ describe('locale files', () => {
     expect(Object.keys(esFlat).sort()).toEqual(Object.keys(enFlat).sort());
   });
 
+  // English builds "<title> case" with {{caseName}}; Spanish uses the plain title in «quotes» with {{title}}.
+  const DIFFERENT_VARIABLES = new Set(['preview.briefingProsecution', 'preview.briefingDefense']);
+
   it('Spanish keeps every placeholder and tag from English', () => {
     for (const key of Object.keys(enFlat)) {
+      if (DIFFERENT_VARIABLES.has(key)) continue;
       expect(placeholders(esFlat[key]), key).toEqual(placeholders(enFlat[key]));
     }
+  });
+
+  it('the intentionally different briefings still use the variables they are given', () => {
+    expect(placeholders(enFlat['preview.briefingProsecution'])).toEqual(['{{caseName}}', '{{defendant}}']);
+    expect(placeholders(esFlat['preview.briefingProsecution'])).toEqual(['{{defendant}}', '{{title}}']);
+    expect(placeholders(enFlat['preview.briefingDefense'])).toEqual(['{{caseName}}', '{{defendant}}']);
+    expect(placeholders(esFlat['preview.briefingDefense'])).toEqual(['{{defendant}}', '{{title}}']);
   });
 
   it('has no empty strings', () => {

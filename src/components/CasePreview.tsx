@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { reliefRows } from '../lib/requestedRelief';
 import type { RequestedRelief } from '../types';
 import { useEffect, useState } from 'react';
@@ -36,16 +37,18 @@ type Step = 'browse' | 'confirm-prosecute' | 'confirm-defend';
 
 const ROLE_STYLE = {
   defense: {
-    label: 'DEFENSE COUNSEL',
+    labelKey: 'preview.roleDefense',
     frame: 'border-[#3B82F6] shadow-[0_8px_0_#1e4fa8,0_0_36px_rgba(59,130,246,0.4)]'
   },
   prosecution: {
-    label: 'PROSECUTION COUNSEL',
+    labelKey: 'preview.roleProsecution',
     frame: 'border-[#E5484D] shadow-[0_8px_0_#9b1c22,0_0_36px_rgba(229,72,77,0.4)]'
   }
 };
 
 export default function CasePreview({ caseId, caseTitle, caseText, defendantName, relief, onSelect, onCancel, onSwitchMode, onlineDisabled, playerWins = 0, quickStart = false }: Props) {
+  const { t, i18n } = useTranslation();
+  const lower = (text: string) => text.toLocaleLowerCase(i18n.resolvedLanguage);
   const { user } = useAuth();
   const myAvatar = getUserAvatar(user);
   const myRank = getLevelForWins(playerWins);
@@ -57,7 +60,8 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const defendant = defendantName || 'the defendant';
+  const defendant = defendantName || t('preview.theDefendant');
+  const defendantCap = defendant.charAt(0).toLocaleUpperCase(i18n.resolvedLanguage) + defendant.slice(1);
   const [fee, setFee] = useState<CaseFee | undefined>();
 
   // What each side pays for a win. Nothing shows if the board can't be read.
@@ -102,32 +106,32 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
     const role: PlayerRole = step === 'confirm-prosecute' ? 'prosecution' : 'defense';
     const style = ROLE_STYLE[role];
     const briefing = role === 'prosecution'
-      ? `You've been assigned to lead the prosecution in ${withCaseSuffix(caseTitle)}. The State is counting on you to prove the case against ${defendant} beyond a reasonable doubt. Will you take the case?`
-      : `${defendant} has asked you to defend them in ${withCaseSuffix(caseTitle)}. The evidence against them is serious, but everyone deserves a defense. Will you take the case?`;
+      ? t('preview.briefingProsecution', { caseName: withCaseSuffix(caseTitle), title: caseTitle, defendant })
+      : t('preview.briefingDefense', { caseName: withCaseSuffix(caseTitle), title: caseTitle, defendant: defendantCap });
 
     return (
       <div className="fixed inset-0 bg-black/75 lg:bg-[#0b0d14] backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div role="dialog" aria-label={`${style.label} briefing`} className={`${PANEL} max-w-md w-full text-center`}>
-          <p className="font-game text-xl leading-none text-white/55 mb-4">NEW CASE ASSIGNMENT</p>
+        <div role="dialog" aria-label={t('preview.briefingAria', { role: t(style.labelKey) })} className={`${PANEL} max-w-md w-full text-center`}>
+          <p className="font-game text-xl leading-none text-white/55 mb-4">{t('preview.assignment')}</p>
           <div className={`mx-auto w-32 h-32 rounded-3xl overflow-hidden border-4 ${style.frame}`}>
-            <AvatarFace config={myAvatar} rank={myRank.level} label="Your avatar" />
+            <AvatarFace config={myAvatar} rank={myRank.level} label={t('preview.yourAvatar')} />
           </div>
-          <h2 className="logo-gold font-game text-4xl leading-none mt-6">{style.label}</h2>
-          <p className="text-white/60 text-sm mt-2">{myRank.title}</p>
+          <h2 className="logo-gold font-game text-4xl leading-none mt-6">{t(style.labelKey)}</h2>
+          <p className="text-white/60 text-sm mt-2">{t(`ranks.${myRank.level}`)}</p>
           <p className="text-white/85 leading-relaxed mt-4 mb-6">{briefing}</p>
           {hasFee(fee) && (
             <p className="-mt-3 mb-6 text-sm text-white/70">
-              Win this case as {role === 'prosecution' ? 'prosecution' : 'defense'} and earn{' '}
+              {t('preview.winAs', { role: lower(t(role === 'prosecution' ? 'roles.prosecution' : 'roles.defense')) })}{' '}
               <CoinAmount amount={role === 'prosecution' ? fee.prosecution : fee.defense} />
-              {fee.repeat && <span className="text-white/45"> (repeat win)</span>}
+              {fee.repeat && <span className="text-white/45">{t('preview.repeatWin')}</span>}
             </p>
           )}
           <div className="grid grid-cols-2 gap-3">
             <button onClick={() => setStep('browse')} className={gameButton('ghost', 'md')}>
-              REJECT
+              {t('preview.reject')}
             </button>
             <button onClick={() => onSelect(role)} className={gameButton('gold', 'md')}>
-              ACCEPT CASE
+              {t('preview.accept')}
             </button>
           </div>
         </div>
@@ -142,14 +146,14 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
         <button
           type="button"
           onClick={onCancel}
-          aria-label="Close"
+          aria-label={t('common.close')}
           className="absolute top-3 right-3 z-10 flex items-center justify-center w-11 h-11 rounded-full bg-white/10 active:bg-white/20 text-white touch-manipulation"
         >
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2 mb-3 pr-12">
           <FileText className="w-6 h-6 text-[#FFD43B]" />
-          <span className="font-game text-2xl leading-none text-[#FFD43B]">CASE FILE</span>
+          <span className="font-game text-2xl leading-none text-[#FFD43B]">{t('preview.caseFile')}</span>
         </div>
 
         <h2 className="text-2xl font-bold text-white mb-3 leading-snug">{caseTitle}</h2>
@@ -190,7 +194,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
         >
           <span className="flex items-center gap-2">
             <FileStack className="w-4 h-4" />
-            View evidence & witnesses
+            {t('preview.viewFiles')}
           </span>
           {filesLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -220,7 +224,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
                           className={`w-full flex items-center justify-between px-3 py-2.5 text-left ${hasDetail ? 'cursor-pointer hover:bg-white/5' : 'cursor-default'}`}
                         >
                           <span className="text-sm">
-                            <span className="text-[#FFD43B] font-medium">{e.exhibit_label || 'Exhibit'}:</span>{' '}
+                            <span className="text-[#FFD43B] font-medium">{e.exhibit_label || t('preview.exhibit')}:</span>{' '}
                             <span className="text-white/80">{e.title}</span>
                           </span>
                           {hasDetail && (isOpen ? <ChevronUp className="w-4 h-4 text-white/40 shrink-0" /> : <ChevronDown className="w-4 h-4 text-white/40 shrink-0" />)}
@@ -240,7 +244,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
                   })}
                 </div>
               ) : (
-                <p className="text-white/40 text-sm italic">No evidence listed yet.</p>
+                <p className="text-white/40 text-sm italic">{t('preview.noEvidence')}</p>
               )}
             </div>
 
@@ -270,13 +274,13 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
                           <div className="px-3 pb-3 pt-0 space-y-2 border-t border-white/10">
                             {w.background && (
                               <div className="pt-2">
-                                <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">Background</p>
+                                <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">{t('preview.background')}</p>
                                 <p className="text-white/60 text-xs leading-relaxed whitespace-pre-line">{w.background}</p>
                               </div>
                             )}
                             {w.base_testimony && (
                               <div>
-                                <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">Statement</p>
+                                <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">{t('preview.statement')}</p>
                                 <p className="text-white/80 text-sm leading-relaxed whitespace-pre-line bg-black/20 rounded p-2.5">{w.base_testimony}</p>
                               </div>
                             )}
@@ -287,44 +291,44 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
                   })}
                 </div>
               ) : (
-                <p className="text-white/40 text-sm italic">No witnesses listed yet.</p>
+                <p className="text-white/40 text-sm italic">{t('preview.noWitnesses')}</p>
               )}
             </div>
           </div>
         )}
 
-        <p className="font-game text-2xl leading-none text-white mb-3">CHOOSE YOUR SIDE</p>
+        <p className="font-game text-2xl leading-none text-white mb-3">{t('preview.chooseSide')}</p>
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button
             onClick={() => setStep('confirm-prosecute')}
             className="rounded-2xl border-2 border-[#E5484D]/60 bg-[#E5484D]/10 active:bg-[#E5484D]/25 py-5 flex flex-col items-center gap-2 transition-colors"
           >
             <Gavel className="w-8 h-8 text-[#FF7A7E]" />
-            <span className="font-game text-3xl leading-none text-white">PROSECUTE</span>
-            {hasFee(fee) && <span className="text-sm" aria-label={`${fee.prosecution} coins for a win`}><CoinAmount amount={fee.prosecution} /></span>}
+            <span className="font-game text-3xl leading-none text-white">{t('preview.prosecute')}</span>
+            {hasFee(fee) && <span className="text-sm" aria-label={t('preview.coinsForWin', { count: fee.prosecution })}><CoinAmount amount={fee.prosecution} /></span>}
           </button>
           <button
             onClick={() => setStep('confirm-defend')}
             className="rounded-2xl border-2 border-[#3B82F6]/60 bg-[#3B82F6]/10 active:bg-[#3B82F6]/25 py-5 flex flex-col items-center gap-2 transition-colors"
           >
             <Shield className="w-8 h-8 text-[#7FB2FF]" />
-            <span className="font-game text-3xl leading-none text-white">DEFEND</span>
-            {hasFee(fee) && <span className="text-sm" aria-label={`${fee.defense} coins for a win`}><CoinAmount amount={fee.defense} /></span>}
+            <span className="font-game text-3xl leading-none text-white">{t('preview.defend')}</span>
+            {hasFee(fee) && <span className="text-sm" aria-label={t('preview.coinsForWin', { count: fee.defense })}><CoinAmount amount={fee.defense} /></span>}
           </button>
         </div>
 
 
         {onSwitchMode && !quickStart && (
           <div className="flex items-center justify-center gap-2 flex-wrap mb-3 text-xs text-white/50">
-            <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">Playing solo</span>
-            <span>Switch to:</span>
+            <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">{t('preview.playingSolo')}</span>
+            <span>{t('preview.switchTo')}</span>
             {!onlineDisabled && (
               <button onClick={() => onSwitchMode('online')} className="font-semibold text-[#FFD43B] underline underline-offset-2">
-                Online player
+                {t('preview.onlinePlayer')}
               </button>
             )}
             <button onClick={() => onSwitchMode('local')} className="font-semibold text-[#FFD43B] underline underline-offset-2">
-              Same device
+              {t('preview.sameDevice')}
             </button>
           </div>
         )}
@@ -335,7 +339,7 @@ export default function CasePreview({ caseId, caseTitle, caseText, defendantName
             className="flex items-center gap-1 px-4 py-2 text-white/70 active:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            {quickStart ? 'Back to the list' : 'Choose a different case'}
+            {quickStart ? t('preview.backToList') : t('preview.differentCase')}
           </button>
         </div>
       </div>

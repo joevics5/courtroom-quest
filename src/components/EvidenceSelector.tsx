@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
 import type { Evidence } from '../types';
@@ -20,25 +21,26 @@ export default function EvidenceSelector({
   onClose,
   caseFile
 }: EvidenceSelectorProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<'select' | 'file'>('select');
   const [target, setTarget] = useState<DetailTarget | null>(null);
   const availableEvidence = evidence.filter(e => !evidenceSubmitted.includes(e.id));
 
   if (target) {
     return (
-      <ModalSheet title="EVIDENCE" icon={<FileText className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
+      <ModalSheet title={t('selectors.evidenceTitle')} icon={<FileText className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
         <ItemDetail target={target} onBack={() => setTarget(null)} />
       </ModalSheet>
     );
   }
 
   return (
-    <ModalSheet title="SUBMIT EVIDENCE" icon={<FileText className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
-      {caseFile && <SelectorTabs tab={tab} onChange={setTab} selectLabel="Evidence" />}
+    <ModalSheet title={t('selectors.submitEvidence')} icon={<FileText className="w-6 h-6 text-[#FFD43B]" />} onClose={onClose}>
+      {caseFile && <SelectorTabs tab={tab} onChange={setTab} selectLabel={t('selectors.tabEvidence')} />}
       {caseFile && tab === 'file' ? (
         <CaseFilePanel file={caseFile} onView={setTarget} />
       ) : availableEvidence.length === 0 ? (
-        <p className="text-white/60 text-center py-8">All evidence has been submitted.</p>
+        <p className="text-white/60 text-center py-8">{t('selectors.allSubmitted')}</p>
       ) : (
         <div className="space-y-3">
           {availableEvidence.map((item) => (
@@ -49,7 +51,7 @@ export default function EvidenceSelector({
               </span>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-white">
-                  {item.exhibit_label || 'Evidence'}: {item.title}
+                  {item.exhibit_label || t('selectors.evidenceFallback')}: {item.title}
                 </div>
                 {item.description && (
                   <div className="text-sm text-white/60 mt-1 line-clamp-2">{item.description}</div>
@@ -57,7 +59,7 @@ export default function EvidenceSelector({
                 <div className="text-xs text-white/40 mt-2 capitalize">Type: {item.evidence_type}</div>
               </div>
             </button>
-            {caseFile && <EyeButton label={`View ${item.title}`} onClick={() => setTarget({ kind: 'evidence', item })} />}
+            {caseFile && <EyeButton label={t('casefile.viewItem', { name: item.title })} onClick={() => setTarget({ kind: 'evidence', item })} />}
             </div>
           ))}
         </div>

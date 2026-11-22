@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Eye, FileText, User } from 'lucide-react';
 import type { Case, Evidence, Witness } from '../types';
 import { parseFileUrls, isImageUrl } from '../lib/caseImages';
@@ -36,6 +37,7 @@ export function EyeButton({ label, onClick }: { label: string; onClick: () => vo
 
 /** Two quiet tabs at the top of the pop-up: the usual list, and the case file. */
 export function SelectorTabs({ tab, onChange, selectLabel }: { tab: 'select' | 'file'; onChange: (t: 'select' | 'file') => void; selectLabel: string }) {
+  const { t } = useTranslation();
   const base = 'flex-1 h-9 rounded-full text-xs font-bold transition-colors touch-manipulation';
   return (
     <div role="tablist" className="flex gap-2 mb-4 p-1 rounded-full bg-white/5 border border-white/10">
@@ -43,7 +45,7 @@ export function SelectorTabs({ tab, onChange, selectLabel }: { tab: 'select' | '
         {selectLabel}
       </button>
       <button role="tab" aria-selected={tab === 'file'} onClick={() => onChange('file')} className={`${base} ${tab === 'file' ? 'bg-[#FFD43B] text-black' : 'text-white/70'}`}>
-        Case details
+        {t('casefile.details')}
       </button>
     </div>
   );
@@ -51,10 +53,11 @@ export function SelectorTabs({ tab, onChange, selectLabel }: { tab: 'select' | '
 
 /** One witness or one piece of evidence in full, with a way back to the list. */
 export function ItemDetail({ target, onBack }: { target: DetailTarget; onBack: () => void }) {
+  const { t } = useTranslation();
   return (
     <div>
       <button type="button" onClick={onBack} className="flex items-center gap-1.5 mb-3 text-sm font-bold text-white/70 active:text-white touch-manipulation">
-        <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Back
+        <ArrowLeft className="w-4 h-4" aria-hidden="true" /> {t('casefile.back')}
       </button>
       {target.kind === 'witness' ? <WitnessDetail witness={target.item} /> : <EvidenceDetail evidence={target.item} />}
     </div>
@@ -62,6 +65,7 @@ export function ItemDetail({ target, onBack }: { target: DetailTarget; onBack: (
 }
 
 function WitnessDetail({ witness }: { witness: Witness }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2">
       <div>
@@ -70,13 +74,13 @@ function WitnessDetail({ witness }: { witness: Witness }) {
       </div>
       {witness.background && (
         <div className={BOX}>
-          <h4 className={HEADING}>BACKGROUND</h4>
+          <h4 className={HEADING}>{t('casefile.background')}</h4>
           <p className="text-sm text-white/80 leading-relaxed">{witness.background}</p>
         </div>
       )}
       {witness.base_testimony && (
         <div className="rounded-2xl bg-[#FFD43B]/10 border border-[#F2B705]/40 p-3">
-          <h4 className={HEADING}>WRITTEN TESTIMONY</h4>
+          <h4 className={HEADING}>{t('casefile.writtenTestimony')}</h4>
           <p className="text-sm text-white/85 whitespace-pre-wrap leading-relaxed">{witness.base_testimony}</p>
         </div>
       )}
@@ -85,6 +89,7 @@ function WitnessDetail({ witness }: { witness: Witness }) {
 }
 
 function EvidenceDetail({ evidence }: { evidence: Evidence }) {
+  const { t } = useTranslation();
   const urls = parseFileUrls(evidence.file_url);
   const images = urls.filter(isImageUrl);
   const files = urls.filter(u => !isImageUrl(u));
@@ -99,13 +104,13 @@ function EvidenceDetail({ evidence }: { evidence: Evidence }) {
       {evidence.description && <p className="text-sm text-white/75 leading-relaxed">{evidence.description}</p>}
       {evidence.content && (
         <div className={BOX}>
-          <h4 className={HEADING}>EVIDENCE CONTENT</h4>
+          <h4 className={HEADING}>{t('casefile.evidenceContent')}</h4>
           <div className="text-sm text-white/90 whitespace-pre-wrap leading-relaxed">{evidence.content}</div>
         </div>
       )}
       {evidence.file_data && (
         <div className={BOX}>
-          <h4 className={HEADING}>FILE DATA</h4>
+          <h4 className={HEADING}>{t('casefile.fileData')}</h4>
           <div className="text-sm text-white/85 break-all">{evidence.file_data}</div>
         </div>
       )}
@@ -116,7 +121,7 @@ function EvidenceDetail({ evidence }: { evidence: Evidence }) {
       ))}
       {files.map((url, i) => (
         <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-bold text-[#FFD43B] underline">
-          <FileText className="w-4 h-4" aria-hidden="true" /> {files.length > 1 ? `View file ${i + 1}` : 'View file'}
+          <FileText className="w-4 h-4" aria-hidden="true" /> {files.length > 1 ? t('casefile.viewFileN', { n: i + 1 }) : t('casefile.viewFile')}
         </a>
       ))}
     </div>
@@ -125,6 +130,7 @@ function EvidenceDetail({ evidence }: { evidence: Evidence }) {
 
 /** The "Case details" tab: the case summary, then every witness and exhibit, each with an eye button. */
 export function CaseFilePanel({ file, onView }: { file: CaseFileData; onView: (t: DetailTarget) => void }) {
+  const { t } = useTranslation();
   const { caseData, witnesses, evidence, witnessesCalled, evidenceSubmitted } = file;
   const relief = caseData?.requested_relief;
   const reliefLines = [relief?.primary, relief?.financial, relief?.penalty, ...(relief?.additional ?? [])].filter(Boolean) as string[];
@@ -133,7 +139,7 @@ export function CaseFilePanel({ file, onView }: { file: CaseFileData; onView: (t
     <div className="space-y-3">
       {caseData && (
         <div className={BOX}>
-          <h4 className={HEADING}>THE CASE</h4>
+          <h4 className={HEADING}>{t('casefile.theCase')}</h4>
           <p className="font-semibold text-white">{caseData.title}</p>
           {caseData.versus && <p className="text-xs text-white/55 mb-1">{caseData.versus}</p>}
           {caseData.description && <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{caseData.description}</p>}
@@ -141,7 +147,7 @@ export function CaseFilePanel({ file, onView }: { file: CaseFileData; onView: (t
       )}
       {reliefLines.length > 0 && (
         <div className={BOX}>
-          <h4 className={HEADING}>REQUESTED RELIEF</h4>
+          <h4 className={HEADING}>{t('casefile.relief')}</h4>
           <ul className="list-disc pl-4 space-y-0.5 text-sm text-white/80">
             {reliefLines.map((line, i) => <li key={i}>{line}</li>)}
           </ul>
@@ -150,7 +156,7 @@ export function CaseFilePanel({ file, onView }: { file: CaseFileData; onView: (t
 
       {witnesses.length > 0 && (
         <div>
-          <h4 className={HEADING}>WITNESSES</h4>
+          <h4 className={HEADING}>{t('casefile.witnesses')}</h4>
           <div className="space-y-2">
             {witnesses.map(w => (
               <div key={w.id} className="flex items-center gap-2">
@@ -158,7 +164,7 @@ export function CaseFilePanel({ file, onView }: { file: CaseFileData; onView: (t
                   <div className="flex items-center gap-1.5 text-sm font-semibold text-white"><User className="w-3.5 h-3.5 text-[#FFD43B]" aria-hidden="true" />{w.name}</div>
                   <div className="text-xs text-white/55">{w.role}{witnessesCalled.includes(w.id) ? ' · called' : ''}</div>
                 </div>
-                <EyeButton label={`View ${w.name}`} onClick={() => onView({ kind: 'witness', item: w })} />
+                <EyeButton label={t('casefile.viewItem', { name: w.name })} onClick={() => onView({ kind: 'witness', item: w })} />
               </div>
             ))}
           </div>
@@ -167,7 +173,7 @@ export function CaseFilePanel({ file, onView }: { file: CaseFileData; onView: (t
 
       {evidence.length > 0 && (
         <div>
-          <h4 className={HEADING}>EVIDENCE</h4>
+          <h4 className={HEADING}>{t('casefile.evidence')}</h4>
           <div className="space-y-2">
             {evidence.map(e => (
               <div key={e.id} className="flex items-center gap-2">
@@ -175,7 +181,7 @@ export function CaseFilePanel({ file, onView }: { file: CaseFileData; onView: (t
                   <div className="flex items-center gap-1.5 text-sm font-semibold text-white"><FileText className="w-3.5 h-3.5 text-[#FFD43B]" aria-hidden="true" /><span className="truncate">{e.exhibit_label ? `${e.exhibit_label}: ` : ''}{e.title}</span></div>
                   <div className="text-xs text-white/55">{formatType(e.evidence_type)}{evidenceSubmitted.includes(e.id) ? ' · submitted' : ''}</div>
                 </div>
-                <EyeButton label={`View ${e.title}`} onClick={() => onView({ kind: 'evidence', item: e })} />
+                <EyeButton label={t('casefile.viewItem', { name: e.title })} onClick={() => onView({ kind: 'evidence', item: e })} />
               </div>
             ))}
           </div>
