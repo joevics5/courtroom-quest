@@ -70,5 +70,79 @@
     },
     "terms": "Terms of Use",
     "privacy": "Privacy Policy"
+  },
+  "common": {
+    "settings": "Settings",
+    "wins_one": "{{count}} win",
+    "wins_other": "{{count}} wins",
+    "close": "Close"
+  },
+  "roles": {
+    "prosecution": "Prosecution",
+    "defense": "Defense"
+  },
+  "landing": {
+    "backHome": "Back to home",
+    "nextRank_one": "{{count}} more win to {{rank}}",
+    "nextRank_other": "{{count}} more wins to {{rank}}",
+    "invitesHeading_one": "YOU HAVE AN INVITE",
+    "invitesHeading_other": "YOU HAVE {{count}} INVITES",
+    "aCase": "A case",
+    "challengedYou": "A friend challenged you — you'd play the {{role}}.",
+    "accept": "ACCEPT",
+    "decline": "DECLINE",
+    "choosePath": "CHOOSE YOUR PATH",
+    "quickStart": "QUICK START",
+    "quickStartBadge": "NEW HERE?",
+    "caseBoard": "CASE BOARD",
+    "ongoing": "{{count}} ONGOING",
+    "createCase": "CREATE YOUR CASE",
+    "challenge": "CHALLENGE A PLAYER",
+    "invitesWaiting_one": "{{count}} INVITE WAITING",
+    "invitesWaiting_other": "{{count}} INVITES WAITING",
+    "live1v1": "LIVE 1V1",
+    "caseHistory": "CASE HISTORY",
+    "watchLive": "WATCH A LIVE TRIAL"
+  },
+  "caseOfTheWeek": {
+    "heading": "CASE OF THE WEEK",
+    "play": "PLAY THIS CASE"
+  },
+  "home": {
+    "tagline1": "HOW GOOD A LAWYER ARE YOU?",
+    "tagline2": "PROVE IT IN COURT",
+    "taglineFull": "How Good a Lawyer Are You? Prove It in Court",
+    "step1": "Pick a case and your side",
+    "step2": "Grill witnesses. Catch the lie.",
+    "step3": "Object, argue, win the verdict",
+    "play": "PLAY",
+    "oneSec": "ONE SEC…",
+    "dashboard": "DASHBOARD",
+    "dashboardSub": "GAMES & INVITES",
+    "learnMore": "LEARN MORE",
+    "learnMoreSub": "HOW IT WORKS",
+    "settingsSub": "DIFFICULTY & LANGUAGE",
+    "howItWorks": "HOW IT WORKS",
+    "haveAccount": "HAVE AN ACCOUNT? SIGN IN",
+    "muteSound": "Mute sound",
+    "enableSound": "Enable sound",
+    "learn": {
+      "intro": "Play a full trial, from case file to verdict.",
+      "item1Title": "Read the case file",
+      "item1": "Review the evidence and witnesses — the loophole is in there somewhere.",
+      "item2Title": "Pick your side",
+      "item2": "Prosecute or defend. Same case, completely different game depending on your side.",
+      "item3Title": "Argue it out",
+      "item3": "Object, examine witnesses, and convince the court before your opponent does.",
+      "waysHeading": "WAYS TO PLAY",
+      "fullCourtroomLead": "Full courtroom.",
+      "fullCourtroom": "A real judge rules on your objections, witnesses answer based on their actual testimony, and opposing counsel argues back — all reactive to what you actually say.",
+      "realOpponentLead": "Face a real opponent.",
+      "realOpponent": "Open a live challenge, pick your side, and argue the case against another player, just the two of you.",
+      "ownCaseLead": "Your own case.",
+      "ownCase": "Build a custom case with your own evidence and witnesses.",
+      "gotIt": "GOT IT"
+    },
+    "settings": "SETTINGS"
   }
 }

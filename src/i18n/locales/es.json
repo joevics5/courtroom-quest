@@ -70,5 +70,79 @@
     },
     "terms": "Términos de uso (en inglés)",
     "privacy": "Política de privacidad (en inglés)"
+  },
+  "common": {
+    "settings": "Ajustes",
+    "wins_one": "{{count}} victoria",
+    "wins_other": "{{count}} victorias",
+    "close": "Cerrar"
+  },
+  "roles": {
+    "prosecution": "Fiscalía",
+    "defense": "Defensa"
+  },
+  "landing": {
+    "backHome": "Volver al inicio",
+    "nextRank_one": "Falta {{count}} victoria para llegar a {{rank}}",
+    "nextRank_other": "Faltan {{count}} victorias para llegar a {{rank}}",
+    "invitesHeading_one": "TIENES UNA INVITACIÓN",
+    "invitesHeading_other": "TIENES {{count}} INVITACIONES",
+    "aCase": "Un caso",
+    "challengedYou": "Te retaron a un duelo: jugarías como {{role}}.",
+    "accept": "ACEPTAR",
+    "decline": "RECHAZAR",
+    "choosePath": "ELIGE TU CAMINO",
+    "quickStart": "INICIO RÁPIDO",
+    "quickStartBadge": "¿PRIMERA VEZ?",
+    "caseBoard": "TABLERO DE CASOS",
+    "ongoing": "{{count}} EN CURSO",
+    "createCase": "CREA TU CASO",
+    "challenge": "RETA A ALGUIEN",
+    "invitesWaiting_one": "{{count}} INVITACIÓN EN ESPERA",
+    "invitesWaiting_other": "{{count}} INVITACIONES EN ESPERA",
+    "live1v1": "EN VIVO 1 CONTRA 1",
+    "caseHistory": "HISTORIAL DE CASOS",
+    "watchLive": "MIRA UN JUICIO EN VIVO"
+  },
+  "caseOfTheWeek": {
+    "heading": "CASO DE LA SEMANA",
+    "play": "JUGAR ESTE CASO"
+  },
+  "home": {
+    "tagline1": "¿CUÁNTO VALE TU ALEGATO?",
+    "tagline2": "DEMUÉSTRALO EN LA SALA",
+    "taglineFull": "¿Cuánto vale tu alegato? Demuéstralo en la sala",
+    "step1": "Elige un caso y tu parte",
+    "step2": "Interroga a los testigos. Atrapa la mentira.",
+    "step3": "Objeta, argumenta y gana el veredicto",
+    "play": "JUGAR",
+    "oneSec": "UN MOMENTO…",
+    "dashboard": "PANEL",
+    "dashboardSub": "PARTIDAS E INVITACIONES",
+    "learnMore": "SABER MÁS",
+    "learnMoreSub": "CÓMO SE JUEGA",
+    "settingsSub": "DIFICULTAD E IDIOMA",
+    "howItWorks": "CÓMO SE JUEGA",
+    "haveAccount": "¿YA TIENES CUENTA? INICIA SESIÓN",
+    "muteSound": "Silenciar el sonido",
+    "enableSound": "Activar el sonido",
+    "learn": {
+      "intro": "Juega un juicio completo, desde el expediente hasta el veredicto.",
+      "item1Title": "Lee el expediente",
+      "item1": "Revisa las pruebas y a los testigos: el punto débil del caso está ahí, en algún lado.",
+      "item2Title": "Elige tu parte",
+      "item2": "Acusa o defiende. El mismo caso es un juego completamente distinto según el lado que tomes.",
+      "item3Title": "Defiende tu postura",
+      "item3": "Objeta, interroga a los testigos y convence al tribunal antes que tu oponente.",
+      "waysHeading": "FORMAS DE JUGAR",
+      "fullCourtroomLead": "Sala completa.",
+      "fullCourtroom": "Un juez real resuelve tus objeciones, los testigos responden según su testimonio y la parte contraria te contesta, todo según lo que tú realmente dices.",
+      "realOpponentLead": "Contra otra persona.",
+      "realOpponent": "Abre un reto en vivo, elige tu parte y argumenta el caso contra otro jugador, solo ustedes dos.",
+      "ownCaseLead": "Tu propio caso.",
+      "ownCase": "Crea un caso a tu medida, con tus propias pruebas y testigos.",
+      "gotIt": "ENTENDIDO"
+    },
+    "settings": "AJUSTES"
   }
 }

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, X } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled, playGavelTap } from '../lib/soundEffects';
@@ -33,14 +35,14 @@ const ACTIONS_SHADE =
 // The picture column never gets wider than this (matches max-w-[560px] below)
 const ART_MAX_WIDTH = 560;
 
-const TAGLINE_LINES = ['HOW GOOD A LAWYER ARE YOU?', 'PROVE IT IN COURT'];
-const TAGLINE = 'How Good a Lawyer Are You? Prove It in Court';
 // White text with a dark edge and shadow so it stays readable over the artwork. No box around it.
 const TAGLINE_STYLE = 'text-white [text-shadow:0_1px_0_rgba(0,0,0,0.9),0_2px_0_rgba(0,0,0,0.9),0_2px_10px_rgba(0,0,0,0.9)]';
 
-const STEPS = ['Pick a case and your side', 'Grill witnesses. Catch the lie.', 'Object, argue, win the verdict'];
+const STEP_KEYS = ['home.step1', 'home.step2', 'home.step3'] as const;
 
 export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount, signedIn, waitingCount, myGamesCount = 0, onOpenDashboard }: HomePageProps) {
+  const { t } = useTranslation();
+  const taglineLines = [t('home.tagline1'), t('home.tagline2')];
   const desktop = useIsDesktop();
   const [soundOn, setSoundOn] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
@@ -182,10 +184,14 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
       </div>
 
       <div className="relative z-10 min-h-[100dvh] flex flex-col">
+        {/* Language switch floats over the top-left corner */}
+        <div className="absolute left-5 z-20" style={{ top: 'max(env(safe-area-inset-top), 16px)' }}>
+          <LanguageSwitcher />
+        </div>
         {/* Sound toggle floats over the top-right corner so it doesn't use up a row */}
         <button
           onClick={toggleSound}
-          aria-label={soundOn ? 'Mute sound' : 'Enable sound'}
+          aria-label={soundOn ? t('home.muteSound') : t('home.enableSound')}
           className="absolute right-5 z-20 flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
           style={{ top: 'max(env(safe-area-inset-top), 16px)' }}
         >
@@ -207,8 +213,8 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
         <div className="px-5 pt-8" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)', background: ACTIONS_SHADE }}>
         <div className="w-full max-w-sm mx-auto space-y-2.5">
           {/* Just above PLAY, on the dark covering */}
-          <p ref={taglineRef} aria-label={TAGLINE} className={`mx-auto max-w-[22rem] text-center text-[clamp(13px,4.2vw,15px)] sm:text-lg font-black leading-tight tracking-[0.05em] ${TAGLINE_STYLE}`}>
-            {TAGLINE_LINES.map(line => (
+          <p ref={taglineRef} aria-label={t('home.taglineFull')} className={`mx-auto max-w-[22rem] text-center text-[clamp(13px,4.2vw,15px)] sm:text-lg font-black leading-tight tracking-[0.05em] ${TAGLINE_STYLE}`}>
+            {taglineLines.map(line => (
               <span key={line} className="block">{line}</span>
             ))}
           </p>
@@ -221,7 +227,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             disabled={busy !== null}
             className="w-full rounded-2xl bg-[#FFD43B] text-black font-game text-4xl py-1 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-70"
           >
-            {busy === 'play' ? 'ONE SEC…' : 'PLAY'}
+            {busy === 'play' ? t('home.oneSec') : t('home.play')}
           </button>
 
           <div className="grid grid-cols-2 gap-3">
@@ -235,16 +241,16 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
                     {waitingCount}
                   </span>
                 )}
-                <span className="block font-game text-2xl text-white leading-none">DASHBOARD</span>
-                <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">GAMES & INVITES</span>
+                <span className="block font-game text-2xl text-white leading-none">{t('home.dashboard')}</span>
+                <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">{t('home.dashboardSub')}</span>
               </button>
             ) : (
               <button
                 onClick={() => setShowLearnMore(true)}
                 className="rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2 active:translate-y-0.5 transition-transform"
               >
-                <span className="block font-game text-2xl text-white leading-none">LEARN MORE</span>
-                <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">HOW IT WORKS</span>
+                <span className="block font-game text-2xl text-white leading-none">{t('home.learnMore')}</span>
+                <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">{t('home.learnMoreSub')}</span>
               </button>
             )}
             <button
@@ -252,16 +258,16 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
               disabled={busy !== null}
               className="rounded-xl bg-[#1d1b18]/90 border border-white/15 py-2 active:translate-y-0.5 transition-transform disabled:opacity-70"
             >
-              <span className="block font-game text-2xl text-white leading-none">{busy === 'settings' ? '…' : 'SETTINGS'}</span>
-              <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">DIFFICULTY</span>
+              <span className="block font-game text-2xl text-white leading-none">{busy === 'settings' ? '…' : t('home.settings')}</span>
+              <span className="block mt-1 text-[10px] font-bold tracking-[0.2em] text-[#FFD43B]">{t('home.settingsSub')}</span>
             </button>
           </div>
 
           <ol className="flex flex-col items-center gap-1 pt-1 [@media(max-height:700px)]:hidden">
-            {STEPS.map((text, i) => (
-              <li key={text} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-1.5 pr-5 py-0.5 backdrop-blur-sm">
+            {STEP_KEYS.map((key, i) => (
+              <li key={key} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-1.5 pr-5 py-0.5 backdrop-blur-sm">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#FFD43B] text-black font-black text-sm">{i + 1}</span>
-                <span className="text-white font-semibold text-[14px]">{text}</span>
+                <span className="text-white font-semibold text-[14px]">{t(key)}</span>
               </li>
             ))}
           </ol>
@@ -270,12 +276,12 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 pt-1">
               {signedIn && (
                 <button onClick={() => setShowLearnMore(true)} className="whitespace-nowrap text-[11px] font-bold tracking-[0.15em] text-white/70 underline underline-offset-4">
-                  HOW IT WORKS
+                  {t('home.howItWorks')}
                 </button>
               )}
               {!hasAccount && (
                 <button onClick={onSignIn} className="whitespace-nowrap text-[11px] font-bold tracking-[0.15em] text-white/70 underline underline-offset-4">
-                  HAVE AN ACCOUNT? SIGN IN
+                  {t('home.haveAccount')}
                 </button>
               )}
             </div>
@@ -290,40 +296,41 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
 }
 
 function LearnMore({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75" onClick={onClose}>
       <div
         className="relative w-full max-w-md max-h-[88dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#14161f] border border-white/10 p-6 text-white"
         onClick={e => e.stopPropagation()}
       >
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20">
+        <button onClick={onClose} aria-label={t('common.close')} className="absolute top-4 right-4 flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20">
           <X className="w-5 h-5" />
         </button>
 
-        <h2 className="font-game text-3xl text-[#FFD43B] mb-1">HOW IT WORKS</h2>
-        <p className="text-white/60 text-sm mb-5">Play a full trial, from case file to verdict.</p>
+        <h2 className="font-game text-3xl text-[#FFD43B] mb-1">{t('home.howItWorks')}</h2>
+        <p className="text-white/60 text-sm mb-5">{t('home.learn.intro')}</p>
 
         <div className="space-y-4">
-          <Item n="1" title="Read the case file">
-            Review the evidence and witnesses — the loophole is in there somewhere.
+          <Item n="1" title={t('home.learn.item1Title')}>
+            {t('home.learn.item1')}
           </Item>
-          <Item n="2" title="Pick your side">
-            Prosecute or defend. Same case, completely different game depending on your side.
+          <Item n="2" title={t('home.learn.item2Title')}>
+            {t('home.learn.item2')}
           </Item>
-          <Item n="3" title="Argue it out">
-            Object, examine witnesses, and convince the court before your opponent does.
+          <Item n="3" title={t('home.learn.item3Title')}>
+            {t('home.learn.item3')}
           </Item>
         </div>
 
-        <h3 className="mt-7 mb-3 text-xs font-bold tracking-[0.25em] text-white/50">WAYS TO PLAY</h3>
+        <h3 className="mt-7 mb-3 text-xs font-bold tracking-[0.25em] text-white/50">{t('home.learn.waysHeading')}</h3>
         <div className="space-y-3 text-sm text-white/80 leading-relaxed">
-          <p><span className="font-bold text-white">Full courtroom.</span> A real judge rules on your objections, witnesses answer based on their actual testimony, and opposing counsel argues back — all reactive to what you actually say.</p>
-          <p><span className="font-bold text-white">Face a real opponent.</span> Open a live challenge, pick your side, and argue the case against another player, just the two of you.</p>
-          <p><span className="font-bold text-white">Your own case.</span> Build a custom case with your own evidence and witnesses.</p>
+          <p><span className="font-bold text-white">{t('home.learn.fullCourtroomLead')}</span> {t('home.learn.fullCourtroom')}</p>
+          <p><span className="font-bold text-white">{t('home.learn.realOpponentLead')}</span> {t('home.learn.realOpponent')}</p>
+          <p><span className="font-bold text-white">{t('home.learn.ownCaseLead')}</span> {t('home.learn.ownCase')}</p>
         </div>
 
         <button onClick={onClose} className="mt-6 w-full rounded-xl bg-[#FFD43B] text-black font-game text-2xl py-2.5">
-          GOT IT
+          {t('home.learn.gotIt')}
         </button>
       </div>
     </div>
@@ -359,6 +366,8 @@ interface HomeDesktopProps {
 
 /** The home page on a wide window: the artwork as a poster on one side, logo and buttons on the other. */
 function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waitingCount, onPlay, onOpenDashboard, onOpenSettings, onLearnMore, onSignIn, children }: HomeDesktopProps) {
+  const { t } = useTranslation();
+  const taglineLines = [t('home.tagline1'), t('home.tagline2')];
   const tile = 'relative rounded-2xl bg-[#1d1b18]/90 border border-white/15 py-3 px-4 text-left transition-colors hover:border-[#FFD43B]/60 active:translate-y-0.5';
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-[#05060a]">
@@ -366,11 +375,15 @@ function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waiting
 
       <button
         onClick={toggleSound}
-        aria-label={soundOn ? 'Mute sound' : 'Enable sound'}
+        aria-label={soundOn ? t('home.muteSound') : t('home.enableSound')}
         className="absolute top-6 right-8 z-20 flex items-center justify-center w-12 h-12 rounded-full bg-black/55 border border-white/15 text-white hover:border-white/40"
       >
         {soundOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
       </button>
+
+      <div className="absolute top-6 right-24 z-20">
+        <LanguageSwitcher />
+      </div>
 
       <div className="relative z-10 min-h-[100dvh] flex items-center justify-center px-10 py-6 [@media(min-height:800px)]:py-10">
         <div className="w-full max-w-6xl grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-14 items-center">
@@ -389,8 +402,8 @@ function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waiting
               <span className="logo-gold block text-6xl [@media(min-height:800px)]:text-7xl">COURTROOM</span>
               <span className="logo-gold block text-8xl [@media(min-height:800px)]:text-9xl">QUEST</span>
             </h1>
-            <p aria-label={TAGLINE} className={`mt-4 inline-block max-w-lg text-center text-xl font-black leading-tight tracking-[0.06em] ${TAGLINE_STYLE}`}>
-              {TAGLINE_LINES.map(line => (
+            <p aria-label={t('home.taglineFull')} className={`mt-4 inline-block max-w-lg text-center text-xl font-black leading-tight tracking-[0.06em] ${TAGLINE_STYLE}`}>
+              {taglineLines.map(line => (
                 <span key={line} className="block">{line}</span>
               ))}
             </p>
@@ -401,7 +414,7 @@ function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waiting
                 disabled={busy !== null}
                 className="w-full rounded-2xl bg-[#FFD43B] text-black font-game text-5xl py-4 border-b-[7px] border-[#B8860B] hover:brightness-105 active:translate-y-1 active:border-b-2 transition-all disabled:opacity-70"
               >
-                {busy === 'play' ? 'ONE SEC…' : 'PLAY'}
+                {busy === 'play' ? t('home.oneSec') : t('home.play')}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
@@ -410,27 +423,27 @@ function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waiting
                     {waitingCount > 0 && (
                       <span className="absolute -top-2 -right-1 min-w-[24px] h-6 px-1.5 flex items-center justify-center rounded-full bg-red-600 text-white text-xs font-black">{waitingCount}</span>
                     )}
-                    <span className="block font-game text-3xl text-white leading-none">DASHBOARD</span>
-                    <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">GAMES & INVITES</span>
+                    <span className="block font-game text-3xl text-white leading-none">{t('home.dashboard')}</span>
+                    <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">{t('home.dashboardSub')}</span>
                   </button>
                 ) : (
                   <button onClick={onLearnMore} className={tile}>
-                    <span className="block font-game text-3xl text-white leading-none">LEARN MORE</span>
-                    <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">HOW IT WORKS</span>
+                    <span className="block font-game text-3xl text-white leading-none">{t('home.learnMore')}</span>
+                    <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">{t('home.learnMoreSub')}</span>
                   </button>
                 )}
                 <button onClick={onOpenSettings} disabled={busy !== null} className={`${tile} disabled:opacity-70`}>
-                  <span className="block font-game text-3xl text-white leading-none">{busy === 'settings' ? '…' : 'SETTINGS'}</span>
-                  <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">DIFFICULTY</span>
+                  <span className="block font-game text-3xl text-white leading-none">{busy === 'settings' ? '…' : t('home.settings')}</span>
+                  <span className="block mt-1.5 text-[11px] font-bold tracking-[0.2em] text-[#FFD43B]">{t('home.settingsSub')}</span>
                 </button>
               </div>
             </div>
 
             <ol className="mt-5 [@media(min-height:800px)]:mt-8 space-y-1.5 [@media(min-height:800px)]:space-y-2">
-              {STEPS.map((text, i) => (
-                <li key={text} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-2 pr-6 py-1 backdrop-blur-sm w-fit">
+              {STEP_KEYS.map((key, i) => (
+                <li key={key} className="flex items-center gap-3 rounded-full bg-black/60 border border-white/15 pl-2 pr-6 py-1 backdrop-blur-sm w-fit">
                   <span className="flex items-center justify-center w-7 h-7 rounded-full bg-[#FFD43B] text-black font-black">{i + 1}</span>
-                  <span className="text-white font-semibold">{text}</span>
+                  <span className="text-white font-semibold">{t(key)}</span>
                 </li>
               ))}
             </ol>
@@ -438,10 +451,10 @@ function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waiting
             {(signedIn || !hasAccount) && (
               <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-1">
                 {signedIn && (
-                  <button onClick={onLearnMore} className="text-xs font-bold tracking-[0.15em] text-white/70 underline underline-offset-4 hover:text-white">HOW IT WORKS</button>
+                  <button onClick={onLearnMore} className="text-xs font-bold tracking-[0.15em] text-white/70 underline underline-offset-4 hover:text-white">{t('home.howItWorks')}</button>
                 )}
                 {!hasAccount && (
-                  <button onClick={onSignIn} className="text-xs font-bold tracking-[0.15em] text-white/70 underline underline-offset-4 hover:text-white">HAVE AN ACCOUNT? SIGN IN</button>
+                  <button onClick={onSignIn} className="text-xs font-bold tracking-[0.15em] text-white/70 underline underline-offset-4 hover:text-white">{t('home.haveAccount')}</button>
                 )}
               </div>
             )}
