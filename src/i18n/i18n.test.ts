@@ -80,3 +80,19 @@ describe('switching language', () => {
     expect(i18n.language).toBe('en');
   });
 });
+
+describe('shared helpers follow the language', () => {
+  it('writes relative times and verdict words in Spanish', async () => {
+    const { timeAgo } = await import('../lib/sessionInfo');
+    const { verdictText } = await import('../lib/verdictUtils');
+    await setLanguage('es');
+    expect(timeAgo(new Date(Date.now() - 5 * 60000).toISOString())).toBe('hace 5 min');
+    expect(timeAgo(new Date(Date.now() - 3 * 3600000).toISOString())).toBe('hace 3 horas');
+    expect(timeAgo(new Date(Date.now() - 24 * 3600000).toISOString())).toBe('hace 1 día');
+    expect(verdictText('win')).toBe('Culpable');
+    expect(verdictText('lose')).toBe('No culpable');
+    await setLanguage('en');
+    expect(timeAgo(new Date(Date.now() - 2 * 24 * 3600000).toISOString())).toBe('2 days ago');
+    expect(verdictText('win')).toBe('Guilty');
+  });
+});

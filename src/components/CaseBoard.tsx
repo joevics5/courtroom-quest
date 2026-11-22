@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, Trophy, RefreshCw, Briefcase, Play } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,6 +54,7 @@ interface WaitingGame {
 }
 
 export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onOpenAppeal, onPick, initialFilter = 'all' }: CaseBoardProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [ongoingCases, setOngoingCases] = useState<OngoingCase[]>([]);
@@ -93,7 +95,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
 
       setAppealRequests(appealRows.map(row => {
         const appeal = activeAppeal(row.session_state);
-        return { sessionId: row.id, title: row.cases?.title ?? 'Your case', due: appeal?.response_due_at, filed: appeal?.created_at };
+        return { sessionId: row.id, title: row.cases?.title ?? t('board.fallbackCase'), due: appeal?.response_due_at, filed: appeal?.created_at };
       }));
 
       // Online challenges and friend invites that no one has joined yet are
@@ -101,10 +103,10 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
       setWaitingGames([
         ...challenges
           .filter((c: any) => c.status === 'open' && c.creator_user_id === user.id)
-          .map((c: any): WaitingGame => ({ key: `challenge-${c.id}`, kind: 'challenge', id: c.id, title: c.case_title || 'Challenge', role: c.creator_role, created_at: c.created_at, isPrivate: c.is_public === false })),
+          .map((c: any): WaitingGame => ({ key: `challenge-${c.id}`, kind: 'challenge', id: c.id, title: c.case_title || t('board.fallbackChallenge'), role: c.creator_role, created_at: c.created_at, isPrivate: c.is_public === false })),
         ...invitations
           .filter(i => i.status === 'pending' && i.inviter_user_id === user.id)
-          .map((i): WaitingGame => ({ key: `invite-${i.id}`, kind: 'invite', id: i.id, title: i.case_title || 'Invitation', role: i.inviter_role || 'defense', created_at: (i as any).created_at }))
+          .map((i): WaitingGame => ({ key: `invite-${i.id}`, kind: 'invite', id: i.id, title: i.case_title || t('board.fallbackInvite'), role: i.inviter_role || 'defense', created_at: (i as any).created_at }))
       ]);
 
       // Every preset case can always be started again — an existing game
@@ -198,8 +200,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
 
   return (
     <ScreenShell
-      title={onPick ? 'PICK A CASE' : 'CASE BOARD'}
-      subtitle={onPick ? 'Read the case, then tap Choose This Case.' : 'Continue your games, or start a new case.'}
+      title={onPick ? t('board.pickTitle') : t('board.title')}
+      subtitle={onPick ? t('board.pickSub') : t('board.sub')}
       onBack={onBack}
       maxWidth="max-w-6xl"
       right={
@@ -207,7 +209,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
           {balance !== null && !onPick && (
             <span
               className="flex-none flex items-center h-11 px-3 rounded-full bg-black/55 border border-[#FFD43B]/40 text-base"
-              aria-label={`${balance} coins`}
+              aria-label={t('board.coins', { count: balance })}
             >
               <CoinAmount amount={balance} />
             </span>
@@ -215,7 +217,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
           <button
             onClick={() => loadCases()}
             disabled={loading}
-            aria-label="Refresh cases"
+            aria-label={t('board.refresh')}
             className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white disabled:opacity-50"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -227,11 +229,11 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
         <div className={`sticky top-0 z-20 -mx-4 px-4 py-2 mb-5 bg-[#0b0d14]/90 backdrop-blur-md ${onPick ? 'hidden' : ''}`}>
           <div role="tablist" className="flex gap-2 overflow-x-auto no-scrollbar">
             {([
-              ['ongoing', `Ongoing (${ongoingCases.length + waitingGames.length + appealRequests.length})`],
-              ['quick', 'Quick Start'],
-              ['new', 'New'],
-              ['trendy', 'Trendy'],
-              ['popular', 'Popular']
+              ['ongoing', t('board.tabOngoing', { count: ongoingCases.length + waitingGames.length + appealRequests.length })],
+              ['quick', t('board.tabQuick')],
+              ['new', t('board.tabNew')],
+              ['trendy', t('board.tabTrendy')],
+              ['popular', t('board.tabPopular')]
             ] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -249,25 +251,25 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
         </div>
 
         {loading ? (
-          <div className="text-center py-20 text-white/55">Loading cases...</div>
+          <div className="text-center py-20 text-white/55">{t('board.loading')}</div>
         ) : sortBy === 'ongoing' && ongoingCases.length + waitingGames.length + appealRequests.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-white/55 mb-4">No games in progress yet.</p>
+            <p className="text-white/55 mb-4">{t('board.emptyOngoing')}</p>
             <button
               onClick={() => setSortBy('new')}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
             >
-              Browse cases
+              {t('board.browse')}
             </button>
           </div>
         ) : (sortBy !== 'ongoing' && visibleCases.length === 0) ? (
           <div className="text-center py-20">
-            <p className="text-white/55 mb-4">{sortBy === 'quick' ? 'No Quick Start cases yet.' : sortBy === 'trendy' ? 'No trendy cases yet.' : sortBy === 'popular' ? 'No popular cases yet.' : 'No cases available'}</p>
+            <p className="text-white/55 mb-4">{sortBy === 'quick' ? t('board.emptyQuick') : sortBy === 'trendy' ? t('board.emptyTrendy') : sortBy === 'popular' ? t('board.emptyPopular') : t('board.emptyNone')}</p>
             <button
               onClick={() => loadCases()}
               className="px-6 py-3 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl transition-colors"
             >
-              Refresh Cases
+              {t('board.refreshBtn')}
             </button>
           </div>
         ) : (
@@ -280,24 +282,24 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
               >
                 <div className="flex items-center gap-2 flex-wrap mb-3">
                   <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-red-500/20 border-red-400/60 text-red-200">
-                    APPEAL FILED
+                    {t('board.appealFiled')}
                   </span>
                   <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-rose-500/20 border-rose-400/60 text-rose-200">
-                    VS PLAYER
+                    {t('mode.vsPlayer')}
                   </span>
                 </div>
                 <h3 className="font-game text-3xl leading-none text-white mb-1">{req.title}</h3>
                 <p className="text-sm text-white/65">
-                  Your opponent appealed the verdict. Answer within 48 hours, or the judge decides without you.
+                  {t('board.appealBody')}
                 </p>
                 <div className="text-xs text-white/50 mt-2 mb-4">
-                  {req.filed ? `Filed ${timeAgo(req.filed)}` : ''}
+                  {req.filed ? t('board.filed', { when: timeAgo(req.filed) }) : ''}
                 </div>
                 <button
                   onClick={() => onOpenAppeal?.(req.sessionId)}
                   className="w-full px-4 py-2.5 rounded-xl bg-[#FFD43B] text-black font-bold"
                 >
-                  Respond to appeal
+                  {t('board.respondAppeal')}
                 </button>
               </div>
             ))}
@@ -309,30 +311,30 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
               >
                 <div className="flex items-center gap-2 flex-wrap mb-3">
                   <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-amber-500/20 border-amber-400/60 text-amber-300">
-                    {game.kind === 'challenge' ? 'WAITING FOR OPPONENT' : 'WAITING FOR FRIEND'}
+                    {game.kind === 'challenge' ? t('board.waitingOpponent') : t('board.waitingFriend')}
                   </span>
                   {game.isPrivate && (
                     <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-white/10 border-white/25 text-white/80">
-                      PRIVATE LINK
+                      {t('board.privateLink')}
                     </span>
                   )}
                   <span className="px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide bg-rose-500/20 border-rose-400/60 text-rose-200">
-                    VS PLAYER
+                    {t('mode.vsPlayer')}
                   </span>
                 </div>
                 <h3 className="font-game text-3xl leading-none text-white mb-1">{game.title}</h3>
                 <p className="text-sm text-white/65">
-                  You're playing the {game.role}. {game.kind === 'challenge' ? 'It starts as soon as someone joins.' : 'It starts when your friend accepts.'}
+                  {t('board.playingRole', { role: t(`roles.${game.role}`) })} {game.kind === 'challenge' ? t('board.startsSoon') : t('board.startsFriend')}
                 </p>
                 <div className="text-xs text-white/50 mt-2 mb-4">
-                  {game.created_at ? `Sent ${timeAgo(game.created_at)}` : ''}
+                  {game.created_at ? t('board.sent', { when: timeAgo(game.created_at) }) : ''}
                 </div>
                 <button
                   onClick={() => handleCancelWaiting(game)}
                   disabled={cancellingKey === game.key}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white font-bold disabled:opacity-50"
                 >
-                  {cancellingKey === game.key ? 'Cancelling…' : game.kind === 'challenge' ? 'Cancel challenge' : 'Cancel invite'}
+                  {cancellingKey === game.key ? t('board.cancelling') : game.kind === 'challenge' ? t('board.cancelChallenge') : t('board.cancelInvite')}
                 </button>
               </div>
             ))}
@@ -346,8 +348,8 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   className={`border-2 rounded-2xl p-5 backdrop-blur-sm bg-black/65 ${phase.card}`}
                 >
                   <div className="flex items-center gap-2 flex-wrap mb-3">
-                    <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide ${phase.badge}`}>{phase.label}</span>
-                    <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide ${mode.badge}`}>{mode.label}</span>
+                    <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide ${phase.badge}`}>{t(phase.labelKey)}</span>
+                    <span className={`px-2.5 py-1 rounded-full border text-[11px] font-black tracking-wide ${mode.badge}`}>{t(mode.labelKey)}</span>
                   </div>
 
                   <div className="flex items-start gap-3 mb-3">
@@ -366,7 +368,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                         setShowWinnersModal(true);
                       }}
                       className="flex-none p-2 text-white/55 hover:text-[#FFD43B] hover:bg-[#FFD43B]/10 rounded-lg transition-colors"
-                      title="View winners"
+                      title={t('board.viewWinners')}
                     >
                       <Trophy className="w-5 h-5" />
                     </button>
@@ -374,14 +376,14 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   </div>
 
                   <div className="text-xs text-white/50 mb-4">
-                    {ongoingCase.last_played ? `Last played ${timeAgo(ongoingCase.last_played)}` : ''}
+                    {ongoingCase.last_played ? t('board.lastPlayed', { when: timeAgo(ongoingCase.last_played) }) : ''}
                   </div>
 
                   <button
                     onClick={() => onContinueSession?.(ongoingCase.session_id)}
                     className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                   >
-                    Continue Game
+                    {t('board.continueGame')}
                   </button>
                 </div>
               );
@@ -410,7 +412,7 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                           setShowWinnersModal(true);
                         }}
                         className="p-2 text-white/55 hover:text-[#FFD43B] hover:bg-[#FFD43B]/10 rounded-lg transition-colors"
-                        title="View winners"
+                        title={t('board.viewWinners')}
                       >
                         <Trophy className="w-5 h-5" />
                       </button>
@@ -427,15 +429,15 @@ export default function CaseBoard({ onBack, onSelectCase, onContinueSession, onO
                   {hasFee(fees[caseItem.id]) && <CaseFeeLine fee={fees[caseItem.id]} className="mb-2 mt-auto" />}
 
                   <div className={`text-sm text-white/55 mb-4 ${hasFee(fees[caseItem.id]) ? '' : 'mt-auto'}`}>
-                    <span className="text-white/40">Defendant: </span>
-                    <span className="text-white/75">{caseItem.defendant_name || 'Unknown'}</span>
+                    <span className="text-white/40">{t('board.defendant')}</span>
+                    <span className="text-white/75">{caseItem.defendant_name || t('board.unknown')}</span>
                   </div>
 
                   <button
                     onClick={() => handleReviewCase(caseItem)}
                     className="w-full px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
                   >
-                    {onPick ? 'Choose This Case' : 'Case Details'}
+                    {onPick ? t('board.chooseCase') : t('board.caseDetails')}
                   </button>
                 </div>
               );

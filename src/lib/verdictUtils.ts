@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import type { CaseSession, Outcome, PlayerRole } from '../types';
 
 /**
@@ -32,6 +33,11 @@ export function playerCaseScore(score: number | null | undefined, playerRole: Pl
 }
 
 /** Human-readable verdict label — independent of who's playing. */
+/** The verdict word shown to the player, in their language. verdictLabel() stays English for saved data. */
+export function verdictText(outcome: Outcome): string {
+  return i18n.t(outcome === 'win' ? 'verdict.guilty' : outcome === 'lose' ? 'verdict.notGuilty' : 'verdict.partial');
+}
+
 export function verdictLabel(outcome: Outcome): 'Guilty' | 'Not Guilty' | 'Partial Verdict' {
   if (outcome === 'win') return 'Guilty';
   if (outcome === 'lose') return 'Not Guilty';

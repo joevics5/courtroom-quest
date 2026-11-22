@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { Plus, Briefcase, ChevronRight, Shield, Edit, RefreshCw, Trophy, Play, CheckCircle, HelpCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +29,7 @@ type CaseWithSessionStatus = Case & {
 };
 
 export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCustomCase, onEditCustomCase, onOpenAdmin, onBack }: CaseSelectionProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [userCases, setUserCases] = useState<CaseWithSessionStatus[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,7 +103,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
                   onEditCustomCase(caseItem.id);
                 }}
                 className="p-2 text-white/55 hover:text-[#FFD43B] hover:bg-blue-500/10 rounded-lg transition-colors"
-                title="Edit case"
+                title={t('mycases.edit')}
               >
                 <Edit className="w-4 h-4" />
               </button>
@@ -116,20 +118,20 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
         {isOngoing && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-[11px] px-2.5 py-1 rounded-full border font-black tracking-wide ${getPhaseBadge(caseItem.current_phase).badge}`}>
-              {getPhaseBadge(caseItem.current_phase).label}
+              {t(getPhaseBadge(caseItem.current_phase).labelKey)}
             </span>
             <div className="flex-1" />
             <button
               onClick={(e) => { e.stopPropagation(); onContinueCase(caseItem.id); }}
               className="px-4 py-2 rounded-xl bg-[#FFD43B] text-black text-sm font-bold border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
             >
-              Continue
+              {t('mycases.continue')}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onSelectCase(caseItem.id, true); }}
               className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-bold"
             >
-              New game
+              {t('mycases.newGame')}
             </button>
           </div>
         )}
@@ -138,8 +140,8 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
   };
   return (
     <ScreenShell
-      title="MY CASES"
-      subtitle="Create, manage and play your own custom cases."
+      title={t('mycases.title')}
+      subtitle={t('mycases.sub')}
       onBack={onBack}
       maxWidth="max-w-5xl"
       right={onOpenAdmin ? (
@@ -160,7 +162,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
                 {loading && (
                   <div className="flex items-center gap-2 px-4 py-2 text-white/55 text-sm">
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Loading Cases...
+                    {t('mycases.loading')}
                   </div>
                 )}
               </div>
@@ -172,7 +174,7 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
                   className="w-full bg-[#FFD43B]/10 hover:bg-[#FFD43B]/20 text-[#FFD43B] rounded-2xl p-3 sm:p-5 flex items-center justify-center gap-3 transition-colors border-2 border-dashed border-[#FFD43B]/70"
                 >
                   <Plus className="w-5 h-5" />
-                  <span className="font-medium">Create New Custom Case</span>
+                  <span className="font-medium">{t('mycases.create')}</span>
                 </button>
 
                 <button
@@ -180,13 +182,13 @@ export default function CaseSelection({ onSelectCase, onContinueCase, onCreateCu
                   className="mx-auto flex items-center gap-1.5 text-xs text-white/55 hover:text-[#FFD43B] underline-offset-2 hover:underline transition-colors"
                 >
                   <HelpCircle className="w-3.5 h-3.5" />
-                  How do custom cases work?
+                  {t('mycases.howItWorks')}
                 </button>
 
                 {/* All Custom Cases */}
                 {userCases.length === 0 ? (
                   <div className="text-center py-12 text-white/55">
-                    No custom cases yet. Create your first case above.
+                    {t('mycases.empty')}
                   </div>
                 ) : (
                   userCases.map(c => renderCaseCard(c))

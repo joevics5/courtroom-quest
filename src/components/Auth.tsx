@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +16,18 @@ interface AuthProps {
 }
 
 export default function Auth({ onBack, initialSignUp = false, upgrade = false, onDone }: AuthProps = {}) {
+  const { t } = useTranslation();
+  const authError = (err: { message: string; code?: string }) => {
+    switch (err.code) {
+      case 'invalid_credentials': return t('auth.errInvalidLogin');
+      case 'user_already_exists': case 'email_exists': return t('auth.errExists');
+      case 'weak_password': return t('auth.errWeak');
+      case 'email_not_confirmed': return t('auth.errNotConfirmed');
+      case 'over_request_rate_limit': case 'over_email_send_rate_limit': return t('auth.errRate');
+      case 'email_address_invalid': case 'validation_failed': return t('auth.errEmail');
+      default: return err.message;
+    }
+  };
   const [isSignUp, setIsSignUp] = useState(initialSignUp || upgrade);
   const [confirmEmail, setConfirmEmail] = useState(false);
   const [email, setEmail] = useState('');
@@ -34,7 +47,7 @@ export default function Auth({ onBack, initialSignUp = false, upgrade = false, o
       if (upgrade) {
         const result = await upgradeGuest(email, password);
         if (result.error) {
-          setError(result.error.message);
+          setError(authError(result.error as { message: string; code?: string }));
         } else if (result.needsConfirmation) {
           setConfirmEmail(true);
         } else {
@@ -45,10 +58,10 @@ export default function Auth({ onBack, initialSignUp = false, upgrade = false, o
       const { error } = isSignUp ? await signUp(email, password, '') : await signIn(email, password);
 
       if (error) {
-        setError(error.message);
+        setError(authError(error as { message: string; code?: string }));
       }
     } catch {
-      setError('An unexpected error occurred');
+      setError(t('auth.errUnexpected'));
     } finally {
       setLoading(false);
     }
@@ -61,13 +74,12 @@ export default function Auth({ onBack, initialSignUp = false, upgrade = false, o
 
   if (confirmEmail) {
     return (
-      <ScreenShell title="CHECK YOUR EMAIL" subtitle="One last step." maxWidth="max-w-md">
+      <ScreenShell title={t('auth.checkEmailTitle')} subtitle={t('auth.checkEmailSub')} maxWidth="max-w-md">
         <div className={`${PANEL} space-y-4 text-center`}>
           <p className="text-white/80 leading-relaxed">
-            We sent a confirmation link to <strong className="text-white">{email}</strong>. Open it to finish saving your account.
-            Your games and wins are kept, and you can carry on playing in the meantime.
+            <Trans i18nKey="auth.checkEmailBody" values={{ email }} components={{ email: <strong className="text-white" /> }} />
           </p>
-          <button type="button" onClick={() => onDone?.()} className={`${gameButton('gold', 'md')} w-full`}>CARRY ON</button>
+          <button type="button" onClick={() => onDone?.()} className={`${gameButton('gold', 'md')} w-full`}>{t('auth.carryOn')}</button>
         </div>
       </ScreenShell>
     );
@@ -75,16 +87,16 @@ export default function Auth({ onBack, initialSignUp = false, upgrade = false, o
 
   return (
     <ScreenShell
-      title={upgrade ? 'SAVE YOUR PROGRESS' : isSignUp ? 'JOIN THE BAR' : 'WELCOME BACK'}
-      subtitle={upgrade ? 'Add an email and password to keep your wins, rank and games.' : isSignUp ? 'Create your account, then choose your name and avatar.' : 'Sign in to continue your cases.'}
+      title={upgrade ? t('auth.titleUpgrade') : isSignUp ? t('auth.titleSignUp') : t('auth.titleSignIn')}
+      subtitle={upgrade ? t('auth.subUpgrade') : isSignUp ? t('auth.subSignUp') : t('auth.subSignIn')}
       onBack={onBack}
       maxWidth="max-w-md"
     >
       <div className={`${PANEL} space-y-5`}>
         {!upgrade && <div role="tablist" className="grid grid-cols-2 gap-2 rounded-2xl bg-black/40 p-1">
           {[
-            { id: false, label: 'SIGN IN' },
-            { id: true, label: 'SIGN UP' }
+            { id: false, label: t('auth.tabSignIn') },
+            { id: true, label: t('auth.tabSignUp') }
           ].map(tab => (
             <button
               key={tab.label}
@@ -115,7 +127,7 @@ export default function Auth({ onBack, initialSignUp = false, upgrade = false, o
               autoComplete="email"
               inputMode="email"
               className={INPUT}
-              placeholder="your@email.com"
+              placeholder={t('auth.emailPlaceholder')}
             />
           </div>
 
@@ -138,14 +150,14 @@ export default function Auth({ onBack, initialSignUp = false, upgrade = false, o
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                 aria-pressed={showPassword}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 rounded-full text-white/60 active:bg-white/10"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-            {isSignUp && <p className="mt-2 text-xs text-white/50">At least 6 characters.</p>}
+            {isSignUp && <p className="mt-2 text-xs text-white/50">{t('auth.passwordHint')}</p>}
           </div>
 
           {error && (
@@ -155,15 +167,18 @@ export default function Auth({ onBack, initialSignUp = false, upgrade = false, o
           )}
 
           <button type="submit" disabled={loading} className={`${gameButton('gold', 'md')} w-full`}>
-            {loading ? 'PLEASE WAIT...' : isSignUp ? 'CREATE ACCOUNT' : 'SIGN IN'}
+            {loading ? t('auth.wait') : isSignUp ? t('auth.createAccount') : t('auth.submitSignIn')}
           </button>
         </form>
 
         <p className="mt-4 text-center text-xs text-white/60">
-          {isSignUp ? 'By creating an account you agree to our ' : 'See our '}
-          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white/80">Terms</a>
-          {' and '}
-          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white/80">Privacy Policy</a>.
+          <Trans
+            i18nKey={isSignUp ? 'auth.agreeSignUp' : 'auth.agreeSignIn'}
+            components={{
+              terms: <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white/80" />,
+              privacy: <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white/80" />
+            }}
+          />
         </p>
       </div>
     </ScreenShell>

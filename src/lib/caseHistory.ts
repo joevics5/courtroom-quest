@@ -1,4 +1,5 @@
-import { didPlayerWin, getSessionPlayerRole, verdictLabel } from './verdictUtils';
+import { didPlayerWin, getSessionPlayerRole, verdictLabel, verdictText } from './verdictUtils';
+import i18n from '../i18n';
 import { appealsRemaining, getAppeals, isVerdictAccepted } from './appeals';
 import { appealsSupported } from './appealFlow';
 import type { HistorySession } from './database';
@@ -11,6 +12,8 @@ export interface HistoryEntry {
   role: PlayerRole;
   won: boolean;
   verdictWord: string;
+  /** Same verdict as a translatable text, for display */
+  verdictText: string;
   finishedAt: string;
   verdict: Verdict;
   appealsUsed: number;
@@ -18,6 +21,8 @@ export interface HistoryEntry {
   appealable: boolean;
   /** Short line for the list: "Appeal denied", "2 appeals used"... or null. */
   appealNote: string | null;
+  /** Translatable version of appealNote */
+  appealNoteText: string | null;
 }
 
 function pickVerdict(v: HistorySession['verdicts']): Verdict | null {
@@ -40,9 +45,10 @@ export function buildHistory(rows: HistorySession[], userId: string): HistoryEnt
     const last = appeals[appeals.length - 1];
     const pending = last && (last.status === 'awaiting_response' || last.status === 'awaiting_ruling' || (last.status === 'granted' && !last.reopened));
     let appealNote: string | null = null;
-    if (pending) appealNote = 'Appeal in progress';
-    else if (appeals.length > 0) appealNote = `${appeals.length} ${appeals.length === 1 ? 'appeal' : 'appeals'} used`;
-    else if ((state.appealRound as number | undefined) && won) appealNote = 'Won on appeal';
+    let appealNoteText: string | null = null;
+    if (pending) { appealNote = 'Appeal in progress'; appealNoteText = i18n.t('history.appealInProgress'); }
+    else if (appeals.length > 0) { appealNote = `${appeals.length} ${appeals.length === 1 ? 'appeal' : 'appeals'} used`; appealNoteText = i18n.t('history.appealsUsed', { count: appeals.length }); }
+    else if ((state.appealRound as number | undefined) && won) { appealNote = 'Won on appeal'; appealNoteText = i18n.t('history.wonOnAppeal'); }
 
     out.push({
       sessionId: row.id,
@@ -51,11 +57,13 @@ export function buildHistory(rows: HistorySession[], userId: string): HistoryEnt
       role,
       won,
       verdictWord: verdictLabel(verdict.outcome),
+      verdictText: verdictText(verdict.outcome),
       finishedAt: row.completed_at ?? row.updated_at,
       verdict,
       appealsUsed: appeals.length,
       appealable: !won && appealsSupported(state) && !isVerdictAccepted(state) && appealsRemaining(state) > 0 && !pending,
-      appealNote
+      appealNote,
+      appealNoteText
     });
   }
   return out.sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));

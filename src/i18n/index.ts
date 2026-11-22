@@ -61,3 +61,8 @@ export const i18nReady: Promise<void> = (async () => {
 })();
 
 export default i18n;
+
+/** The locale tag to use for dates and numbers (follows the game's language, not the browser's). */
+export function currentLocale(): string {
+  return getLanguage(i18n.resolvedLanguage || i18n.language)?.htmlLang ?? 'en';
+}

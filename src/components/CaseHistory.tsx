@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { currentLocale } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { Gavel, Loader2, ScrollText, Trophy } from 'lucide-react';
 import ScreenShell from './ScreenShell';
@@ -21,11 +23,12 @@ const FILTERS: { id: HistoryFilter; label: string }[] = [
 
 function dateLabel(iso: string): string {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(currentLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /** Every case the player has finished, won or lost. Open one to see the verdict again, and to appeal a loss. */
 export default function CaseHistory({ userId, onBack, onOpen }: CaseHistoryProps) {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
   const [error, setError] = useState(false);
   const [filter, setFilter] = useState<HistoryFilter>('all');
@@ -45,9 +48,9 @@ export default function CaseHistory({ userId, onBack, onOpen }: CaseHistoryProps
   const lost = (entries?.length ?? 0) - won;
 
   return (
-    <ScreenShell title="CASE HISTORY" subtitle="Every case you have finished, won or lost." onBack={onBack}>
+    <ScreenShell title={t('history.title')} subtitle={t('history.sub')} onBack={onBack}>
       {entries && entries.length > 0 && (
-        <div className="flex items-center gap-2 mb-4" role="tablist" aria-label="Filter cases">
+        <div className="flex items-center gap-2 mb-4" role="tablist" aria-label={t('history.filterAria')}>
           {FILTERS.map(f => (
             <button
               key={f.id}
@@ -58,28 +61,28 @@ export default function CaseHistory({ userId, onBack, onOpen }: CaseHistoryProps
                 filter === f.id ? 'bg-[#FFD43B] text-black' : 'bg-white/10 text-white/80 border border-white/15'
               }`}
             >
-              {f.label} ({f.id === 'all' ? entries.length : f.id === 'won' ? won : lost})
+              {t(`history.${f.id}`)} ({f.id === 'all' ? entries.length : f.id === 'won' ? won : lost})
             </button>
           ))}
         </div>
       )}
 
       {!entries && !error && (
-        <p role="status" className="flex items-center gap-2 text-white/70"><Loader2 className="w-5 h-5 animate-spin" /> Loading your cases…</p>
+        <p role="status" className="flex items-center gap-2 text-white/70"><Loader2 className="w-5 h-5 animate-spin" /> {t('history.loading')}</p>
       )}
 
       {error && (
         <div className={`${PANEL_SOFT} p-5 space-y-3`}>
-          <p role="alert" className="text-[#FF9A9D]">Could not load your case history.</p>
-          <button onClick={load} className={gameButton('outline', 'sm')}>TRY AGAIN</button>
+          <p role="alert" className="text-[#FF9A9D]">{t('history.loadError')}</p>
+          <button onClick={load} className={gameButton('outline', 'sm')}>{t('history.retry')}</button>
         </div>
       )}
 
       {entries && entries.length === 0 && (
         <div className={`${PANEL_SOFT} p-6 text-center space-y-2`}>
           <ScrollText className="w-10 h-10 mx-auto text-white/40" />
-          <h2 className="font-game text-3xl text-white">NO FINISHED CASES YET</h2>
-          <p className="text-white/60">Win or lose, every case you finish will be kept here.</p>
+          <h2 className="font-game text-3xl text-white">{t('history.emptyTitle')}</h2>
+          <p className="text-white/60">{t('history.emptyBody')}</p>
         </div>
       )}
 
@@ -100,7 +103,7 @@ export default function CaseHistory({ userId, onBack, onOpen }: CaseHistoryProps
                 <div className="min-w-0">
                   <h2 className="font-game text-2xl leading-tight text-white truncate">{e.title}</h2>
                   <p className="text-sm text-white/60 mt-0.5">
-                    {e.role === 'prosecution' ? 'Prosecution' : 'Defense'} · Verdict: {e.verdictWord}
+                    {t('history.verdictLine', { role: t(e.role === 'prosecution' ? 'roles.prosecution' : 'roles.defense'), verdict: e.verdictText })}
                     · {dateLabel(e.finishedAt)}
                   </p>
                 </div>
@@ -110,14 +113,14 @@ export default function CaseHistory({ userId, onBack, onOpen }: CaseHistoryProps
                   }`}
                 >
                   {e.won && <Trophy className="w-3.5 h-3.5" />}
-                  {e.won ? 'WON' : 'LOST'}
+                  {e.won ? t('history.wonBadge') : t('history.lostBadge')}
                 </span>
               </div>
               {(e.appealNote || (appealsOn && e.appealable)) && (
                 <p className="mt-2 text-sm flex items-center gap-1.5 text-white/70">
                   <Gavel className="w-4 h-4 text-[#FFD43B]" />
-                  {e.appealNote ?? 'You can appeal this verdict'}
-                  {appealsOn && e.appealable && e.appealNote ? ' · can still appeal' : ''}
+                  {e.appealNoteText ?? t('history.canAppeal')}
+                  {appealsOn && e.appealable && e.appealNote ? t('history.stillAppeal') : ''}
                 </p>
               )}
             </button>
