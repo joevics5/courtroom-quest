@@ -1064,7 +1064,7 @@ ${isDefense
 }
 
 function buildProsecutionPrompt(context: ProsecutionContext): string {
-  const maxWitnesses = context.trial_duration <= 15 ? 1 : context.trial_duration === 30 ? 2 : 3;
+  const maxWitnesses = context.trial_duration <= 15 ? 1 : context.trial_duration <= 30 ? 2 : 3;
   const isDefense = context.side === 'defense';
   const redirectRules = context.phase.toLowerCase().includes('redirect')
     ? `\n\nREDIRECT EXAMINATION (this is what you are doing now):\n- Redirect is for repairing damage. You get exactly ONE short question, and only about something the other side's cross-examination raised. Never open a new topic.\n- Look at the cross-examination in the transcript. If it did not hurt your witness or leave something misleading to fix, choose "rest" and ask nothing.\n- If it did, ask ONE question that lets the witness explain or put the damaging answer in context. Do not repeat a question already asked.`

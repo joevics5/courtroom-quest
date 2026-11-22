@@ -146,51 +146,18 @@ function generatePhaseDurations(duration: TrialDuration, phases: TrialPhase[]): 
 }
 
 // Generate trial configs
-const TRIAL_CONFIGS_5 = (() => {
-  const phases = generateTrialPhases(5);
-  return {
-    duration: 5 as TrialDuration,
-    phases,
-    phaseDurations: generatePhaseDurations(5, phases),
-    maxWitnesses: 2 // Quick Play: 1 prosecution + 1 defense witness
-  };
-})();
-
-const TRIAL_CONFIGS_15 = (() => {
-  const phases = generateTrialPhases(15);
-  return {
-    duration: 15 as TrialDuration,
-    phases,
-    phaseDurations: generatePhaseDurations(15, phases),
-    maxWitnesses: 4 // Witness slots: 2 prosecution + 2 defense (time limits how many are really called)
-  };
-})();
-
-const TRIAL_CONFIGS_30 = (() => {
-  const phases = generateTrialPhases(30);
-  return {
-    duration: 30 as TrialDuration,
-    phases,
-    phaseDurations: generatePhaseDurations(30, phases),
-    maxWitnesses: 6 // Witness slots: 3 prosecution + 3 defense
-  };
-})();
-
-const TRIAL_CONFIGS_60 = (() => {
-  const phases = generateTrialPhases(60);
-  return {
-    duration: 60 as TrialDuration,
-    phases,
-    phaseDurations: generatePhaseDurations(60, phases),
-    maxWitnesses: 6 // Total witnesses: 3 prosecution + 3 defense
-  };
-})();
+function buildConfig(duration: TrialDuration, maxWitnesses: number) {
+  const phases = generateTrialPhases(duration);
+  return { duration, phases, phaseDurations: generatePhaseDurations(duration, phases), maxWitnesses };
+}
 
 export const TRIAL_CONFIGS: Record<TrialDuration, TrialConfig> = {
-  5: TRIAL_CONFIGS_5,
-  15: TRIAL_CONFIGS_15,
-  30: TRIAL_CONFIGS_30,
-  60: TRIAL_CONFIGS_60
+  5: buildConfig(5, 2),    // one prosecution + one defense witness
+  10: buildConfig(10, 2),  // Quick Play (and Quick Start): one witness per side
+  15: buildConfig(15, 4),  // retired, kept so games already started with it play out: 2 + 2 slots
+  20: buildConfig(20, 4),  // 2 prosecution + 2 defense slots (time limits how many are really called)
+  30: buildConfig(30, 6),  // 3 + 3 slots
+  60: buildConfig(60, 6)   // retired, kept for games already started
 };
 
 export function getTrialConfig(duration: TrialDuration): TrialConfig {

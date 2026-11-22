@@ -98,8 +98,21 @@ describe('witness stage, 15 minute trial', () => {
 });
 
 describe('witness stage in the other modes', () => {
-  it('Quick Play: one witness each, 72 seconds of direct and 18 of cross in the first half', () => {
+  it('Lightning (5 minutes): one witness each, 60 seconds of direct and 15 of cross in the first half', () => {
     const r = play(5, [0, 0], (name) => ({ used: 0, called: /Direct/.test(name) }));
+    expect(r.visited.map(v => v.name)).toEqual([
+      'Prosecution Witness 1 - Direct Examination',
+      'Prosecution Witness 1 - Cross-Examination',
+      'Defense Witness 1 - Direct Examination',
+      'Defense Witness 1 - Cross-Examination'
+    ]);
+    expect(r.visited[0].clock).toBe(60);
+    expect(r.visited[1].clock).toBe(15);
+    expect(r.ended).toBe('Closing Statement - Prosecution');
+  });
+
+  it('Quick Play (10 minutes): one witness each, 72 seconds of direct and 18 of cross in the first half', () => {
+    const r = play(10, [0, 0], (name) => ({ used: 0, called: /Direct/.test(name) }));
     expect(r.visited.map(v => v.name)).toEqual([
       'Prosecution Witness 1 - Direct Examination',
       'Prosecution Witness 1 - Cross-Examination',
@@ -118,7 +131,7 @@ describe('witness stage in the other modes', () => {
   });
 
   it('never hands out more than the pool, in any mode', () => {
-    for (const d of [5, 15, 30, 60] as const) {
+    for (const d of [5, 10, 15, 20, 30, 60] as const) {
       const r = play(d, [0, 0], (name, clock) => ({ used: clock, called: /Direct/.test(name) }));
       const given = r.visited.reduce((sum, v) => sum + v.clock, 0);
       expect(given).toBeLessThanOrEqual(basePoolSeconds(d));
@@ -131,7 +144,7 @@ describe('witness stage in the other modes', () => {
 describe('redirect', () => {
   const direct = (name: string) => /Direct/.test(name) && /Witness 1/.test(name);
 
-  it.each([5, 15, 30, 60] as const)('%i minute trial: a redirect follows a cross-examination in which the other side asked something', d => {
+  it.each([5, 10, 15, 20, 30, 60] as const)('%i minute trial: a redirect follows a cross-examination in which the other side asked something', d => {
     const r = play(d, [0, 0], (name) => ({ used: 10, called: direct(name), asked: /Cross/.test(name) }));
     const names = r.visited.map(v => v.name);
     expect(names.slice(0, 3)).toEqual([

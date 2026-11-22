@@ -34,11 +34,12 @@ const COURTS: Array<{
   }
 ];
 
+// 15 and 60 are retired: they no longer appear here, but games already started with them still play out.
 const LENGTHS: Array<{ value: TrialDuration; big: string; unit: string; label: string }> = [
-  { value: 5, big: '10', unit: 'MIN', label: 'Quick Play' },
-  { value: 15, big: '15', unit: 'MIN', label: 'Short' },
-  { value: 30, big: '30', unit: 'MIN', label: 'Standard' },
-  { value: 60, big: '60', unit: 'MIN', label: 'Full trial' }
+  { value: 5, big: '5', unit: 'MIN', label: 'Lightning' },
+  { value: 10, big: '10', unit: 'MIN', label: 'Quick Play' },
+  { value: 20, big: '20', unit: 'MIN', label: 'Short' },
+  { value: 30, big: '30', unit: 'MIN', label: 'Standard' }
 ];
 
 /**

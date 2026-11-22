@@ -37,7 +37,7 @@ interface AIRequest {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TRIAL_DURATIONS = [5, 15, 30, 60];
+const TRIAL_DURATIONS = [5, 10, 15, 20, 30, 60];
 
 /**
  * Cost tracking: records the tokens one call used. Best effort: it is bounded to 1.5 seconds and any failure

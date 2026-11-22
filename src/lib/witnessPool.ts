@@ -41,32 +41,26 @@ export const READOUT_SECONDS = 20;
 export function statementMinutes(duration: number): number {
   if (duration === 60) return 6;
   if (duration === 30) return 3;
-  if (duration === 15) return 1.5;
+  if (duration === 20 || duration === 15) return 1.5;
+  if (duration === 5) return 0.5;
   return 1;
 }
 
 /**
- * Minutes each opening statement gets: the same as a closing, except in the 5-minute trial, which keeps its
+ * Minutes each opening statement gets: the same as a closing, except in the 10-minute Quick Play, which has an
  * extra minute on openings. None of it comes out of the witness pool.
  */
 export function openingMinutes(duration: number): number {
-  return duration === 5 ? statementMinutes(duration) + 1 : statementMinutes(duration);
+  return duration === 10 ? statementMinutes(duration) + 1 : statementMinutes(duration);
 }
 
-/**
- * The statement time the witness pool is sized from. This is what the standard statement used to be, kept
- * as it was so that lengthening the statements does not shorten the witness stage.
- */
-function poolStatementMinutes(duration: number): number {
-  if (duration === 60) return 3;
-  if (duration === 30) return 1.5;
-  return 0.5;
-}
+/** The trial lengths a player can pick. 15 and 60 are retired but still play out for games already started. */
+export const SELECTABLE_DURATIONS = [5, 10, 20, 30] as const;
 
 /** Minutes of judge deliberation. */
 export function deliberationMinutes(duration: number): number {
-  if (duration === 5) return 1;
-  if (duration === 15) return 1;
+  if (duration === 5) return 0.5;
+  if (duration === 10 || duration === 15 || duration === 20) return 1;
   if (duration === 30) return 3;
   return 5;
 }
@@ -77,20 +71,30 @@ export function deliberationMinutes(duration: number): number {
  * exactly as long as before.
  */
 export function basePoolSeconds(duration: number): number {
-  // Quick Play (labelled 10 minutes): 2 min openings x2 + 1 min closings x2 + 1 min deliberation + a 3 minute witness pool.
-  if (duration === 5) return 180;
-  return Math.round((duration - 4 * poolStatementMinutes(duration) - deliberationMinutes(duration)) * 60);
+  // Each length's clocks add up to about its name: the four statements + deliberation + this pool.
+  //  5: 4 x 30s + 30s deliberation + 2.5 min pool
+  // 10: 2 min openings x2 + 1 min closings x2 + 1 min deliberation + 3 min pool (Quick Play)
+  // 20: 1.5 min statements x4 + 1 min deliberation + 13 min pool
+  switch (duration) {
+    case 5: return 150;
+    case 10: return 180;
+    case 15: return 720;
+    case 20: return 780;
+    case 30: return 1260;
+    case 60: return 2580;
+    default: return Math.max(120, Math.round((duration - 3) * 60));
+  }
 }
 
 /** Shortest direct or cross worth starting. */
 export function floorSeconds(duration: number): number {
-  return duration === 5 ? 15 : 20;
+  return duration <= 10 ? 15 : 20;
 }
 
 /** Witness slots each side has. Time, not this number, is what actually limits the witnesses. */
 export function witnessSlotsPerSide(duration: number): number {
-  if (duration === 5) return 1;
-  if (duration === 15) return 2;
+  if (duration === 5 || duration === 10) return 1;
+  if (duration === 15 || duration === 20) return 2;
   return 3;
 }
 
@@ -250,8 +254,8 @@ export function statementComplete(
  * clocks does not change what the AI writes.
  */
 export function legacyStatementMinutes(duration: number): number {
-  if (duration === 5) return 0.5;
-  if (duration === 15) return 2;
+  if (duration === 5 || duration === 10) return 0.5;
+  if (duration === 15 || duration === 20) return 2;
   if (duration === 30) return 3;
   return 5;
 }

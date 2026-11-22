@@ -24,14 +24,12 @@ export const TRIAL_CONFIG: Record<TrialLength, TrialConfig> = {
   },
 };
 
-export function getTrialConfigForDuration(minutes: 5 | 15 | 30 | 60): TrialConfig {
-  if (minutes === 5 || minutes === 15) return TRIAL_CONFIG.SHORT;
-  if (minutes === 30) return TRIAL_CONFIG.MEDIUM;
-  return TRIAL_CONFIG.LONG;
+export function getTrialConfigForDuration(minutes: 5 | 10 | 15 | 20 | 30 | 60): TrialConfig {
+  return TRIAL_CONFIG[getTrialLength(minutes)];
 }
 
-export function getTrialLength(minutes: 5 | 15 | 30 | 60): TrialLength {
-  if (minutes === 5 || minutes === 15) return 'SHORT';
+export function getTrialLength(minutes: 5 | 10 | 15 | 20 | 30 | 60): TrialLength {
+  if (minutes <= 20) return 'SHORT';
   if (minutes === 30) return 'MEDIUM';
   return 'LONG';
 }

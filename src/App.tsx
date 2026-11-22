@@ -838,7 +838,7 @@ function AppContent() {
 
     // Quick Start: skip the trial-type screen. A bench trial of the shortest length, on easy, straight to pre-trial.
     if (currentSession.session_state?.quickStart) {
-      await handleTrialTypeSelect('judge', 5, 'easy');
+      await handleTrialTypeSelect('judge', 10, 'easy');
       return;
     }
 

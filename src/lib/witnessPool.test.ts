@@ -7,11 +7,11 @@ import {
 } from './witnessPool';
 
 describe('pool sizes', () => {
-  it.each([[5, 180], [15, 720], [30, 1260], [60, 2580]])('%i minute trial has %i seconds of witness time', (d, secs) => {
+  it.each([[5, 150], [10, 180], [15, 720], [20, 780], [30, 1260], [60, 2580]])('%i minute trial has %i seconds of witness time', (d, secs) => {
     expect(basePoolSeconds(d)).toBe(secs);
   });
-  it('each opening and closing statement gets 1.5 / 3 / 6 minutes in the 15 / 30 / 60 minute trials; the 5 minute trial keeps its short ones', () => {
-    expect([5, 15, 30, 60].map(statementMinutes)).toEqual([1, 1.5, 3, 6]);
+  it('each statement gets 0.5 / 1 / 1.5 / 3 minutes in the 5 / 10 / 20 / 30 minute trials (15 and 60 are retired but keep theirs)', () => {
+    expect([5, 10, 15, 20, 30, 60].map(statementMinutes)).toEqual([0.5, 1, 1.5, 1.5, 3, 6]);
   });
 });
 
@@ -109,7 +109,7 @@ import { getTrialConfig, getTotalTrialTime } from './trialConfig';
 describe('trial lengths still add up', () => {
   // The statements run on their own clocks outside the witness pool, so the whole trial is the nominal length
   // plus whatever the four statements get beyond the statement time already built into the pool.
-  it.each([[5, 5], [15, 4], [30, 6], [60, 12]] as const)('%i minute trial: fixed clocks + pool = the trial length plus %i minutes of longer statements', (d, extra) => {
+  it.each([[5, 0], [10, 0], [15, 4], [20, 0], [30, 6], [60, 12]] as const)('%i minute trial: fixed clocks + pool = the trial length plus %i minutes', (d, extra) => {
     const config = getTrialConfig(d);
     const fixed = Object.values(config.phaseDurations).reduce((a, b) => a + b, 0);
     expect(fixed + basePoolSeconds(d) / 60).toBeCloseTo(d + extra, 5);
@@ -117,11 +117,11 @@ describe('trial lengths still add up', () => {
   });
 
   it('the witness pool is not shortened by the longer statements', () => {
-    expect([5, 15, 30, 60].map(basePoolSeconds)).toEqual([180, 720, 1260, 2580]);
+    expect([5, 10, 15, 20, 30, 60].map(basePoolSeconds)).toEqual([150, 180, 720, 780, 1260, 2580]);
   });
 
-  it('openings and closings get the same time, except the 5 minute trial, which keeps its extra minute on openings', () => {
-    for (const [d, opening, closing] of [[5, 2, 1], [15, 1.5, 1.5], [30, 3, 3], [60, 6, 6]] as const) {
+  it('openings and closings get the same time, except the 10 minute Quick Play, which keeps its extra minute on openings', () => {
+    for (const [d, opening, closing] of [[5, 0.5, 0.5], [10, 2, 1], [15, 1.5, 1.5], [20, 1.5, 1.5], [30, 3, 3], [60, 6, 6]] as const) {
       const cfg = getTrialConfig(d);
       const open = cfg.phases.filter(p => /opening/i.test(p.name));
       const close = cfg.phases.filter(p => /closing/i.test(p.name));
@@ -145,7 +145,7 @@ describe('trial lengths still add up', () => {
   });
 
   it('every trial length has a redirect slot after each cross-examination', () => {
-    for (const d of [5, 15, 30, 60] as const) {
+    for (const d of [5, 10, 15, 20, 30, 60] as const) {
       const names = getTrialConfig(d).phases.map(p => p.name);
       const crosses = names.filter(n => /Cross-Examination/.test(n));
       expect(crosses.length).toBeGreaterThan(0);
@@ -154,7 +154,7 @@ describe('trial lengths still add up', () => {
   });
 
   it('numbers phases without gaps in every mode', () => {
-    for (const d of [5, 15, 30, 60] as const) {
+    for (const d of [5, 10, 15, 20, 30, 60] as const) {
       const nums = getTrialConfig(d).phases.map(p => p.number);
       expect(nums).toEqual(nums.map((_, i) => i + 1));
     }

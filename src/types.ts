@@ -167,8 +167,11 @@ export interface Witness {
   created_at: string;
 }
 
-/** Trial length in minutes: 5 = Quick Play. */
-export type TrialDuration = 5 | 15 | 30 | 60;
+/**
+ * Trial length in minutes, as players see it: 5, 10 (Quick Play, also used by Quick Start), 20 and 30.
+ * 15 and 60 are retired: nobody can pick them any more, but games already started with them still play out.
+ */
+export type TrialDuration = 5 | 10 | 15 | 20 | 30 | 60;
 
 export interface CaseSession {
   id: string;

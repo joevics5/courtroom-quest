@@ -15,10 +15,11 @@ describe('TrialTypeSelector', () => {
     const { container } = setup();
     expect(screen.getByText('BENCH TRIAL')).toBeInTheDocument();
     expect(screen.getByText('JURY TRIAL')).toBeInTheDocument();
+    expect(screen.getByText('Lightning')).toBeInTheDocument();
     expect(screen.getByText('Quick Play')).toBeInTheDocument();
     expect(screen.getByText('Short')).toBeInTheDocument();
     expect(screen.getByText('Standard')).toBeInTheDocument();
-    expect(screen.getByText('Full trial')).toBeInTheDocument();
+    expect(screen.queryByText('Full trial')).toBeNull();
     expect(screen.getByRole('button', { name: /PICK A COURT/ })).toBeInTheDocument();
     // the page itself never scrolls: it is exactly one viewport tall and clips overflow
     const root = container.firstElementChild as HTMLElement;
@@ -44,9 +45,9 @@ describe('TrialTypeSelector', () => {
   it('sends a jury trial with the chosen length', () => {
     const { onSelect } = setup();
     fireEvent.click(screen.getByText('JURY TRIAL'));
-    fireEvent.click(screen.getByText('Full trial'));
+    fireEvent.click(screen.getByText('Short'));
     fireEvent.click(screen.getByRole('button', { name: /PICK YOUR JURY/ }));
-    expect(onSelect).toHaveBeenCalledWith('jury', 60);
+    expect(onSelect).toHaveBeenCalledWith('jury', 20);
   });
 
   it('marks the chosen court and length as pressed, and back cancels', () => {
@@ -60,16 +61,21 @@ describe('TrialTypeSelector', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('offers Quick Play (5 min) in the same single row as the other lengths, and 60 shows as 60 MIN', () => {
+  it('offers 5, 10, 20 and 30 minutes in one row, with no 15 or 60', () => {
     const { onSelect } = setup();
     const row = screen.getByText('Quick Play').closest('button')!.parentElement as HTMLElement;
     expect(row.className).toContain('grid-cols-4');
     expect(row.querySelectorAll('button')).toHaveLength(4);
-    expect(screen.getByText('60')).toBeInTheDocument();
-    expect(screen.queryByText('HOUR')).toBeNull();
+    const labels = Array.from(row.querySelectorAll('button')).map(b => b.textContent);
+    expect(labels).toEqual(['5MINLightning', '10MINQuick Play', '20MINShort', '30MINStandard']);
+    expect(screen.queryByText('60')).toBeNull();
+    expect(screen.queryByText('15')).toBeNull();
     fireEvent.click(screen.getByText('BENCH TRIAL'));
     fireEvent.click(screen.getByText('Quick Play'));
     fireEvent.click(screen.getByRole('button', { name: /TO THE COURTROOM/ }));
-    expect(onSelect).toHaveBeenCalledWith('judge', 5);
+    expect(onSelect).toHaveBeenCalledWith('judge', 10);
+    fireEvent.click(screen.getByText('Lightning'));
+    fireEvent.click(screen.getByRole('button', { name: /TO THE COURTROOM/ }));
+    expect(onSelect).toHaveBeenLastCalledWith('judge', 5);
   });
 });
