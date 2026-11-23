@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
@@ -26,6 +27,7 @@ export const CHOICE_ROW =
  * in the middle on a bigger screen. Drawn into <body> so no page container can clip or cover it.
  */
 export default function ModalSheet({ title, icon, subtitle, onClose, maxWidth = 'max-w-2xl', children }: ModalSheetProps) {
+  const { t } = useTranslation();
   useEffect(() => {
     if (!onClose) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -57,7 +59,7 @@ export default function ModalSheet({ title, icon, subtitle, onClose, maxWidth = 
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('common.close')}
             className="absolute top-3 right-3 z-10 flex items-center justify-center w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/25 text-white touch-manipulation"
           >
             <X className="w-5 h-5" />

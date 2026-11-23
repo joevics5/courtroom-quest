@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /**
  * In-app replacements for the browser's alert() and confirm(), so messages look like the
  * game instead of the plain browser box.
@@ -72,7 +73,7 @@ export function appAlert(input: string | AlertOptions): Promise<void> {
   return new Promise<void>(resolve => {
     queue = [...queue, {
       id: nextId++, kind: 'alert', title: o.title, message: o.message, tone: o.tone ?? 'info',
-      confirmLabel: o.okLabel ?? 'OK', cancelLabel: '', resolve: () => resolve()
+      confirmLabel: o.okLabel ?? i18n.t('ui.ok'), cancelLabel: '', resolve: () => resolve()
     }];
     emit();
   });
@@ -86,7 +87,7 @@ export function appConfirm(input: string | ConfirmOptions): Promise<boolean> {
   return new Promise<boolean>(resolve => {
     queue = [...queue, {
       id: nextId++, kind: 'confirm', title: o.title, message: o.message, tone: o.tone ?? 'info',
-      confirmLabel: o.confirmLabel ?? 'YES', cancelLabel: o.cancelLabel ?? 'CANCEL', resolve
+      confirmLabel: o.confirmLabel ?? i18n.t('ui.yes'), cancelLabel: o.cancelLabel ?? i18n.t('ui.cancel'), resolve
     }];
     emit();
   });

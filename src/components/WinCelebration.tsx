@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import CoinIcon from './CoinIcon';
 import { usePrefersReducedMotion } from '../lib/usePrefersReducedMotion';
@@ -55,6 +56,7 @@ function BalloonGraphic({ color }: { color: string }) {
  * blocks taps. With reduced motion there are no balloons or confetti, just the coin message fading in.
  */
 export default function WinCelebration({ coins }: { coins: number | null }) {
+  const { t } = useTranslation();
   const reduced = usePrefersReducedMotion();
   const balloons = useMemo(makeBalloons, []);
   const confetti = useMemo(makeConfetti, []);
@@ -121,7 +123,7 @@ export default function WinCelebration({ coins }: { coins: number | null }) {
             role="status"
             className="celebrate-toast inline-flex items-center gap-2 rounded-full border border-[#FFD43B]/70 bg-black/85 px-5 py-2 text-xl font-black text-white shadow-[0_0_28px_rgba(255,212,59,0.45)]"
           >
-            <span>You earned</span>
+            <span>{t('ui.youEarned')}</span>
             <span className="text-[#FFD43B]">{coins}</span>
             <CoinIcon size={22} />
           </div>

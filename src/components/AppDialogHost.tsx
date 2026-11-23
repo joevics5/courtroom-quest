@@ -1,17 +1,19 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { getCurrentDialog, resolveCurrentDialog, subscribeDialogs, type DialogTone } from '../lib/appDialog';
 import { PANEL, gameButton } from './ui';
 
-const TONE: Record<DialogTone, { icon: typeof Info; ring: string; defaultTitle: string; primary: 'gold' | 'danger' }> = {
-  info: { icon: Info, ring: 'bg-blue-500/20 border-blue-400/50 text-blue-300', defaultTitle: 'HEADS UP', primary: 'gold' },
-  success: { icon: CheckCircle2, ring: 'bg-green-500/20 border-green-400/50 text-green-300', defaultTitle: 'DONE', primary: 'gold' },
-  error: { icon: XCircle, ring: 'bg-red-500/20 border-red-400/50 text-red-300', defaultTitle: 'SOMETHING WENT WRONG', primary: 'gold' },
-  danger: { icon: AlertTriangle, ring: 'bg-amber-500/20 border-amber-400/50 text-amber-300', defaultTitle: 'ARE YOU SURE?', primary: 'danger' }
+const TONE: Record<DialogTone, { icon: typeof Info; ring: string; defaultTitleKey: string; primary: 'gold' | 'danger' }> = {
+  info: { icon: Info, ring: 'bg-blue-500/20 border-blue-400/50 text-blue-300', defaultTitleKey: 'ui.headsUp', primary: 'gold' },
+  success: { icon: CheckCircle2, ring: 'bg-green-500/20 border-green-400/50 text-green-300', defaultTitleKey: 'ui.done', primary: 'gold' },
+  error: { icon: XCircle, ring: 'bg-red-500/20 border-red-400/50 text-red-300', defaultTitleKey: 'ui.wrong', primary: 'gold' },
+  danger: { icon: AlertTriangle, ring: 'bg-amber-500/20 border-amber-400/50 text-amber-300', defaultTitleKey: 'ui.areYouSure', primary: 'danger' }
 };
 
 /** Draws the game's own alert / confirm dialogs (see lib/appDialog). Mount once near the app root. */
 export default function AppDialogHost() {
+  const { t } = useTranslation();
   const dialog = useSyncExternalStore(subscribeDialogs, getCurrentDialog, getCurrentDialog);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const okRef = useRef<HTMLButtonElement>(null);
@@ -49,7 +51,7 @@ export default function AppDialogHost() {
         <div className={`mx-auto w-14 h-14 rounded-full border-2 flex items-center justify-center ${tone.ring}`}>
           <Icon className="w-7 h-7" />
         </div>
-        <h2 id={titleId} className="logo-gold font-game text-3xl leading-none mt-4">{dialog.title || tone.defaultTitle}</h2>
+        <h2 id={titleId} className="logo-gold font-game text-3xl leading-none mt-4">{dialog.title || t(tone.defaultTitleKey)}</h2>
         <p id={bodyId} className="text-white/80 leading-relaxed mt-3 mb-6 whitespace-pre-line">{dialog.message}</p>
         {dialog.kind === 'confirm' ? (
           <div className="grid grid-cols-2 gap-3">

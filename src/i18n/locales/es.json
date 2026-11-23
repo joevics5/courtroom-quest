@@ -75,7 +75,8 @@
     "settings": "Ajustes",
     "wins_one": "{{count}} victoria",
     "wins_other": "{{count}} victorias",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "back": "Volver"
   },
   "roles": {
     "prosecution": "Fiscalía",
@@ -433,5 +434,77 @@
     "remove": "Quitar a {{name}}",
     "removeTitle": "{{name}} — toca para quitar",
     "back": "Volver"
+  },
+  "ui": {
+    "dismissTip": "Descartar consejo",
+    "notNow": "Ahora no",
+    "ok": "ACEPTAR",
+    "yes": "SÍ",
+    "cancel": "CANCELAR",
+    "headsUp": "ATENCIÓN",
+    "done": "LISTO",
+    "wrong": "ALGO SALIÓ MAL",
+    "areYouSure": "¿ESTÁS SEGURO/A?",
+    "resumeTitle": "Toca para reanudar el temporizador",
+    "pauseTitle": "Toca para pausar el temporizador",
+    "resumeAria": "Reanudar el temporizador de descanso",
+    "pauseAria": "Pausar el temporizador de descanso",
+    "paused": "En pausa",
+    "restsIn": "{{who}} concluye en",
+    "restNowAria": "Concluir la presentación de {{side}} ahora",
+    "restNow": "Concluir ya",
+    "voiceOn": "Activar la voz",
+    "muteVoice": "Silenciar la voz",
+    "voiceOffTitle": "La voz está desactivada. Toca para activarla",
+    "mistrial": "JUICIO NULO",
+    "mistrialBody": "Algo salió mal en esta pantalla. Tus partidas están guardadas, así que puedes retomarlas donde las dejaste.",
+    "reload": "RECARGAR",
+    "backHome": "VOLVER AL INICIO",
+    "youEarned": "Ganaste",
+    "feeAria": "Monedas por ganar",
+    "rulingAria": "Fallo sobre cada solicitud",
+    "decidesVerdict": " · DECIDE EL VEREDICTO",
+    "granted": "CONCEDIDA",
+    "notGranted": "NO CONCEDIDA"
+  },
+  "objection": {
+    "title": "¡OBJECIÓN!",
+    "subtitle": "Elige el motivo de tu objeción:",
+    "leading": {
+      "label": "Pregunta sugestiva",
+      "desc": "La pregunta sugiere la respuesta"
+    },
+    "hearsay": {
+      "label": "Testimonio de oídas",
+      "desc": "Declaración hecha fuera del juicio, presentada como prueba de lo dicho"
+    },
+    "speculation": {
+      "label": "Especulación",
+      "desc": "El testigo está adivinando o especulando"
+    },
+    "relevance": {
+      "label": "Impertinente",
+      "desc": "La pregunta no tiene relación con el caso"
+    },
+    "argumentative": {
+      "label": "Argumentativa",
+      "desc": "La pregunta es argumentativa y no busca hechos"
+    },
+    "compound": {
+      "label": "Pregunta compuesta",
+      "desc": "La pregunta contiene varias preguntas"
+    },
+    "asked_and_answered": {
+      "label": "Pregunta repetitiva",
+      "desc": "La pregunta ya fue hecha y respondida"
+    },
+    "other": {
+      "label": "Otra",
+      "desc": "Otra objeción válida"
+    },
+    "outside_scope": {
+      "label": "Fuera del alcance",
+      "desc": "El redirecto plantea algo que el contrainterrogatorio no tocó"
+    }
   }
 }

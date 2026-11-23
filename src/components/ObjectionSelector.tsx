@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { AlertCircle } from 'lucide-react';
 import ModalSheet, { CHOICE_ROW } from './ModalSheet';
 
@@ -22,19 +23,20 @@ const OBJECTION_REASONS = [
 const OUTSIDE_SCOPE = { value: 'outside_scope', label: 'Outside the Scope', description: 'Redirect question raises something the cross-examination did not' };
 
 export default function ObjectionSelector({ onSelect, onClose, redirect = false }: ObjectionSelectorProps) {
+  const { t } = useTranslation();
   const reasons = redirect ? [OUTSIDE_SCOPE, ...OBJECTION_REASONS] : OBJECTION_REASONS;
   return (
     <ModalSheet
-      title="OBJECTION!"
+      title={t('objection.title')}
       icon={<AlertCircle className="w-6 h-6 text-[#E5484D]" />}
-      subtitle="Select the reason for your objection:"
+      subtitle={t('objection.subtitle')}
       onClose={onClose}
     >
       <div className="space-y-2">
         {reasons.map((reason) => (
           <button key={reason.value} onClick={() => onSelect(reason.value)} className={CHOICE_ROW}>
-            <div className="font-semibold text-white">{reason.label}</div>
-            <div className="text-sm text-white/55 mt-0.5">{reason.description}</div>
+            <div className="font-semibold text-white">{t(`objection.${reason.value}.label`, { defaultValue: reason.label })}</div>
+            <div className="text-sm text-white/55 mt-0.5">{t(`objection.${reason.value}.desc`, { defaultValue: reason.description })}</div>
           </button>
         ))}
       </div>

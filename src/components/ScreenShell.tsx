@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import HeroBackground from './HeroBackground';
@@ -21,6 +22,7 @@ interface ScreenShellProps {
  * button and gold comic-font title — body content keeps the normal font.
  */
 export default function ScreenShell({ title, subtitle, onBack, right, maxWidth = 'max-w-3xl lg:max-w-5xl', wrapTitle, children }: ScreenShellProps) {
+  const { t } = useTranslation();
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-[#0b0d14]">
       <HeroBackground overlay="from-black/85 via-black/80 to-black/90" />
@@ -33,7 +35,7 @@ export default function ScreenShell({ title, subtitle, onBack, right, maxWidth =
             {onBack && (
               <button
                 onClick={onBack}
-                aria-label="Back"
+                aria-label={t('common.back')}
                 className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
               >
                 <ArrowLeft className="w-5 h-5" />

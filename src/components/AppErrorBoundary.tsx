@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { PANEL, gameButton } from './ui';
@@ -26,13 +27,13 @@ export default class AppErrorBoundary extends Component<{ children: ReactNode },
           <div className="mx-auto w-14 h-14 rounded-full border-2 flex items-center justify-center bg-red-500/20 border-red-400/50 text-red-300">
             <AlertTriangle className="w-7 h-7" />
           </div>
-          <h1 className="logo-gold font-game text-4xl leading-none mt-4">MISTRIAL</h1>
+          <h1 className="logo-gold font-game text-4xl leading-none mt-4">{i18n.t('ui.mistrial')}</h1>
           <p className="text-white/80 leading-relaxed mt-3 mb-6">
-            Something went wrong on this screen. Your games are saved, so you can pick up where you left off.
+            {i18n.t('ui.mistrialBody')}
           </p>
           <div className="grid gap-3">
-            <button type="button" onClick={() => window.location.reload()} className={gameButton('gold', 'md')}>RELOAD</button>
-            <button type="button" onClick={() => window.location.assign('/')} className={gameButton('ghost', 'md')}>BACK TO HOME</button>
+            <button type="button" onClick={() => window.location.reload()} className={gameButton('gold', 'md')}>{i18n.t('ui.reload')}</button>
+            <button type="button" onClick={() => window.location.assign('/')} className={gameButton('ghost', 'md')}>{i18n.t('ui.backHome')}</button>
           </div>
         </div>
       </div>

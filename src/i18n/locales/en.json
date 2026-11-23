@@ -75,7 +75,8 @@
     "settings": "Settings",
     "wins_one": "{{count}} win",
     "wins_other": "{{count}} wins",
-    "close": "Close"
+    "close": "Close",
+    "back": "Back"
   },
   "roles": {
     "prosecution": "Prosecution",
@@ -433,5 +434,77 @@
     "remove": "Remove {{name}}",
     "removeTitle": "{{name}} — tap to remove",
     "back": "Back"
+  },
+  "ui": {
+    "dismissTip": "Dismiss tip",
+    "notNow": "Not now",
+    "ok": "OK",
+    "yes": "YES",
+    "cancel": "CANCEL",
+    "headsUp": "HEADS UP",
+    "done": "DONE",
+    "wrong": "SOMETHING WENT WRONG",
+    "areYouSure": "ARE YOU SURE?",
+    "resumeTitle": "Tap to resume the timer",
+    "pauseTitle": "Tap to pause the timer",
+    "resumeAria": "Resume the rest timer",
+    "pauseAria": "Pause the rest timer",
+    "paused": "Paused",
+    "restsIn": "{{who}} rests in",
+    "restNowAria": "Rest the {{side}} now",
+    "restNow": "Rest now",
+    "voiceOn": "Turn voice on",
+    "muteVoice": "Mute voice",
+    "voiceOffTitle": "Voice is off. Tap to turn on",
+    "mistrial": "MISTRIAL",
+    "mistrialBody": "Something went wrong on this screen. Your games are saved, so you can pick up where you left off.",
+    "reload": "RELOAD",
+    "backHome": "BACK TO HOME",
+    "youEarned": "You earned",
+    "feeAria": "Coins paid for a win",
+    "rulingAria": "Ruling on each request",
+    "decidesVerdict": " · DECIDES THE VERDICT",
+    "granted": "GRANTED",
+    "notGranted": "NOT GRANTED"
+  },
+  "objection": {
+    "title": "OBJECTION!",
+    "subtitle": "Select the reason for your objection:",
+    "leading": {
+      "label": "Leading Question",
+      "desc": "Question suggests the answer"
+    },
+    "hearsay": {
+      "label": "Hearsay",
+      "desc": "Out-of-court statement offered for truth"
+    },
+    "speculation": {
+      "label": "Speculation",
+      "desc": "Witness is guessing or speculating"
+    },
+    "relevance": {
+      "label": "Relevance",
+      "desc": "Question not relevant to the case"
+    },
+    "argumentative": {
+      "label": "Argumentative",
+      "desc": "Question is argumentative rather than seeking facts"
+    },
+    "compound": {
+      "label": "Compound Question",
+      "desc": "Question contains multiple questions"
+    },
+    "asked_and_answered": {
+      "label": "Asked and Answered",
+      "desc": "Question has already been asked and answered"
+    },
+    "other": {
+      "label": "Other",
+      "desc": "Other valid objection"
+    },
+    "outside_scope": {
+      "label": "Outside the Scope",
+      "desc": "Redirect question raises something the cross-examination did not"
+    }
   }
 }

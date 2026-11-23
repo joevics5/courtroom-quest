@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle } from 'lucide-react';
 import type { PlayerRole } from '../types';
 
@@ -21,9 +22,10 @@ interface Props {
  * Granted is good news for the prosecution and bad news for the defence, so the colour follows the player.
  */
 export default function DemandRulings({ results, playerRole }: Props) {
+  const { t } = useTranslation();
   if (results.length < 2) return null; // one demand is just the verdict itself
   return (
-    <ul className="space-y-2" aria-label="Ruling on each request">
+    <ul className="space-y-2" aria-label={t('ui.rulingAria')}>
       {results.map(r => {
         const good = r.granted === (playerRole === 'prosecution');
         const showCount = r.grant + r.deny > 1;
@@ -43,13 +45,13 @@ export default function DemandRulings({ results, playerRole }: Props) {
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-[10px] font-black tracking-wider text-[#FFD43B]">
-                {r.label}{r.id === 'main' ? ' · DECIDES THE VERDICT' : ''}
+                {r.label}{r.id === 'main' ? t('ui.decidesVerdict') : ''}
               </span>
               <span className="block text-white/90 text-sm leading-snug">{r.text}</span>
             </span>
             <span className="flex-none text-right">
               <span className={`block text-xs font-black tracking-wide ${good ? 'text-[#5EEAD4]' : 'text-[#FF9A9D]'}`}>
-                {r.granted ? 'GRANTED' : 'NOT GRANTED'}
+                {r.granted ? t('ui.granted') : t('ui.notGranted')}
               </span>
               {showCount && <span className="block text-xs text-white/55">{r.grant}–{r.deny}</span>}
             </span>
