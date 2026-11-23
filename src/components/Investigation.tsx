@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef } from 'react';
 import GameTip from './GameTip';
 import { appAlert } from '../lib/appDialog';
@@ -30,6 +31,7 @@ interface InvestigationProps {
 }
 
 export default function Investigation({ session, onProceedToTrial, onBack, liveReady, onStatus, showCaseReview = false, caseForReview, onReviewAccept, onReviewReject, showTip = false }: InvestigationProps) {
+  const { t } = useTranslation();
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
   const [selectedTab, setSelectedTab] = useState<'overview' | 'evidence' | 'witnesses'>('overview');
@@ -151,7 +153,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
     } catch (error) {
       console.error('Failed to record interaction:', error);
       const message = error instanceof Error ? error.message : String(error);
-      void appAlert({ title: "THE WITNESS DIDN'T ANSWER", message: `Failed to get witness response: ${message}`, tone: 'error' });
+      void appAlert({ title: t('invest.askFailTitle'), message: t('invest.askFail', { message }), tone: 'error' });
     } finally {
       setIsQuestioningLoading(false);
     }
@@ -186,7 +188,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
       {showPitchModal && caseForReview && (
         <CaseBriefModal
           caseForReview={caseForReview}
-          defendantName={defendantName || 'The defendant'}
+          defendantName={defendantName || t('invest.defendantFallback')}
           onReject={() => {
             setShowPitchModal(false);
             onReviewReject?.();
@@ -238,7 +240,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSelectedWitness(null)}
-                aria-label="Back to witnesses"
+                aria-label={t('invest.backWitnesses')}
                 className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -251,10 +253,10 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
               <button
                 onClick={() => setShowWitnessInfo(!showWitnessInfo)}
                 aria-expanded={showWitnessInfo}
-                aria-label={showWitnessInfo ? 'Hide witness info' : 'Show witness info'}
+                aria-label={showWitnessInfo ? t('invest.hideInfo') : t('invest.showInfo')}
                 className="flex-none flex items-center gap-1.5 rounded-full bg-white/10 border border-white/15 px-3 h-9 text-xs font-bold text-white"
               >
-                {showWitnessInfo ? 'HIDE INFO' : 'INFO'}
+                {showWitnessInfo ? t('invest.hideInfoBtn') : t('invest.infoBtn')}
                 {showWitnessInfo ? <X className="w-4 h-4" aria-hidden="true" /> : <ChevronDown className="w-4 h-4" aria-hidden="true" />}
               </button>
             </div>
@@ -262,20 +264,20 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
             {showWitnessInfo && (
               <div className="mt-3 space-y-2 max-h-[40dvh] overflow-y-auto">
                 <div className="rounded-2xl bg-white/5 border border-white/15 p-3">
-                  <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-1">BACKGROUND</h3>
+                  <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-1">{t('invest.background')}</h3>
                   <p className="text-sm text-white/80 leading-relaxed">{selectedWitness.background}</p>
                 </div>
                 <div className="rounded-2xl bg-[#FFD43B]/10 border border-[#F2B705]/40 p-3">
-                  <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-1">WRITTEN TESTIMONY</h3>
+                  <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-1">{t('invest.testimony')}</h3>
                   <p className="text-sm text-white/85 whitespace-pre-wrap leading-relaxed">{selectedWitness.base_testimony}</p>
                 </div>
                 <button
                   onClick={() => setShowWitnessInfo(false)}
-                  aria-label="Close witness info"
+                  aria-label={t('invest.closeInfo')}
                   className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-white/10 border border-white/15 py-2 text-xs font-bold text-white/80"
                 >
                   <X className="w-4 h-4" aria-hidden="true" />
-                  CLOSE AND START QUESTIONING
+                  {t('invest.closeStart')}
                 </button>
               </div>
             )}
@@ -285,8 +287,8 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
             {history.length === 0 && !isQuestioningLoading && (
               <div className="text-center py-10">
                 <Users className="w-10 h-10 mx-auto text-white/25 mb-3" />
-                <p className="font-game text-2xl text-white/80">NO QUESTIONS YET</p>
-                <p className="text-sm text-white/50 mt-1">Ask {selectedWitness.name.split(' ')[0]} what they saw. Look for gaps.</p>
+                <p className="font-game text-2xl text-white/80">{t('invest.noQuestions')}</p>
+                <p className="text-sm text-white/50 mt-1">{t('invest.askHint', { name: selectedWitness.name.split(' ')[0] })}</p>
               </div>
             )}
 
@@ -294,7 +296,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
               <div key={interaction.id} className="space-y-2">
                 <div className="flex justify-end">
                   <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[#FFD43B]/15 border border-[#FFD43B]/40 px-4 py-2.5">
-                    <div className="text-[10px] font-black tracking-widest text-[#FFD43B] mb-0.5">YOU</div>
+                    <div className="text-[10px] font-black tracking-widest text-[#FFD43B] mb-0.5">{t('invest.you')}</div>
                     <p className="text-white leading-snug">{interaction.question}</p>
                   </div>
                 </div>
@@ -311,12 +313,12 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
               <div className="space-y-2">
                 <div className="flex justify-end">
                   <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[#FFD43B]/15 border border-[#FFD43B]/40 px-4 py-2.5">
-                    <div className="text-[10px] font-black tracking-widest text-[#FFD43B] mb-0.5">YOU</div>
+                    <div className="text-[10px] font-black tracking-widest text-[#FFD43B] mb-0.5">{t('invest.you')}</div>
                     <p className="text-white leading-snug">{question}</p>
                   </div>
                 </div>
                 <div className="flex justify-start">
-                  <div className="rounded-2xl rounded-bl-md bg-white/10 border border-white/15 px-4 py-3 flex items-center gap-1.5" aria-label={`${selectedWitness.name} is thinking`}>
+                  <div className="rounded-2xl rounded-bl-md bg-white/10 border border-white/15 px-4 py-3 flex items-center gap-1.5" aria-label={t('invest.thinking', { name: selectedWitness.name })}>
                     <span className="animate-pulse text-white/60">●</span>
                     <span className="animate-pulse text-white/60" style={{ animationDelay: '0.2s' }}>●</span>
                     <span className="animate-pulse text-white/60" style={{ animationDelay: '0.4s' }}>●</span>
@@ -338,7 +340,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
                       handleAskQuestion();
                     }
                   }}
-                  placeholder={`Ask ${selectedWitness.name.split(' ')[0]} a question…`}
+                  placeholder={t('invest.placeholder', { name: selectedWitness.name.split(' ')[0] })}
                   disabled={isQuestioningLoading}
                   rows={2}
                   className="w-full px-4 py-3 pr-12 bg-black/50 border border-white/20 rounded-2xl text-white placeholder-white/35 focus:outline-none focus:border-[#FFD43B] resize-none"
@@ -348,7 +350,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
                     type="button"
                     onClick={() => (isListening ? stopListening() : startListening())}
                     disabled={isQuestioningLoading}
-                    title={isListening ? 'Stop recording' : 'Speak your question'}
+                    title={isListening ? t('invest.stopRec') : t('invest.speak')}
                     className={`absolute right-2 top-2 w-9 h-9 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
                       isListening ? 'bg-red-600 animate-pulse' : 'bg-white/15 hover:bg-white/25'
                     }`}
@@ -360,7 +362,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
               <button
                 onClick={handleAskQuestion}
                 disabled={!question.trim() || isQuestioningLoading}
-                aria-label="Send question"
+                aria-label={t('invest.send')}
                 className="flex-none flex items-center justify-center w-14 h-14 rounded-2xl bg-[#FFD43B] text-black border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale"
               >
                 <Send className="w-6 h-6" />
@@ -375,9 +377,9 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
 
   /* ───────────── Main investigation screen ───────────── */
   const tabs: Array<{ key: 'overview' | 'evidence' | 'witnesses'; label: string; icon: typeof Info; count?: number }> = [
-    { key: 'overview', label: 'BRIEF', icon: Info },
-    { key: 'evidence', label: 'EVIDENCE', icon: FileText, count: evidence.length },
-    { key: 'witnesses', label: 'WITNESSES', icon: Users, count: witnesses.length }
+    { key: 'overview', label: t('invest.tabBrief'), icon: Info },
+    { key: 'evidence', label: t('invest.tabEvidence'), icon: FileText, count: evidence.length },
+    { key: 'witnesses', label: t('invest.tabWitnesses'), icon: Users, count: witnesses.length }
   ];
 
   const caseTypeLabel = caseDetails?.case_type ? String(caseDetails.case_type).replace(/_/g, ' ') : '';
@@ -393,30 +395,30 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
           <header className="flex items-center gap-3">
             <button
               onClick={onBack}
-              aria-label="Back"
+              aria-label={t('common.back')}
               className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="min-w-0">
-              <h1 className="logo-gold font-game text-4xl leading-none">INVESTIGATION</h1>
-              <p className="text-white/60 text-xs mt-1 truncate">{caseDetails?.title || 'Examine the evidence. Question the witnesses.'}</p>
+              <h1 className="logo-gold font-game text-4xl leading-none">{t('invest.title')}</h1>
+              <p className="text-white/60 text-xs mt-1 truncate">{caseDetails?.title || t('invest.sub')}</p>
             </div>
           </header>
 
           {session?.session_state?.quickStart && (
             <GameTip>
-              <strong>Quick Start:</strong> read the case, look at the evidence and talk to the witnesses, then tap Go to trial. The trial is a short judge trial, about 10 minutes.
+              <Trans i18nKey="invest.tipQuick" components={{ b: <strong /> }} />
             </GameTip>
           )}
 
           {showTip && !session?.session_state?.quickStart && (
             <GameTip>
-              <strong>Tip:</strong> read the case, look through the evidence and talk to every witness to find what helps your side. When you are ready, tap Go to trial.
+              <Trans i18nKey="invest.tip" components={{ b: <strong /> }} />
             </GameTip>
           )}
 
-          <nav className="mt-3 grid grid-cols-3 gap-2" aria-label="Investigation sections">
+          <nav className="mt-3 grid grid-cols-3 gap-2" aria-label={t('invest.sections')}>
             {tabs.map(tab => {
               const Icon = tab.icon;
               const active = selectedTab === tab.key;
@@ -462,43 +464,43 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
 
                 {caseDetails.case_summary && (
                   <div className="rounded-3xl bg-black/65 border border-white/15 backdrop-blur-sm p-5">
-                    <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-2">CASE SUMMARY</h3>
+                    <h3 className="text-[11px] font-black tracking-widest text-[#FFD43B] mb-2">{t('invest.summary')}</h3>
                     <p className="text-[15px] text-white/80 leading-relaxed whitespace-pre-line">{caseDetails.case_summary}</p>
                   </div>
                 )}
 
                 <div className="rounded-3xl bg-black/65 border border-white/15 backdrop-blur-sm p-4">
-                  <h3 className="font-game text-2xl text-white/90 leading-none mb-3">YOUR GAME PLAN</h3>
+                  <h3 className="font-game text-2xl text-white/90 leading-none mb-3">{t('invest.plan')}</h3>
                   <ol className="space-y-2">
                     <li>
                       <button onClick={() => setSelectedTab('evidence')} className="w-full flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 p-3 text-left">
                         <span className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-[#FFD43B] text-black font-black text-sm">1</span>
-                        <span className="flex-1 text-white font-semibold">Review the evidence</span>
+                        <span className="flex-1 text-white font-semibold">{t('invest.plan1')}</span>
                         <ChevronRight className="w-5 h-5 text-[#FFD43B]" />
                       </button>
                     </li>
                     <li>
                       <button onClick={() => setSelectedTab('witnesses')} className="w-full flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 p-3 text-left">
                         <span className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-[#FFD43B] text-black font-black text-sm">2</span>
-                        <span className="flex-1 text-white font-semibold">Interview the witnesses</span>
+                        <span className="flex-1 text-white font-semibold">{t('invest.plan2')}</span>
                         <ChevronRight className="w-5 h-5 text-[#FFD43B]" />
                       </button>
                     </li>
                     <li className="flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 p-3">
                       <span className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-[#FFD43B] text-black font-black text-sm">3</span>
-                      <span className="flex-1 text-white font-semibold">Take it to trial</span>
+                      <span className="flex-1 text-white font-semibold">{t('invest.plan3')}</span>
                     </li>
                   </ol>
                 </div>
               </>
             ) : (
-              <p className="text-center text-white/50 py-10 lg:col-span-2">Loading the case file…</p>
+              <p className="text-center text-white/50 py-10 lg:col-span-2">{t('invest.loading')}</p>
             )
           )}
 
           {selectedTab === 'evidence' && (
             evidence.length === 0 ? (
-              <p className="text-center text-white/50 py-10 lg:col-span-2">No evidence available</p>
+              <p className="text-center text-white/50 py-10 lg:col-span-2">{t('invest.noEvidence')}</p>
             ) : (
               evidence.map(item => {
                 const Icon = getEvidenceIcon(item.evidence_type);
@@ -527,10 +529,10 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
 
           {selectedTab === 'witnesses' && (
             witnesses.length === 0 ? (
-              <p className="text-center text-white/50 py-10 lg:col-span-2">No witnesses available</p>
+              <p className="text-center text-white/50 py-10 lg:col-span-2">{t('invest.noWitnesses')}</p>
             ) : (
               <>
-                <p className="text-sm text-white/60 px-1 lg:col-span-2">Tap a witness to interview them. Their answers are saved for your trial.</p>
+                <p className="text-sm text-white/60 px-1 lg:col-span-2">{t('invest.tapWitness')}</p>
                 {witnesses.map(witness => {
                   const count = getWitnessInteractions(witness.id).length;
                   return (
@@ -547,7 +549,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
                           count > 0 ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-300' : 'bg-white/10 text-white/55'
                         }`}>
                           {count > 0 && <Check className="w-3 h-3" />}
-                          {count > 0 ? `${count} question${count === 1 ? '' : 's'} asked` : 'Not interviewed yet'}
+                          {count > 0 ? t('invest.questionsAsked', { count }) : t('invest.notInterviewed')}
                         </span>
                       </span>
                       <ChevronRight className="flex-none w-5 h-5 text-[#FFD43B]" />
@@ -561,7 +563,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
 
         <div className="flex-none px-4 pt-2" style={safeBottom}>
           <p className="text-center text-[11px] font-bold tracking-wider text-white/45 mb-1.5">
-            {witnesses.length > 0 ? `${interviewedCount}/${witnesses.length} WITNESSES INTERVIEWED · ${totalQuestions} QUESTION${totalQuestions === 1 ? '' : 'S'} ASKED` : 'READY WHEN YOU ARE'}
+            {witnesses.length > 0 ? t('invest.progress', { done: interviewedCount, total: witnesses.length, count: totalQuestions }) : t('invest.ready')}
           </p>
           {liveReady?.opponentReady && !liveReady.iAmReady && (
             <p role="status" className="mb-2 rounded-full bg-emerald-500/20 border border-emerald-400/50 px-4 py-1.5 text-center text-sm font-bold text-emerald-300">
@@ -580,7 +582,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
             onClick={onProceedToTrial}
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
           >
-            PROCEED TO TRIAL
+            {t('invest.proceed')}
             <ArrowRight className="w-6 h-6" />
           </button>
           )}
@@ -605,11 +607,12 @@ function CaseBriefModal({
   onReject: () => void;
   onAccept: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
       <div className="w-full max-w-lg max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#14161f] border border-white/10 text-white">
         <div className="flex-1 min-h-0 overflow-y-auto p-5">
-          <span className="inline-block rounded-full bg-[#FFD43B] text-black px-3 py-1 text-[11px] font-black tracking-[0.15em]">CASE BRIEF</span>
+          <span className="inline-block rounded-full bg-[#FFD43B] text-black px-3 py-1 text-[11px] font-black tracking-[0.15em]">{t('invest.brief')}</span>
           <h2 className="font-game text-4xl leading-none mt-3">{caseForReview.title}</h2>
           <p className="mt-3 text-[15px] text-white/75 leading-relaxed whitespace-pre-line">{caseForReview.description}</p>
           {caseForReview.case_summary && (
@@ -617,18 +620,18 @@ function CaseBriefModal({
           )}
           <div className="mt-4 rounded-2xl bg-white/5 border border-white/15 p-3 text-center">
             <span className="font-bold text-[#FFD43B]">{defendantName}</span>
-            <span className="text-white/75"> has requested legal representation.</span>
+            <span className="text-white/75">{t('invest.requested')}</span>
           </div>
         </div>
         <div className="flex-none grid grid-cols-2 gap-3 p-5 pt-3 border-t border-white/10">
           <button onClick={onReject} className="rounded-xl bg-white/10 border border-white/20 text-white font-game text-2xl py-3">
-            REJECT
+            {t('preview.reject')}
           </button>
           <button
             onClick={onAccept}
             className="rounded-xl bg-[#FFD43B] text-black font-game text-2xl py-3 border-b-[5px] border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
           >
-            ACCEPT CASE
+            {t('preview.accept')}
           </button>
         </div>
       </div>
@@ -637,17 +640,18 @@ function CaseBriefModal({
 }
 
 function AcceptedModal({ defendantName, onBegin }: { defendantName: string; onBegin: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
       <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-[#14161f] border border-white/10 text-white p-6 text-center" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}>
         <span className="mx-auto flex items-center justify-center w-16 h-16 rounded-full bg-[#FFD43B] text-black">
           <Check className="w-9 h-9" strokeWidth={3} />
         </span>
-        <h2 className="logo-gold font-game text-4xl leading-none mt-4">YOU'RE ON THE CASE</h2>
-        <p className="mt-2 text-white/75">You are now representing <span className="font-bold text-white">{defendantName}</span>.</p>
+        <h2 className="logo-gold font-game text-4xl leading-none mt-4">{t('invest.onCase')}</h2>
+        <p className="mt-2 text-white/75"><Trans i18nKey="invest.representing" values={{ name: defendantName }} components={{ name: <span className="font-bold text-white" /> }} /></p>
 
         <ul className="mt-4 space-y-2 text-left">
-          {['Review the evidence', 'Interview the witnesses', 'Prepare for trial'].map((task, i) => (
+          {[t('invest.plan1'), t('invest.plan2'), t('invest.task3')].map((task, i) => (
             <li key={task} className="flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 p-3">
               <span className="flex-none flex items-center justify-center w-7 h-7 rounded-full bg-[#FFD43B] text-black font-black text-sm">{i + 1}</span>
               <span className="font-semibold">{task}</span>
@@ -655,12 +659,12 @@ function AcceptedModal({ defendantName, onBegin }: { defendantName: string; onBe
           ))}
         </ul>
 
-        <p className="mt-3 text-sm italic text-white/50">The court is waiting.</p>
+        <p className="mt-3 text-sm italic text-white/50">{t('invest.waiting')}</p>
         <button
           onClick={onBegin}
           className="mt-4 w-full rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all"
         >
-          BEGIN INVESTIGATION
+          {t('invest.begin')}
         </button>
       </div>
     </div>
