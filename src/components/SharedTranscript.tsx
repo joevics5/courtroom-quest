@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Scale, Trophy, XCircle, Radio } from 'lucide-react';
 import { supabase } from '../integrations/supabase/client';
 import type { TrialEvent, Verdict, CaseSession, Case } from '../types';
-import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
+import { didPlayerWin, verdictText } from '../lib/verdictUtils';
 import ScreenShell from './ScreenShell';
 import { PANEL, PANEL_SOFT, gameButton } from './ui';
 
@@ -12,16 +14,16 @@ function getSpeakerDisplayName(event: TrialEvent, isLive: boolean) {
   // players themselves see who's who while it's in progress. Finished,
   // explicitly-shared trials still show whatever name was recorded.
   if (isLive && (event.speaker_role === 'prosecution' || event.speaker_role === 'defense')) {
-    return event.speaker_role === 'prosecution' ? 'Prosecution' : 'Defense';
+    return i18n.t(event.speaker_role === 'prosecution' ? 'roles.prosecution' : 'roles.defense');
   }
   if (event.speaker_name) return event.speaker_name;
   switch (event.speaker_role) {
-    case 'judge': return 'Judge';
-    case 'prosecution': return 'Prosecution';
-    case 'defense': return 'Defense';
-    case 'witness': return 'Witness';
-    case 'jury': return 'Jury';
-    default: return 'Unknown';
+    case 'judge': return i18n.t('speakers.judge');
+    case 'prosecution': return i18n.t('roles.prosecution');
+    case 'defense': return i18n.t('roles.defense');
+    case 'witness': return i18n.t('transcript.witness');
+    case 'jury': return i18n.t('transcript.jury');
+    default: return i18n.t('transcript.unknown');
   }
 }
 
@@ -45,6 +47,7 @@ const ROLE_BAR: Record<string, string> = {
 };
 
 export default function SharedTranscript() {
+  const { t } = useTranslation();
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [session, setSession] = useState<CaseSession | null>(null);
@@ -113,8 +116,8 @@ export default function SharedTranscript() {
 
   if (loading) {
     return (
-      <ScreenShell title="TRANSCRIPT" onBack={() => navigate('/')} maxWidth="max-w-3xl lg:max-w-4xl">
-        <div className="space-y-3" role="status" aria-label="Loading transcript">
+      <ScreenShell title={t('transcript.title')} onBack={() => navigate('/')} maxWidth="max-w-3xl lg:max-w-4xl">
+        <div className="space-y-3" role="status" aria-label={t('transcript.loadingAria')}>
           {[0, 1, 2].map(i => <div key={i} className={`${PANEL_SOFT} h-20 animate-pulse`} />)}
         </div>
       </ScreenShell>
@@ -123,14 +126,14 @@ export default function SharedTranscript() {
 
   if (notFound || !session) {
     return (
-      <ScreenShell title="NOT FOUND" onBack={() => navigate('/')} maxWidth="max-w-md">
+      <ScreenShell title={t('transcript.notFoundTitle')} onBack={() => navigate('/')} maxWidth="max-w-md">
         <div className={`${PANEL} text-center`}>
           <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-white/10 flex items-center justify-center">
             <Scale className="w-7 h-7 text-white/50" />
           </div>
-          <h2 className="font-game text-3xl leading-none text-white mb-2">TRANSCRIPT NOT FOUND</h2>
-          <p className="text-white/60 text-sm mb-6">This trial either doesn't exist or isn't shared publicly.</p>
-          <Link to="/" className={`${gameButton('gold', 'md')} w-full`}>PLAY COURTROOM QUEST</Link>
+          <h2 className="font-game text-3xl leading-none text-white mb-2">{t('transcript.notFoundH')}</h2>
+          <p className="text-white/60 text-sm mb-6">{t('transcript.notFoundBody')}</p>
+          <Link to="/" className={`${gameButton('gold', 'md')} w-full`}>{t('transcript.play')}</Link>
         </div>
       </ScreenShell>
     );
@@ -142,13 +145,13 @@ export default function SharedTranscript() {
 
   return (
     <ScreenShell
-      title={isLive ? 'LIVE TRIAL' : 'SHARED TRIAL'}
+      title={isLive ? t('transcript.liveTrial') : t('transcript.sharedTrial')}
       onBack={() => navigate('/watch')}
       maxWidth="max-w-3xl lg:max-w-4xl"
       right={isLive ? (
         <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 border border-red-400/50 rounded-full text-red-300 text-xs font-black">
           <Radio className="w-3 h-3 animate-pulse" />
-          LIVE
+          {t('transcript.live')}
         </span>
       ) : undefined}
     >
@@ -157,9 +160,9 @@ export default function SharedTranscript() {
           <div className="flex items-center gap-3 mb-3">
             {isWin ? <Trophy className="w-9 h-9 text-[#FFD43B] flex-none" /> : <XCircle className="w-9 h-9 text-white/50 flex-none" />}
             <div className="min-w-0">
-              <h2 className="font-game text-3xl leading-none text-white">{caseData?.title || 'Trial'}</h2>
+              <h2 className="font-game text-3xl leading-none text-white">{caseData?.title || t('transcript.trialFallback')}</h2>
               <p className={`text-sm font-semibold mt-1 ${isWin ? 'text-[#FFD43B]' : 'text-white/60'}`}>
-                Verdict: {verdictLabel(verdict.outcome)}{verdict.score !== undefined ? ` — Score: ${verdict.score}/100` : ''}
+                {t('transcript.verdictLine', { word: verdictText(verdict.outcome) })}{verdict.score !== undefined ? t('transcript.scoreSuffix', { n: verdict.score }) : ''}
               </p>
             </div>
           </div>
@@ -171,12 +174,12 @@ export default function SharedTranscript() {
 
       {isLive && !verdict && (
         <div className={`${PANEL} mb-6`}>
-          <h2 className="font-game text-3xl leading-none text-white">{caseData?.title || 'Trial'}</h2>
-          <p className="text-white/60 text-sm mt-2">This trial is in progress — new statements will appear below as they happen.</p>
+          <h2 className="font-game text-3xl leading-none text-white">{caseData?.title || t('transcript.trialFallback')}</h2>
+          <p className="text-white/60 text-sm mt-2">{t('transcript.inProgress')}</p>
         </div>
       )}
 
-      <h2 className="font-game text-2xl leading-none text-white mb-3">FULL TRANSCRIPT</h2>
+      <h2 className="font-game text-2xl leading-none text-white mb-3">{t('transcript.full')}</h2>
       <div className="space-y-3 mb-8">
         {events.map((event) => (
           <div key={event.id} className={`${PANEL_SOFT} border-l-4 ${ROLE_BAR[event.speaker_role] || 'border-l-white/30'} p-4`}>
@@ -190,13 +193,13 @@ export default function SharedTranscript() {
         ))}
         {events.length === 0 && (
           <p className="text-white/50 text-sm text-center py-8">
-            {isLive ? 'The trial is just getting started — check back in a moment.' : 'No transcript events recorded for this trial.'}
+            {isLive ? t('transcript.gettingStarted') : t('transcript.noEvents')}
           </p>
         )}
       </div>
 
       <div className="text-center pb-4">
-        <Link to="/" className={`${gameButton('gold', 'md')} w-full sm:w-auto`}>PLAY COURTROOM QUEST</Link>
+        <Link to="/" className={`${gameButton('gold', 'md')} w-full sm:w-auto`}>{t('transcript.play')}</Link>
       </div>
     </ScreenShell>
   );

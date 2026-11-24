@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { currentLocale } from '../i18n';
 import { FileText, Clock } from 'lucide-react';
 import type { TrialEvent } from '../types';
 import ModalSheet from './ModalSheet';
@@ -26,26 +28,27 @@ const ROLE_BAR: Record<string, string> = {
 };
 
 export default function TranscriptViewer({ events, caseTitle, onClose }: TranscriptViewerProps) {
+  const { t } = useTranslation();
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return date.toLocaleTimeString(currentLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
   const getSpeakerDisplayName = (event: TrialEvent) => {
     if (event.speaker_name) return event.speaker_name;
     switch (event.speaker_role) {
-      case 'judge': return 'Judge';
-      case 'prosecution': return 'Prosecution';
-      case 'defense': return 'Defense';
-      case 'witness': return 'Witness';
-      case 'jury': return 'Jury';
-      default: return 'Unknown';
+      case 'judge': return t('speakers.judge');
+      case 'prosecution': return t('roles.prosecution');
+      case 'defense': return t('roles.defense');
+      case 'witness': return t('transcript.witness');
+      case 'jury': return t('transcript.jury');
+      default: return t('transcript.unknown');
     }
   };
 
   return (
     <ModalSheet
-      title="Court Transcript"
+      title={t('transcript.viewerTitle')}
       subtitle={caseTitle}
       icon={<FileText className="w-6 h-6 text-[#FFD43B]" />}
       onClose={onClose}
@@ -55,7 +58,7 @@ export default function TranscriptViewer({ events, caseTitle, onClose }: Transcr
         {events.length === 0 ? (
           <div className="text-center py-12 text-white/50">
             <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No transcript entries found.</p>
+            <p>{t('transcript.none')}</p>
           </div>
         ) : (
           events.map((event, index) => (
@@ -89,7 +92,7 @@ export default function TranscriptViewer({ events, caseTitle, onClose }: Transcr
 
       <div className="flex items-center justify-between gap-3 text-sm text-white/55 border-t border-white/10 pt-4">
         <span>Total entries: {events.length}</span>
-        <button onClick={onClose} className={gameButton('ghost', 'sm')}>Close</button>
+        <button onClick={onClose} className={gameButton('ghost', 'sm')}>{t('common.close')}</button>
       </div>
     </ModalSheet>
   );

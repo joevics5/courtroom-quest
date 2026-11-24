@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { phaseLabel } from '../lib/phaseLabel';
 import { Check, Clock, Circle, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { getPhaseInfo, formatTime, type TrialConfig } from '../lib/trialConfig';
@@ -27,6 +29,7 @@ export default function TrialOutline({
   prosecutorName = 'Prosecution',
   defenseName = 'Defense'
 }: TrialOutlineProps) {
+  const { t } = useTranslation();
   const [showPreTrial, setShowPreTrial] = useState(false);
 
   const getPhaseStatus = (phaseNumber: number) => {
@@ -146,7 +149,7 @@ export default function TrialOutline({
                 status === 'current' ? 'text-white' :
                 'text-white/45'
               }`}>
-                {phase.number}. {phase.name}
+                {phase.number}. {phaseLabel(phase.name)}
               </span>
               {/* Witness phases have no fixed length (they draw on one shared pool), so only the one running now shows a clock. */}
               {((duration !== undefined && duration > 0) || (status === 'current' && timeRemaining !== undefined)) && (
@@ -156,7 +159,7 @@ export default function TrialOutline({
                     : status === 'current' && timeRemaining !== undefined
                       ? formatTime(timeRemaining)
                       : duration !== undefined
-                        ? `${duration}m`
+                        ? t('outline.minShort', { n: duration })
                         : ''}
                 </span>
               )}
@@ -171,10 +174,10 @@ export default function TrialOutline({
     <div className="bg-black/55 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden h-full flex flex-col">
       <div className="border-b border-white/10 px-4 py-3 bg-black/30">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-game text-2xl leading-none text-white">TRIAL OUTLINE</h3>
+          <h3 className="font-game text-2xl leading-none text-white">{t('outline.title')}</h3>
           {practiceMode ? (
             <div className="flex items-center gap-1 text-amber-400">
-              <span className="text-xs font-semibold">Practice</span>
+              <span className="text-xs font-semibold">{t('outline.practice')}</span>
             </div>
           ) : timerActive && (
             <div className="flex items-center gap-1 text-[#FFD43B]">
@@ -184,7 +187,7 @@ export default function TrialOutline({
           )}
         </div>
         <div className="text-xs text-white/55">
-          {trialConfig.duration} minute trial
+          {t('outline.minuteTrial', { count: trialConfig.duration })}
         </div>
       </div>
 
@@ -196,7 +199,7 @@ export default function TrialOutline({
           >
             <span className="flex items-center gap-2">
               <Check className="w-3 h-3 text-green-400" />
-              Pre-Trial (Completed)
+              {t('outline.preTrial')}
             </span>
             <ChevronDown className={`w-4 h-4 transition-transform ${showPreTrial ? 'rotate-180' : ''}`} />
           </button>
@@ -209,7 +212,7 @@ export default function TrialOutline({
 
         <div>
           <div className="text-xs font-semibold text-white/55 mb-2 uppercase tracking-wide">
-            Trial (Timed)
+            {t('outline.trialTimed')}
           </div>
           <div className="space-y-1">
             {getCategoryPhases('trial').map(p => renderPhase(getPhaseInfo(p.number, trialConfig.duration)))}
@@ -218,7 +221,7 @@ export default function TrialOutline({
 
         <div>
           <div className="text-xs font-semibold text-white/55 mb-2 uppercase tracking-wide">
-            Post-Trial
+            {t('outline.postTrial')}
           </div>
           <div className="space-y-1">
             {getCategoryPhases('post-trial').map(p => renderPhase(getPhaseInfo(p.number, trialConfig.duration)))}
