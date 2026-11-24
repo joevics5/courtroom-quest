@@ -4,13 +4,14 @@ import es from './locales/es.json';
 import i18n, { setLanguage } from './index';
 import { LANGUAGES, matchBrowserLanguage, detectLanguage, LANGUAGE_STORAGE_KEY } from './languages';
 
-type Tree = { [k: string]: string | Tree };
+type Tree = { [k: string]: string | string[] | Tree };
 
 function flatten(tree: Tree, prefix = ''): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(tree)) {
     const key = prefix ? `${prefix}.${k}` : k;
     if (typeof v === 'string') out[key] = v;
+    else if (Array.isArray(v)) v.forEach((item, i) => { out[`${key}.${i}`] = item; });
     else Object.assign(out, flatten(v, key));
   }
   return out;

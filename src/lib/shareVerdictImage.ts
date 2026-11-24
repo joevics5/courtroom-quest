@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /** The verdict card people share: a fixed template with the case details dropped into it, drawn on a canvas. */
 
 export const SHARE_CAPTION = 'Can you do better? >> Play Courtroom Quest www.courtroomquest.app';
@@ -104,7 +105,7 @@ export async function renderVerdictCard(info: VerdictCardInfo): Promise<Blob> {
   ctx.fillStyle = accent;
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowOffsetY = 8;
-  ctx.fillText(info.won ? 'VICTORY' : 'DEFEAT', W / 2, 560);
+  ctx.fillText(i18n.t(info.won ? 'verdictScreen.victory' : 'verdictScreen.defeat'), W / 2, 560);
   ctx.shadowColor = 'transparent';
   ctx.shadowOffsetY = 0;
 
@@ -119,7 +120,7 @@ export async function renderVerdictCard(info: VerdictCardInfo): Promise<Blob> {
 
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.font = `600 28px ${BODY_FONT}`;
-  ctx.fillText('THE CASE', W / 2, py + 62);
+  ctx.fillText(i18n.t('shareCard.theCase'), W / 2, py + 62);
 
   ctx.fillStyle = '#ffffff';
   ctx.font = `66px ${GAME_FONT}`;
@@ -129,10 +130,10 @@ export async function renderVerdictCard(info: VerdictCardInfo): Promise<Blob> {
 
   ctx.fillStyle = accent;
   ctx.font = `700 40px ${BODY_FONT}`;
-  ctx.fillText(`Verdict: ${info.verdictWord}`, W / 2, afterTitle + 80);
+  ctx.fillText(i18n.t('shareCard.verdict', { word: info.verdictWord }), W / 2, afterTitle + 80);
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
   ctx.font = `500 32px ${BODY_FONT}`;
-  ctx.fillText(`Played as ${info.roleLabel}`, W / 2, afterTitle + 130);
+  ctx.fillText(i18n.t('shareCard.playedAs', { role: info.roleLabel }), W / 2, afterTitle + 130);
 
   // score bar
   if (typeof info.score === 'number') {
@@ -145,12 +146,12 @@ export async function renderVerdictCard(info: VerdictCardInfo): Promise<Blob> {
     ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.font = `700 30px ${BODY_FONT}`;
-    ctx.fillText(`Score ${Math.round(info.score)}/100`, W / 2, sy - 18);
+    ctx.fillText(i18n.t('shareCard.score', { n: Math.round(info.score) }), W / 2, sy - 18);
   }
 
   // rank pill
   ctx.font = `54px ${GAME_FONT}`;
-  const rankText = info.rankTitle.toUpperCase();
+  const rankText = info.rankTitle.toLocaleUpperCase(i18n.resolvedLanguage);
   const rw = ctx.measureText(rankText).width + 90;
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   roundRect(ctx, W / 2 - rw / 2, 1090, rw, 90, 45);
@@ -179,7 +180,7 @@ export async function shareVerdictCard(blob: Blob, fileName = 'courtroom-quest-v
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
   if (nav.share && nav.canShare?.({ files: [file] })) {
     try {
-      await nav.share({ files: [file], text: SHARE_CAPTION });
+      await nav.share({ files: [file], text: i18n.t('shareCard.caption') });
       return 'shared';
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return 'cancelled';
@@ -195,7 +196,7 @@ export async function shareVerdictCard(blob: Blob, fileName = 'courtroom-quest-v
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   try {
-    await navigator.clipboard?.writeText(SHARE_CAPTION);
+    await navigator.clipboard?.writeText(i18n.t('shareCard.caption'));
   } catch {
     /* copying is a bonus */
   }

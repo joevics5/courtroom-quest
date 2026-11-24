@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { rankTitle as rankTitleOf, translateRankTitle } from '../lib/displayName';
 import DemandRulings, { type DemandRulingRow } from './DemandRulings';
 import { useState, useEffect } from 'react';
 import { appAlert } from '../lib/appDialog';
@@ -6,7 +8,7 @@ import type { Verdict, TrialEvent, PlayerRole, CaseSession } from '../types';
 import { db } from '../lib/database';
 import CoinAmount from './CoinAmount';
 import WinCelebration from './WinCelebration';
-import { didPlayerWin, playerCaseScore, verdictLabel } from '../lib/verdictUtils';
+import { didPlayerWin, playerCaseScore, verdictText } from '../lib/verdictUtils';
 import TranscriptViewer from './TranscriptViewer';
 import { JuryVoteHistory } from './JuryDeliberation';
 import AvatarFace from './AvatarFace';
@@ -37,12 +39,13 @@ interface VerdictDisplayProps {
 }
 
 export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playerRole, wins, onReturnHome, onBack, onReopenCase }: VerdictDisplayProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   // isWin reflects whether the PLAYER won their case, not the raw AI
   // outcome field (which is an absolute guilty/not-guilty call and means
   // the opposite thing for a defense player vs. a prosecution player).
   const isWin = didPlayerWin(verdict.outcome, playerRole);
-  const verdictWord = verdictLabel(verdict.outcome);
+  const verdictWord = verdictText(verdict.outcome);
   const appeal = useVerdictAppeal({ verdict, playerRole, playerWon: isWin, userId: user?.id, onReopen: onReopenCase });
   const [shareMessage, setShareMessage] = useState('');
   const [showTranscript, setShowTranscript] = useState(false);
@@ -89,7 +92,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
       setShowTranscript(true);
     } catch (error) {
       console.error('Failed to load transcript:', error);
-      void appAlert({ title: "COULDN'T LOAD TRANSCRIPT", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('verdictScreen.errTranscript'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setLoadingTranscript(false);
     }
@@ -105,18 +108,18 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
         won: isWin,
         caseTitle,
         verdictWord,
-        roleLabel: playerRole === 'prosecution' ? 'Prosecution' : 'Defense',
-        rankTitle: wins !== undefined ? getLevelForWins(wins).title : currentLevel,
+        roleLabel: t(playerRole === 'prosecution' ? 'roles.prosecution' : 'roles.defense'),
+        rankTitle: wins !== undefined ? rankTitleOf(getLevelForWins(wins).level) : translateRankTitle(currentLevel),
         score: appeal.gated ? null : playerScore
       });
       const result = await shareVerdictCard(blob);
       if (result === 'downloaded') {
-        setShareMessage('Image saved, caption copied!');
+        setShareMessage(t('verdictScreen.imageSaved'));
         setTimeout(() => setShareMessage(''), 3000);
       }
     } catch (error) {
       console.error('Failed to share verdict:', error);
-      void appAlert({ title: "COULDN'T SHARE", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('verdictScreen.errShare'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setSharing(false);
     }
@@ -124,7 +127,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
 
   // ---- what the player sees ----
   const myAvatar = getUserAvatar(user);
-  const rankTitle = wins !== undefined ? getLevelForWins(wins).title : currentLevel;
+  const rankTitle = wins !== undefined ? rankTitleOf(getLevelForWins(wins).level) : translateRankTitle(currentLevel);
   const rankLevel = wins !== undefined ? getLevelForWins(wins).level : Math.max(1, LEVELS.findIndex(l => l.title === currentLevel) + 1);
   // Wins is already counted for this case, so landing exactly on a rank's threshold means just promoted.
   const rankedUp = isWin && wins !== undefined && LEVELS.some(l => l.level > 1 && l.wins === wins);
@@ -147,7 +150,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
             <button
               type="button"
               onClick={onBack ?? onReturnHome}
-              aria-label="Back"
+              aria-label={t('common.back')}
               className="flex-none flex items-center justify-center w-11 h-11 rounded-full bg-black/55 border border-white/15 text-white active:bg-white/15"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -163,7 +166,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
               }`}
             >
               <div className={isWin ? 'w-full h-full' : 'w-full h-full saturate-50 brightness-90'}>
-                <AvatarFace config={myAvatar} rank={rankLevel} label="Your avatar" />
+                <AvatarFace config={myAvatar} rank={rankLevel} label={t('settings.avatar.label')} />
               </div>
             </div>
             <h1
@@ -171,10 +174,10 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                 isWin ? 'logo-gold' : 'text-[#FF7A7E] drop-shadow-[0_3px_0_rgba(0,0,0,0.6)]'
               }`}
             >
-              {isWin ? 'VICTORY' : 'DEFEAT'}
+              {isWin ? t('verdictScreen.victory') : t('verdictScreen.defeat')}
             </h1>
             <p className="mt-2 text-white/60">
-              {appeal.appealRound > 0 ? `The court has delivered its verdict after appeal ${appeal.appealRound}` : 'The court has delivered its verdict'}
+              {appeal.appealRound > 0 ? t('verdictScreen.deliveredAppeal', { round: appeal.appealRound }) : t('verdictScreen.delivered')}
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <span className="rounded-full bg-black/55 border border-white/20 px-4 py-1.5 font-game text-xl leading-none text-white">
@@ -182,13 +185,13 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
               </span>
               {rankedUp && (
                 <span className="rounded-full bg-[#FFD43B] px-3 py-1.5 font-game text-xl leading-none text-black shadow-[0_0_18px_rgba(255,212,59,0.55)]">
-                  NEW RANK!
+                  {t('verdictScreen.newRank')}
                 </span>
               )}
             </div>
             {coinsEarned !== null && (
-              <p className="mt-3 text-lg" aria-label={`You earned ${coinsEarned} coins`}>
-                <span className="text-white/70">Case fee earned </span>
+              <p className="mt-3 text-lg" aria-label={t('verdictScreen.feeAria', { count: coinsEarned })}>
+                <span className="text-white/70">{t('verdictScreen.feeEarned')}</span>
                 <CoinAmount amount={coinsEarned} />
               </p>
             )}
@@ -198,7 +201,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                   <div className="h-full rounded-full bg-[#FFD43B]" style={{ width: `${Math.round(getRankProgress(wins!) * 100)}%` }} />
                 </div>
                 <p className="mt-1.5 text-xs text-white/60">
-                  {next.winsNeeded} more {next.winsNeeded === 1 ? 'win' : 'wins'} to {next.nextTitle}
+                  {t('landing.nextRank', { count: next.winsNeeded, rank: rankTitleOf(getLevelForWins(wins!).level + 1) })}
                 </p>
               </div>
             )}
@@ -207,13 +210,13 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
           {/* the decision */}
           <section className={`${PANEL_SOFT} overflow-hidden`}>
             <div className="px-5 py-4 border-b border-white/10">
-              <p className="text-xs uppercase tracking-wider text-white/50">Case</p>
+              <p className="text-xs uppercase tracking-wider text-white/50">{t('verdictScreen.case')}</p>
               <h2 className="text-lg font-semibold text-white leading-snug">{caseTitle}</h2>
             </div>
 
             <div className="p-5 space-y-6">
               <div>
-                <h3 className="font-game text-xl text-white/90 leading-none mb-2">OUTCOME</h3>
+                <h3 className="font-game text-xl text-white/90 leading-none mb-2">{t('verdictScreen.outcome')}</h3>
                 <div
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${
                     isWin ? 'bg-[#2EC4B6]/10 border-[#2EC4B6]/40 text-[#5EEAD4]' : 'bg-[#E5484D]/10 border-[#E5484D]/40 text-[#FF9A9D]'
@@ -221,14 +224,14 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                 >
                   {isWin ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                   <span className="font-semibold">
-                    {verdictWord} — {isWin ? 'You Won' : 'You Lost'}
+                    {verdictWord} — {isWin ? t('verdictScreen.youWon') : t('verdictScreen.youLost')}
                   </span>
                 </div>
               </div>
 
               {hasScore && !appeal.gated && (
                 <div>
-                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">PERFORMANCE SCORE</h3>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">{t('verdictScreen.score')}</h3>
                   <div className="flex items-center gap-4">
                     <div className="flex-1 bg-white/15 rounded-full h-3 overflow-hidden">
                       <div
@@ -240,12 +243,12 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
                     </div>
                     <span className="font-game text-4xl leading-none text-white">{playerScore}</span>
                   </div>
-                  <p className="mt-1.5 text-xs text-white/50">How strongly the court found your side's case</p>
+                  <p className="mt-1.5 text-xs text-white/50">{t('verdictScreen.scoreNote')}</p>
                 </div>
               )}
 
               <div>
-                <h3 className="font-game text-xl text-white/90 leading-none mb-2">THE JUDGE'S REASONING</h3>
+                <h3 className="font-game text-xl text-white/90 leading-none mb-2">{t('verdictScreen.reasoning')}</h3>
                 <div className="rounded-xl bg-black/35 border border-white/10 p-4">
                   <p className="text-white/90 leading-relaxed whitespace-pre-line">{verdict.reasoning}</p>
                 </div>
@@ -253,7 +256,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
 
               {juryRounds.length > 0 && (
                 <div>
-                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">HOW THE JURY VOTED</h3>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">{t('verdictScreen.juryVoted')}</h3>
                   <div className="rounded-xl bg-black/35 border border-white/10 p-4">
                     <JuryVoteHistory rounds={juryRounds} />
                   </div>
@@ -262,14 +265,14 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
 
               {demandResults.length > 1 && (
                 <div>
-                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">THE COURT'S RULING ON EACH REQUEST</h3>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">{t('verdictScreen.demandRulings')}</h3>
                   <DemandRulings results={demandResults} playerRole={playerRole} />
                 </div>
               )}
 
               {verdict.evidence_cited && verdict.evidence_cited.length > 0 && (
                 <div>
-                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">EVIDENCE CITED</h3>
+                  <h3 className="font-game text-xl text-white/90 leading-none mb-2">{t('verdictScreen.evidenceCited')}</h3>
                   <div className="flex flex-wrap gap-2">
                     {verdict.evidence_cited.map((exhibit, idx) => (
                       <span key={idx} className="px-3 py-1 rounded-full bg-[#8B5CF6]/15 border border-[#8B5CF6]/40 text-[#C4B5FD] text-sm font-medium">
@@ -282,7 +285,7 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
 
               {!appeal.gated && verdict.missed_opportunities && verdict.missed_opportunities.length > 0 && (
                 <div>
-                  <h3 className="font-game text-xl text-[#FFD43B] leading-none mb-2">MISSED OPPORTUNITIES</h3>
+                  <h3 className="font-game text-xl text-[#FFD43B] leading-none mb-2">{t('verdictScreen.missed')}</h3>
                   <div className="rounded-xl bg-[#FFD43B]/10 border border-[#FFD43B]/30 p-4">
                     <ul className="space-y-2">
                       {verdict.missed_opportunities.map((opportunity, idx) => (
@@ -318,19 +321,19 @@ export default function VerdictDisplay({ verdict, caseTitle, currentLevel, playe
             {!appeal.gated && (
               <button onClick={onReturnHome} className={`${gameButton('gold', 'md')} w-full`}>
                 <Home className="w-6 h-6" />
-                RETURN TO CASES
+                {t('verdictScreen.returnCases')}
               </button>
             )}
             <div className={`grid gap-3 ${isWin ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {isWin && (
                 <button onClick={handleShare} disabled={sharing} className={gameButton('outline', 'sm')}>
                   <Share2 className="w-5 h-5" />
-                  {sharing ? 'MAKING IMAGE...' : 'SHARE VICTORY'}
+                  {sharing ? t('verdictScreen.making') : t('verdictScreen.share')}
                 </button>
               )}
               <button onClick={loadTranscript} disabled={loadingTranscript} className={gameButton('ghost', 'sm')}>
                 <FileText className="w-5 h-5" />
-                {loadingTranscript ? 'LOADING...' : 'VIEW TRANSCRIPT'}
+                {loadingTranscript ? t('verdictScreen.loading') : t('verdictScreen.viewTranscript')}
               </button>
             </div>
             {shareMessage && (

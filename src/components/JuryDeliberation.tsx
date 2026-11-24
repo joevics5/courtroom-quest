@@ -4,6 +4,8 @@ import type { JuryRound } from '../lib/ai/trialAI';
 import JurorAvatar from './avatars/JurorAvatar';
 import AvatarFace from './AvatarFace';
 import { gameButton } from './ui';
+import { useTranslation } from 'react-i18next';
+import { verdictText } from '../lib/verdictUtils';
 import type { StageParticipant } from './stage/types';
 
 export interface DeliberationState {
@@ -22,22 +24,23 @@ const REVEAL_CSS = `
 
 /** Compact "how did they vote" history: one row of dots per round. */
 export function JuryVoteHistory({ rounds }: { rounds: JuryRound[] }) {
+  const { t } = useTranslation();
   if (!rounds || rounds.length === 0) return null;
   return (
     <div className="space-y-2">
       {rounds.map(r => (
         <div key={r.round} className="flex items-center gap-3">
-          <span className="text-xs text-white/55 w-14 shrink-0">Round {r.round}</span>
+          <span className="text-xs text-white/55 w-14 shrink-0">{t('deliberation.round', { round: r.round })}</span>
           <div className="flex flex-wrap gap-1 flex-1">
             {r.votes.map(v => (
               <span
                 key={v.jurorId}
-                title={`${v.name}: ${v.vote === 'GUILTY' ? 'Guilty' : 'Not guilty'}`}
+                title={`${v.name}: ${v.vote === 'GUILTY' ? verdictText('win') : verdictText('lose')}`}
                 className={`w-4 h-4 rounded-full ${v.vote === 'GUILTY' ? 'bg-red-500' : 'bg-blue-500'}`}
               />
             ))}
             {Array.from({ length: r.absent ?? 0 }, (_, i) => (
-              <span key={`absent-${i}`} title="Could not be reached" data-absent="true" className="w-4 h-4 rounded-full border border-dashed border-white/40" />
+              <span key={`absent-${i}`} title={t('deliberation.couldntReach')} data-absent="true" className="w-4 h-4 rounded-full border border-dashed border-white/40" />
             ))}
           </div>
           <span className="text-xs font-semibold text-white/85 shrink-0">
@@ -48,30 +51,25 @@ export function JuryVoteHistory({ rounds }: { rounds: JuryRound[] }) {
         </div>
       ))}
       <div className="flex gap-4 text-[11px] text-white/55 pt-1">
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Guilty</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Not guilty</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> {verdictText('win')}</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> {verdictText('lose')}</span>
         {rounds.some(r => (r.absent ?? 0) > 0) && (
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full border border-dashed border-white/40" /> Not reached</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full border border-dashed border-white/40" /> {t('deliberation.notReached')}</span>
         )}
       </div>
     </div>
   );
 }
 
-const JUDGE_LINES = [
-  'Reviewing the testimony…',
-  'Weighing the evidence…',
-  'Considering both closing arguments…',
-  'Preparing the ruling…',
-];
-
 export default function JuryDeliberation({ state, onContinue, judge }: { state: DeliberationState; onContinue: () => void; /** The presiding judge, shown while they deliberate */ judge?: StageParticipant }) {
+  const { t, i18n } = useTranslation();
+  const judgeLines = t('deliberation.judgeLines', { returnObjects: true }) as string[];
   const [lineIndex, setLineIndex] = useState(0);
 
   useEffect(() => {
     if (state.mode !== 'judge') return;
-    const t = setInterval(() => setLineIndex(i => (i + 1) % JUDGE_LINES.length), 2500);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setLineIndex(i => (i + 1) % judgeLines.length), 2500);
+    return () => clearInterval(timer);
   }, [state.mode]);
 
   if (state.mode === 'judge') {
@@ -81,7 +79,7 @@ export default function JuryDeliberation({ state, onContinue, judge }: { state: 
           {judge ? (
             <div className="relative w-36 h-36 mx-auto mb-5">
               <div className="absolute inset-0 rounded-3xl overflow-hidden border-4 border-[#FFD43B] shadow-[0_8px_0_#B8860B,0_0_36px_rgba(255,212,59,0.35)]" data-testid="judge-avatar">
-                <AvatarFace config={judge.avatar} rank={judge.rank} label={`Judge ${judge.name}`} />
+                <AvatarFace config={judge.avatar} rank={judge.rank} label={t('deliberation.judgeAria', { name: judge.name })} />
               </div>
               <div className="absolute -bottom-3 -right-3 w-11 h-11 rounded-full bg-slate-950 border border-amber-500/50 flex items-center justify-center animate-pulse">
                 <Scale className="w-5 h-5 text-amber-400" />
@@ -92,8 +90,8 @@ export default function JuryDeliberation({ state, onContinue, judge }: { state: 
               <Scale className="w-10 h-10 text-amber-400" />
             </div>
           )}
-          <h2 className="logo-gold font-game text-4xl leading-none mb-2">{judge ? `${judge.name} is deliberating` : 'The Judge is deliberating'}</h2>
-          <p className="text-amber-200/80 text-sm min-h-[1.25rem]">{JUDGE_LINES[lineIndex]}</p>
+          <h2 className="logo-gold font-game text-4xl leading-none mb-2">{judge ? t('deliberation.judgeDeliberating', { name: judge.name }) : t('deliberation.theJudgeDeliberating')}</h2>
+          <p className="text-amber-200/80 text-sm min-h-[1.25rem]">{judgeLines[lineIndex]}</p>
           <div className="mt-6 flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-400 border-t-transparent" />
           </div>
@@ -105,21 +103,21 @@ export default function JuryDeliberation({ state, onContinue, judge }: { state: 
   const latest = state.rounds[state.rounds.length - 1];
   const voting = state.votingRound !== null && state.stage === 'voting';
   const showLatest = !voting && latest;
-  const verdictWord = state.result ? (state.result.outcome === 'win' ? 'GUILTY' : 'NOT GUILTY') : '';
+  const verdictWord = state.result ? verdictText(state.result.outcome).toLocaleUpperCase(i18n.resolvedLanguage) : '';
 
-  let headline = 'The jury has retired to deliberate';
-  let sub = 'Jurors are casting their ballots…';
-  if (voting) sub = `Round ${state.votingRound} of 3 — jurors are casting their ballots…`;
-  else if (state.stage === 'voting' && latest) sub = `Round ${latest.round} ballot counted — the jury is conferring…`;
+  let headline = t('deliberation.retired');
+  let sub = t('deliberation.casting');
+  if (voting) sub = t('deliberation.roundVoting', { round: state.votingRound });
+  else if (state.stage === 'voting' && latest) sub = t('deliberation.roundCounted', { round: latest.round });
   if (state.stage === 'foreperson') {
-    headline = 'The jury has reached a verdict';
-    sub = 'The foreperson is preparing to read it…';
+    headline = t('deliberation.reached');
+    sub = t('deliberation.foreperson');
   }
   if (state.stage === 'done' && state.result) {
-    headline = `Verdict: ${verdictWord}`;
-    sub = `${state.result.unanimous ? 'Unanimous' : 'By a vote of'} ${
-      state.result.unanimous ? `— ${Math.max(state.result.guiltyVotes, state.result.notGuiltyVotes)} to 0` : `${Math.max(state.result.guiltyVotes, state.result.notGuiltyVotes)} to ${Math.min(state.result.guiltyVotes, state.result.notGuiltyVotes)}`
-    }`;
+    headline = t('deliberation.verdict', { word: verdictWord });
+    const hi = Math.max(state.result.guiltyVotes, state.result.notGuiltyVotes);
+    const lo = Math.min(state.result.guiltyVotes, state.result.notGuiltyVotes);
+    sub = state.result.unanimous ? t('deliberation.unanimous', { n: hi }) : t('deliberation.byVote', { a: hi, b: lo });
   }
 
   const voteFor = (jurorId: string) => (showLatest ? latest.votes.find(v => v.jurorId === jurorId) : undefined);
@@ -140,8 +138,8 @@ export default function JuryDeliberation({ state, onContinue, judge }: { state: 
         <div className="rounded-3xl border border-white/15 bg-black/65 backdrop-blur-sm p-3">
           <div className="flex items-center gap-2 text-white/55 text-xs mb-2">
             <Users className="w-4 h-4" />
-            <span className="uppercase tracking-wider">Jury box</span>
-            {showLatest && <span className="ml-auto">Round {latest.round}: <span className="text-red-400 font-semibold">{latest.guilty}</span> – <span className="text-blue-400 font-semibold">{latest.notGuilty}</span></span>}
+            <span className="uppercase tracking-wider">{t('deliberation.juryBox')}</span>
+            {showLatest && <span className="ml-auto">{t('deliberation.round', { round: latest.round })}: <span className="text-red-400 font-semibold">{latest.guilty}</span> – <span className="text-blue-400 font-semibold">{latest.notGuilty}</span></span>}
           </div>
           <div className="grid grid-cols-3 gap-2">
             {state.jurors.map((j, i) => {
@@ -171,7 +169,7 @@ export default function JuryDeliberation({ state, onContinue, judge }: { state: 
                   <div className="text-xs text-white/85 font-medium truncate">{j.name}</div>
                   <div className="text-[10px] text-white/55 truncate">{j.occupation}</div>
                   <div className={`mt-1 text-[11px] font-bold ${v ? (v.vote === 'GUILTY' ? 'text-red-400' : 'text-blue-400') : 'text-white/45'}`}>
-                    {v ? (v.vote === 'GUILTY' ? 'GUILTY' : 'NOT GUILTY') : voting ? '…' : '—'}
+                    {v ? (v.vote === 'GUILTY' ? verdictText('win') : verdictText('lose')).toLocaleUpperCase(i18n.resolvedLanguage) : voting ? '…' : '—'}
                   </div>
                 </div>
               );
@@ -181,7 +179,7 @@ export default function JuryDeliberation({ state, onContinue, judge }: { state: 
 
         {state.rounds.length > 0 && (
           <div className="mt-4 rounded-3xl border border-white/15 bg-black/65 p-3">
-            <div className="text-xs uppercase tracking-wider text-white/55 mb-2">Ballots so far</div>
+            <div className="text-xs uppercase tracking-wider text-white/55 mb-2">{t('deliberation.ballots')}</div>
             <JuryVoteHistory rounds={state.rounds} />
           </div>
         )}
@@ -197,7 +195,7 @@ export default function JuryDeliberation({ state, onContinue, judge }: { state: 
             onClick={onContinue}
             className={`mt-5 w-full ${gameButton('gold', 'md')}`}
           >
-            Hear the verdict
+            {t('deliberation.hear')}
           </button>
         )}
       </div>

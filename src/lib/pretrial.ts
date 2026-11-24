@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /**
  * Pre-trial script: the bailiff reads out the opening proceedings, and who pleads for the defendant.
  * Kept free of React so the wording and timing rules are easy to test.
@@ -33,15 +34,15 @@ export function pretrialSteps(input: {
   defenseName: string;
 }): ScriptStep[] {
   return [
-    { phase: 'bailiff_call', text: `All rise. Court is now in session. The Honorable ${input.judgeName} presiding.` },
-    { phase: 'case_announcement', text: `The court will now hear the case of ${input.caseTitle}.` },
-    { phase: 'counsel_appearances', text: `Appearing for the prosecution: ${input.prosecutorName}.` },
-    { phase: 'counsel_appearances', text: `Appearing for the defense: ${input.defenseName}, representing the defendant.` },
-    { phase: 'defendant_plea', text: 'The defendant will now enter a plea to the charges before this court.' }
+    { phase: 'bailiff_call', text: i18n.t('pretrial.bailiffCall', { judge: input.judgeName }) },
+    { phase: 'case_announcement', text: i18n.t('pretrial.caseAnnouncement', { title: input.caseTitle }) },
+    { phase: 'counsel_appearances', text: i18n.t('pretrial.prosecutionAppears', { name: input.prosecutorName }) },
+    { phase: 'counsel_appearances', text: i18n.t('pretrial.defenseAppears', { name: input.defenseName }) },
+    { phase: 'defendant_plea', text: i18n.t('pretrial.pleaPrompt') }
   ];
 }
 
 /** The bailiff reports the plea when the AI defense makes it. */
 export function aiPleaLine(guilty: boolean): string {
-  return guilty ? 'The defendant, through counsel, pleads guilty.' : 'The defendant, through counsel, pleads not guilty.';
+  return i18n.t(guilty ? 'pretrial.aiPleaGuilty' : 'pretrial.aiPleaNotGuilty');
 }

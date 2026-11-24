@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { rankTitle, speakerLabel } from '../lib/displayName';
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Gavel } from 'lucide-react';
 import { BAILIFF_PROMPTS, JUDGE_PROMPTS, getRandomJudgeName, getRandomProsecutorName, aiDefenseName, plainLawyerName } from '../lib/trialConfig';
@@ -54,13 +56,14 @@ type PreTrialPhase =
   | 'start_trial';
 
 export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNameProp, prosecutorName: prosecutorNameProp, playerRole = 'defense', sessionId = '', playerWins = 0, onComplete, onBack, mode = 'ai', live, onLivePatch, opponent }: PreTrialScriptProps) {
+  const { t } = useTranslation();
   const online = mode === 'online';
   /** Online, the defense runs the bailiff's script and enters the plea; the prosecution watches it live. */
   const iDrive = !online || drivesPretrial(playerRole);
   /** Who may answer the plea: the defense; on a shared phone, whoever is holding it. */
   const canPlead = mode === 'device' || playerRole === 'defense';
   const patchLive = (patch: Record<string, unknown>) => { if (online) onLivePatch?.(patch); };
-  const opponentName = opponent?.name || 'Your opponent';
+  const opponentName = opponent?.name || t('speakers.opponent');
   const [phase, setPhase] = useState<PreTrialPhase>('idle');
   // Fall back to a fresh random pick only if a caller doesn't supply one
   // (e.g. an old session created before this was lifted to App.tsx).
@@ -71,11 +74,11 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   // before prosecution became a selectable role.
   const [npcProsecutorName] = useState(prosecutorNameProp || getRandomProsecutorName());
   // The human is announced with their rank and own name, e.g. "Junior Counsel Victor Joshua".
-  const myAnnouncedName = `${getLevelForWins(playerWins).title} ${userName}`;
+  const myAnnouncedName = `${rankTitle(getLevelForWins(playerWins).level)} ${userName}`;
   // Online, the other side is a real person with their own name and rank, not a made-up attorney.
   const opponentAnnounced = opponent?.name
-    ? `${opponent.rank ? LEVELS[opponent.rank - 1].title + ' ' : ''}${opponent.name}`
-    : 'Opposing Counsel';
+    ? `${opponent.rank ? rankTitle(opponent.rank) + ' ' : ''}${opponent.name}`
+    : t('speakers.opposing');
   const prosecutorDisplayName = playerRole === 'prosecution' ? myAnnouncedName : online ? opponentAnnounced : plainLawyerName(npcProsecutorName);
   const defenseDisplayName = playerRole === 'defense' ? myAnnouncedName : online ? opponentAnnounced : aiDefenseName(sessionId);
   const [transcript, setTranscript] = useState<Array<{ speaker: string; text: string }>>([]);
@@ -198,7 +201,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
 
   const handlePlea = (guilty: boolean) => {
     cancelScript(); // the voice stops the moment the player answers
-    const pleaText = guilty ? 'Guilty, Your Honor.' : 'Not guilty, Your Honor.';
+    const pleaText = t(guilty ? 'pretrial.defendantGuilty' : 'pretrial.defendantNotGuilty');
     addTranscript('Defendant', pleaText);
     setPleaGuilty(guilty);
     setPhase('plea_complete');
@@ -232,17 +235,17 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
   );
   const myRank = getLevelForWins(playerWins).level;
   const cast: Record<'bailiff' | 'judge' | 'prosecution' | 'defense', { name: string; role: string; avatar: AvatarConfig; rank: number }> = {
-    bailiff: { name: 'Bailiff', role: 'Bailiff', avatar: BAILIFF_AVATAR, rank: 1 },
-    judge: { name: judgeName, role: 'Judge', avatar: faces.judge, rank: 6 },
+    bailiff: { name: t('speakers.bailiff'), role: t('speakers.bailiff'), avatar: BAILIFF_AVATAR, rank: 1 },
+    judge: { name: judgeName, role: t('speakers.judge'), avatar: faces.judge, rank: 6 },
     prosecution: {
       name: prosecutorDisplayName,
-      role: 'Prosecution',
+      role: t('roles.prosecution'),
       avatar: faces.prosecution,
       rank: playerRole === 'prosecution' ? myRank : online && opponent?.rank ? opponent.rank : aiRank(prosecutorNameProp || 'Prosecution')
     },
     defense: {
       name: defenseDisplayName,
-      role: 'Defense',
+      role: t('roles.defense'),
       avatar: faces.defense,
       rank: playerRole === 'defense' ? myRank : online && opponent?.rank ? opponent.rank : aiRank(`${sessionId}-Defense Counsel`)
     }
@@ -300,7 +303,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
     if (live.plea && seenPleaRef.current !== live.plea) {
       seenPleaRef.current = live.plea;
       stopSpeaking('discard');
-      setTranscript(prev => [...prev, { speaker: 'Defendant', text: live.plea === 'guilty' ? 'Guilty, Your Honor.' : 'Not guilty, Your Honor.' }]);
+      setTranscript(prev => [...prev, { speaker: 'Defendant', text: t(live.plea === 'guilty' ? 'pretrial.defendantGuilty' : 'pretrial.defendantNotGuilty') }]);
       setPleaGuilty(live.plea === 'guilty');
       setPhase('plea_complete');
     }
@@ -363,7 +366,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
     judge: { name: judgeName, avatar: faces.judge },
     prosecution: { name: prosecutorDisplayName, avatar: faces.prosecution },
     defense: { name: defenseDisplayName, avatar: faces.defense },
-    bailiff: { name: 'Bailiff', avatar: BAILIFF_AVATAR }
+    bailiff: { name: t('speakers.bailiff'), avatar: BAILIFF_AVATAR }
   }), [judgeName, faces, prosecutorDisplayName, defenseDisplayName]);
   const stageJurors = useMemo(() => jurorIds.map(id => ({ id })), [jurorIds]);
 
@@ -385,21 +388,21 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
 
   const statusText =
     phase === 'idle'
-      ? 'Awaiting trial to begin'
+      ? t('pretrial.statusIdle')
       : phase === 'bailiff_call'
-        ? 'Bailiff calling court to order'
+        ? t('pretrial.statusBailiff')
         : phase === 'case_announcement'
-          ? 'Judge announcing case'
+          ? t('pretrial.statusJudge')
           : phase === 'counsel_appearances'
-            ? 'Counsel stating appearances'
+            ? t('pretrial.statusCounsel')
             : phase === 'defendant_plea'
-              ? 'Awaiting defendant plea'
+              ? t('pretrial.statusPlea')
               : phase === 'plea_complete'
                 ? pleaGuilty
-                  ? 'Guilty plea accepted'
-                  : 'Ready to begin trial'
+                  ? t('pretrial.statusGuilty')
+                  : t('pretrial.statusReady')
                 : phase === 'start_trial'
-                  ? 'Starting trial...'
+                  ? t('pretrial.statusStarting')
                   : '';
 
   return (
@@ -414,20 +417,20 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
             <button
               type="button"
               onClick={() => { cancelScript(); onBack(); }}
-              aria-label="Back"
+              aria-label={t('common.back')}
               className="absolute left-0 top-0 flex items-center justify-center w-10 h-10 rounded-full bg-black/55 border border-white/15 text-white active:bg-white/15"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
           <SpeechToggle className="absolute right-0 top-0" />
-          <h1 className="logo-gold font-game text-4xl lg:text-5xl leading-none">COURT IS IN SESSION</h1>
+          <h1 className="logo-gold font-game text-4xl lg:text-5xl leading-none">{t('pretrial.title')}</h1>
           <p className="text-white/60 text-sm mt-2 truncate">{caseTitle}</p>
         </header>
 
         <main className="flex-1 flex flex-col items-center justify-center gap-4 max-w-md lg:max-w-5xl w-full mx-auto py-4 lg:grid lg:grid-cols-2 lg:gap-x-12 lg:gap-y-5 lg:items-start lg:content-center">
           {show3D && (
-            <Suspense fallback={<div className="w-full h-[46dvh] rounded-2xl bg-black/40 grid place-items-center text-white/60 text-sm">Entering the courtroom...</div>}>
+            <Suspense fallback={<div className="w-full h-[46dvh] rounded-2xl bg-black/40 grid place-items-center text-white/60 text-sm">{t('pretrial.entering')}</div>}>
               <Court3D
                 mode="pretrial"
                 className={`w-full ${pleaDone ? 'h-[32dvh]' : 'h-[46dvh]'} lg:h-[62dvh] rounded-2xl ring-1 ring-white/20 lg:col-start-1 lg:row-start-1 lg:row-span-2`}
@@ -464,12 +467,12 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
             <p className={`${pleaDone ? 'mt-2' : 'mt-5'} font-game text-3xl text-white leading-none text-center`}>{star.name}</p>
             <p className="mt-1 text-sm text-white/60">
               {star.role}
-              {activeRole !== 'judge' && activeRole !== 'bailiff' ? ` · ${LEVELS[star.rank - 1].title}` : ''}
+              {activeRole !== 'judge' && activeRole !== 'bailiff' ? ` · ${rankTitle(star.rank)}` : ''}
             </p>
           </div>
 
           {/* the cast */}
-          <div className="grid grid-cols-4 gap-2 w-full lg:col-start-1 lg:row-start-2 lg:max-w-md lg:mx-auto" aria-label="Who is in court">
+          <div className="grid grid-cols-4 gap-2 w-full lg:col-start-1 lg:row-start-2 lg:max-w-md lg:mx-auto" aria-label={t('pretrial.whoInCourt')}>
             {(['bailiff', 'judge', 'prosecution', 'defense'] as const).map(key => {
               const member = cast[key];
               const on = key === activeRole && latest !== undefined;
@@ -496,13 +499,13 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
           <div className={`${PANEL_SOFT} w-full ${pleaDone ? 'p-3' : 'p-4 min-h-[6.5rem]'} lg:col-start-2 lg:row-start-1 lg:self-end`} aria-live="polite">
             {latest ? (
               <div key={transcript.length} className="animate-fade-in">
-                <p className={`text-sm font-semibold mb-1 ${speakerTone[roleOf(latest.speaker)]}`}>{latest.speaker}</p>
+                <p className={`text-sm font-semibold mb-1 ${speakerTone[roleOf(latest.speaker)]}`}>{speakerLabel(latest.speaker)}</p>
                 <p className="text-white/95 leading-relaxed">{latest.text}</p>
               </div>
             ) : (
               <div className="text-center py-2">
-                <p className="font-game text-2xl text-white">Court is in session</p>
-                <p className="text-white/60 text-sm mt-1">Tap the button to begin proceedings</p>
+                <p className="font-game text-2xl text-white">{t('pretrial.session')}</p>
+                <p className="text-white/60 text-sm mt-1">{t('pretrial.tapBegin')}</p>
               </div>
             )}
             <div className={`${pleaDone ? 'hidden' : 'mt-3 flex'} items-center justify-between gap-3`}>
@@ -513,7 +516,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                   className="text-xs text-white/55 underline underline-offset-2"
                   aria-expanded={showTranscript}
                 >
-                  {showTranscript ? 'Hide transcript' : `Show transcript (${transcript.length})`}
+                  {showTranscript ? t('pretrial.hideTranscript') : t('pretrial.showTranscript', { count: transcript.length })}
                 </button>
               ) : (
                 <span />
@@ -522,7 +525,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                 <button
                   type="button"
                   onClick={() => skipRef.current?.()}
-                  aria-label="Skip to the next line"
+                  aria-label={t('pretrial.skip')}
                   className="rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs text-white/85"
                 >
                   Next ›
@@ -533,7 +536,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
               <div className="mt-2 max-h-44 overflow-y-auto space-y-2 border-t border-white/10 pt-2">
                 {transcript.map((entry, index) => (
                   <div key={index}>
-                    <span className={`text-xs font-semibold ${speakerTone[roleOf(entry.speaker)]}`}>{entry.speaker}</span>
+                    <span className={`text-xs font-semibold ${speakerTone[roleOf(entry.speaker)]}`}>{speakerLabel(entry.speaker)}</span>
                     <p className="text-white/80 text-sm">{entry.text}</p>
                   </div>
                 ))}
@@ -552,7 +555,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                   className={`${gameButton('gold', 'md')} w-full`}
                 >
                   <Gavel className="w-6 h-6" />
-                  {!iDrive ? 'WAITING FOR COURT TO OPEN' : show3D ? 'START' : 'ENTER COURT'}
+                  {!iDrive ? t('pretrial.waitingOpen') : show3D ? t('pretrial.start') : t('pretrial.enterCourt')}
                 </button>
                 <p className="text-white/60 text-xs text-center" aria-live="polite">
                   {seatNotice({ mySeated, opponentSeated, iDrive, opponentName })}
@@ -565,14 +568,14 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                 <div className="flex flex-col items-center gap-2">
                   <button onClick={handleStart} disabled={!seated} className={`${gameButton('gold', 'md')} w-full`}>
                     <Gavel className="w-6 h-6" />
-                    START
+                    {t('pretrial.start')}
                   </button>
-                  <p className="text-white/60 text-xs text-center">{seated ? 'You are seated. Press Start when you are ready.' : 'Walk to your chair at the counsel table to begin.'}</p>
+                  <p className="text-white/60 text-xs text-center">{seated ? t('pretrial.seated') : t('pretrial.walk')}</p>
                 </div>
               ) : (
               <button onClick={handleStart} className={`${gameButton('gold', 'md')} w-full`}>
                 <Gavel className="w-6 h-6" />
-                ENTER COURT
+                {t('pretrial.enterCourt')}
               </button>
               )
             )}
@@ -583,13 +586,13 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
 
             {pleaPrompt && (
               <div>
-                <p className="text-center text-white/70 text-sm mb-3">How does your client plead?</p>
+                <p className="text-center text-white/70 text-sm mb-3">{t('pretrial.howPlead')}</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={() => handlePlea(false)} className={gameButton('gold', 'md')}>
-                    NOT GUILTY
+                    {t('pretrial.notGuilty')}
                   </button>
                   <button onClick={() => handlePlea(true)} className={gameButton('danger', 'md')}>
-                    GUILTY
+                    {t('pretrial.guilty')}
                   </button>
                 </div>
               </div>
@@ -600,33 +603,33 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
                 <p className="text-white/85 text-center">
                   {online && !canPlead
                     ? pleaGuilty
-                      ? 'The Court accepts the defendant\'s guilty plea. The case will proceed to sentencing.'
-                      : 'The Court notes the defendant\'s plea of not guilty. The trial will now begin.'
+                      ? t('pretrial.acceptsGuiltyOther')
+                      : t('pretrial.notesNotGuiltyOther')
                     : pleaGuilty
-                      ? 'The Court accepts your guilty plea. The case will proceed to sentencing.'
-                      : 'The Court notes your plea of not guilty. The trial will now begin.'}
+                      ? t('pretrial.acceptsGuilty')
+                      : t('pretrial.notesNotGuilty')}
                 </p>
                 {online && !canStartTrial && (
-                  <p className="text-white/60 text-sm text-center" aria-live="polite">Waiting for {opponentName} to start the trial…</p>
+                  <p className="text-white/60 text-sm text-center" aria-live="polite">{t('pretrial.waitingFor', { name: opponentName })}</p>
                 )}
                 {canStartTrial && !pleaGuilty && (
                   <button onClick={handleStartTrial} disabled={isLoadingJudgeRequest} className={`${gameButton('gold', 'md')} w-full`}>
                     {isLoadingJudgeRequest ? (
                       <>
                         <span className="animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent" />
-                        PREPARING TRIAL...
+                        {t('pretrial.preparing')}
                       </>
                     ) : (
                       <>
                         <Gavel className="w-6 h-6" />
-                        START TRIAL
+                        {t('pretrial.startTrial')}
                       </>
                     )}
                   </button>
                 )}
                 {canStartTrial && pleaGuilty && (
                   <button onClick={() => onComplete(true, judgeName, npcProsecutorName)} className={`${gameButton('ghost', 'md')} w-full`}>
-                    CONTINUE
+                    {t('pretrial.continue')}
                   </button>
                 )}
               </div>
@@ -635,7 +638,7 @@ export default function PreTrialScript({ caseTitle, userName, judgeName: judgeNa
             {phase === 'start_trial' && isLoadingJudgeRequest && (
               <div className="flex items-center justify-center gap-3 text-white/80">
                 <span className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
-                <span>Judge is preparing opening statement request...</span>
+                <span>{t('pretrial.judgePreparing')}</span>
               </div>
             )}
           </div>
