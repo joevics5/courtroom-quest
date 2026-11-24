@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { db } from './database';
 import {
@@ -92,7 +93,7 @@ export function useVerdictAppeal(args: {
     try {
       setSession(await advanceAppeal({ sessionId: session.id, caseId: session.case_id, playerRole: appellantRole, verdict }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      setError(e instanceof Error ? e.message : i18n.t('appeal.validation.errGeneric'));
       db.sessions.getSession(session.id).then(s => s && setSession(s)).catch(() => {});
     } finally {
       running.current = false;
@@ -117,7 +118,7 @@ export function useVerdictAppeal(args: {
     try {
       setSession(await acceptVerdict(session.id));
     } catch {
-      setError('Could not save your choice. Please try again.');
+      setError(i18n.t('appeal.validation.errSaveChoice'));
     } finally {
       setBusy(null);
     }
@@ -144,7 +145,7 @@ export function useVerdictAppeal(args: {
     try {
       onReopen?.(await reopenCase(session.id));
     } catch {
-      setError('Could not reopen the case. Please try again.');
+      setError(i18n.t('appeal.validation.errReopen'));
       setBusy(null);
     }
   }, [session, onReopen]);

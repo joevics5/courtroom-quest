@@ -672,5 +672,101 @@
     "hear": "Hear the verdict",
     "notReached": "Not reached",
     "couldntReach": "Could not be reached"
+  },
+  "appeal": {
+    "aria": "Appeal",
+    "titleSecond": "SECOND APPEAL",
+    "title": "APPEAL THE VERDICT",
+    "subtitle": "Ask the court to hear the case again. Only what is already in the case file counts.",
+    "why": "WHY ARE YOU APPEALING?",
+    "explain": "EXPLAIN YOUR APPEAL",
+    "placeholder": "What was missed, and why would it change the verdict?",
+    "counter": "{{n}}/{{max}} — at least {{min}} characters",
+    "loadingFile": "Loading the case file…",
+    "evidenceHead": "EVIDENCE",
+    "witnessesHead": "WITNESSES",
+    "pickOneEvidence": "(pick at least one)",
+    "pickOneWitness": "(pick at least one)",
+    "optional": "(optional)",
+    "noEvidence": "This case has no evidence to point to.",
+    "noWitnesses": "This case has no witnesses to point to.",
+    "sending": "SENDING…",
+    "submit": "SUBMIT APPEAL",
+    "errLoad": "Could not load the case file. Please close this and try again.",
+    "errSend": "Could not send your appeal. Please try again.",
+    "errSendResponse": "Could not send your response. Please try again.",
+    "reasons": {
+      "missed_evidence": {
+        "label": "Missed Evidence",
+        "hint": "Evidence in the case that you failed to introduce or use well."
+      },
+      "missed_witness": {
+        "label": "Missed Witness Insight",
+        "hint": "Something an existing witness knew that you failed to bring out."
+      },
+      "other": {
+        "label": "Other",
+        "hint": "Another reason the verdict should be reconsidered."
+      }
+    },
+    "respond": {
+      "title": "RESPOND TO THE APPEAL",
+      "subtitle": "Accepting agrees to reconsider the case. It does not admit the verdict was wrong.",
+      "yourResponse": "YOUR RESPONSE",
+      "accept": "ACCEPT",
+      "oppose": "OPPOSE",
+      "hintOppose": "Argue that the appeal does not justify reopening the case.",
+      "hintAccept": "Agree that the case should be reconsidered.",
+      "hintNone": "Accept to reconsider the case, or oppose to argue it should stay closed.",
+      "explainPos": "EXPLAIN YOUR POSITION",
+      "phOppose": "Why should the verdict stand?",
+      "phAccept": "Why are you willing to go again?",
+      "evidenceOpt": "EVIDENCE (optional)",
+      "witnessesOpt": "WITNESSES (optional)",
+      "submit": "SUBMIT RESPONSE",
+      "pointsTo": "Points to: {{list}}",
+      "head": "APPEAL {{n}} · {{reason}}"
+    },
+    "panel": {
+      "granted": "APPEAL GRANTED",
+      "denied": "APPEAL DENIED",
+      "deniedN": "APPEAL {{n}} DENIED",
+      "inHead": "YOUR APPEAL IS IN",
+      "opposingAgrees": "Opposing counsel agrees the case can be reconsidered:",
+      "opposingOpposes": "Opposing counsel opposes:",
+      "reviewing": "The judge is reviewing the appeal…",
+      "responding": "Opposing counsel is responding…",
+      "waitHead": "WAITING FOR YOUR OPPONENT",
+      "waitBody": "They have been told about your appeal. If they have not answered by {{due}}, the judge decides without their answer.",
+      "passHead": "PASS THE DEVICE",
+      "passBody": "Your appeal is filed. Hand the phone to opposing counsel so they can respond.",
+      "respondBtn": "OPPOSING COUNSEL: RESPOND",
+      "theyAppealed": "YOUR OPPONENT HAS APPEALED",
+      "pleaseRespond": "Please respond by {{due}}. If you do not, the judge decides without your answer.",
+      "respondAppeal": "RESPOND TO APPEAL",
+      "tryAgain": "TRY AGAIN",
+      "grantedBody": "The court will hear the case again, with the same jurors and the same record.",
+      "reopening": "REOPENING…",
+      "reopen": "REOPEN THE CASE",
+      "decideBody": "You believe the jury got it wrong. You can ask the court to hear your case again.",
+      "appealBtn": "APPEAL VERDICT",
+      "saving": "SAVING…",
+      "acceptBtn": "ACCEPT VERDICT",
+      "acceptNote_one": "Accepting ends the case and shows your performance review. {{count}} appeal left.",
+      "acceptNote_other": "Accepting ends the case and shows your performance review. {{count}} appeals left."
+    },
+    "validation": {
+      "chooseReason": "Choose a reason for your appeal.",
+      "explainMin": "Explain your appeal in at least {{min}} characters.",
+      "explainMax": "Keep your explanation under {{max}} characters.",
+      "selectEvidence": "Select the evidence you missed.",
+      "selectWitness": "Select the witness whose insight you missed.",
+      "chooseDecision": "Choose Accept or Oppose.",
+      "posMin": "Explain your position in at least {{min}} characters.",
+      "posMax": "Keep your explanation under {{max}} characters.",
+      "errGeneric": "Something went wrong. Please try again.",
+      "errSaveChoice": "Could not save your choice. Please try again.",
+      "errReopen": "Could not reopen the case. Please try again."
+    }
   }
 }

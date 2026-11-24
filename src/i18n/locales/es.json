@@ -672,5 +672,101 @@
     "hear": "Escuchar el veredicto",
     "notReached": "No localizados",
     "couldntReach": "No se pudo ubicar"
+  },
+  "appeal": {
+    "aria": "Apelación",
+    "titleSecond": "SEGUNDA APELACIÓN",
+    "title": "APELAR EL VEREDICTO",
+    "subtitle": "Pide al tribunal que vea el caso otra vez. Solo cuenta lo que ya está en el expediente.",
+    "why": "¿POR QUÉ APELAS?",
+    "explain": "EXPLICA TU APELACIÓN",
+    "placeholder": "¿Qué se pasó por alto y por qué cambiaría el veredicto?",
+    "counter": "{{n}}/{{max}} — mínimo {{min}} caracteres",
+    "loadingFile": "Cargando el expediente…",
+    "evidenceHead": "PRUEBAS",
+    "witnessesHead": "TESTIGOS",
+    "pickOneEvidence": "(elige al menos una)",
+    "pickOneWitness": "(elige al menos uno)",
+    "optional": "(opcional)",
+    "noEvidence": "Este caso no tiene pruebas a las que remitirse.",
+    "noWitnesses": "Este caso no tiene testigos a los que remitirse.",
+    "sending": "ENVIANDO…",
+    "submit": "ENVIAR APELACIÓN",
+    "errLoad": "No se pudo cargar el expediente. Cierra esto e inténtalo de nuevo.",
+    "errSend": "No se pudo enviar tu apelación. Inténtalo de nuevo.",
+    "errSendResponse": "No se pudo enviar tu respuesta. Inténtalo de nuevo.",
+    "reasons": {
+      "missed_evidence": {
+        "label": "Prueba pasada por alto",
+        "hint": "Una prueba del caso que no presentaste o no aprovechaste bien."
+      },
+      "missed_witness": {
+        "label": "Testimonio desaprovechado",
+        "hint": "Algo que un testigo sabía y que no lograste sacar a la luz."
+      },
+      "other": {
+        "label": "Otro motivo",
+        "hint": "Otra razón por la que el veredicto debería reconsiderarse."
+      }
+    },
+    "respond": {
+      "title": "RESPONDE A LA APELACIÓN",
+      "subtitle": "Aceptar significa estar de acuerdo en reconsiderar el caso. No admite que el veredicto fuera erróneo.",
+      "yourResponse": "TU RESPUESTA",
+      "accept": "ACEPTAR",
+      "oppose": "OPONERME",
+      "hintOppose": "Sostén que la apelación no justifica reabrir el caso.",
+      "hintAccept": "Acepta que el caso se reconsidere.",
+      "hintNone": "Acepta para reconsiderar el caso u opónete para sostener que debe seguir cerrado.",
+      "explainPos": "EXPLICA TU POSTURA",
+      "phOppose": "¿Por qué debería mantenerse el veredicto?",
+      "phAccept": "¿Por qué aceptas volver a juicio?",
+      "evidenceOpt": "PRUEBAS (opcional)",
+      "witnessesOpt": "TESTIGOS (opcional)",
+      "submit": "ENVIAR RESPUESTA",
+      "pointsTo": "Se remite a: {{list}}",
+      "head": "APELACIÓN {{n}} · {{reason}}"
+    },
+    "panel": {
+      "granted": "APELACIÓN CONCEDIDA",
+      "denied": "APELACIÓN RECHAZADA",
+      "deniedN": "APELACIÓN {{n}} RECHAZADA",
+      "inHead": "TU APELACIÓN FUE PRESENTADA",
+      "opposingAgrees": "La parte contraria acepta que el caso se reconsidere:",
+      "opposingOpposes": "La parte contraria se opone:",
+      "reviewing": "El tribunal está revisando la apelación…",
+      "responding": "La parte contraria está respondiendo…",
+      "waitHead": "ESPERANDO A TU OPONENTE",
+      "waitBody": "Ya se le informó de tu apelación. Si no responde antes del {{due}}, el tribunal decidirá sin su respuesta.",
+      "passHead": "PASA EL DISPOSITIVO",
+      "passBody": "Tu apelación fue presentada. Pásale el teléfono a la parte contraria para que responda.",
+      "respondBtn": "PARTE CONTRARIA: RESPONDER",
+      "theyAppealed": "TU OPONENTE APELÓ",
+      "pleaseRespond": "Responde antes del {{due}}. Si no lo haces, el tribunal decidirá sin tu respuesta.",
+      "respondAppeal": "RESPONDER A LA APELACIÓN",
+      "tryAgain": "REINTENTAR",
+      "grantedBody": "El tribunal verá el caso de nuevo, con el mismo jurado y el mismo expediente.",
+      "reopening": "REABRIENDO…",
+      "reopen": "REABRIR EL CASO",
+      "decideBody": "Crees que el jurado se equivocó. Puedes pedir al tribunal que vea tu caso otra vez.",
+      "appealBtn": "APELAR EL VEREDICTO",
+      "saving": "GUARDANDO…",
+      "acceptBtn": "ACEPTAR EL VEREDICTO",
+      "acceptNote_one": "Aceptar cierra el caso y muestra tu evaluación de desempeño. Te queda {{count}} apelación.",
+      "acceptNote_other": "Aceptar cierra el caso y muestra tu evaluación de desempeño. Te quedan {{count}} apelaciones."
+    },
+    "validation": {
+      "chooseReason": "Elige un motivo para tu apelación.",
+      "explainMin": "Explica tu apelación en al menos {{min}} caracteres.",
+      "explainMax": "Mantén tu explicación por debajo de {{max}} caracteres.",
+      "selectEvidence": "Elige la prueba que se pasó por alto.",
+      "selectWitness": "Elige al testigo cuyo testimonio desaprovechaste.",
+      "chooseDecision": "Elige Aceptar u Oponerme.",
+      "posMin": "Explica tu postura en al menos {{min}} caracteres.",
+      "posMax": "Mantén tu explicación por debajo de {{max}} caracteres.",
+      "errGeneric": "Algo salió mal. Inténtalo de nuevo.",
+      "errSaveChoice": "No se pudo guardar tu elección. Inténtalo de nuevo.",
+      "errReopen": "No se pudo reabrir el caso. Inténtalo de nuevo."
+    }
   }
 }

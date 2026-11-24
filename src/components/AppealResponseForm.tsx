@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Scale } from 'lucide-react';
 import ModalSheet from './ModalSheet';
@@ -17,6 +18,7 @@ const CHIP = 'rounded-full border px-3 py-1.5 text-sm font-semibold transition-c
 
 /** Opposing counsel's answer to an appeal: accept (agree to reconsider) or oppose. Existing evidence and witnesses only. */
 export default function AppealResponseForm({ caseId, appeal, onSubmit, onClose }: AppealResponseFormProps) {
+  const { t, i18n } = useTranslation();
   const [decision, setDecision] = useState<'accept' | 'oppose' | null>(null);
   const [explanation, setExplanation] = useState('');
   const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
@@ -30,7 +32,7 @@ export default function AppealResponseForm({ caseId, appeal, onSubmit, onClose }
     let cancelled = false;
     Promise.all([db.evidence.getCaseEvidence(caseId), db.witnesses.getCaseWitnesses(caseId)])
       .then(([e, w]) => { if (!cancelled) { setEvidence(e); setWitnesses(w); } })
-      .catch(() => { if (!cancelled) setError('Could not load the case file. Please close this and try again.'); });
+      .catch(() => { if (!cancelled) setError(t('appeal.errLoad')); });
     return () => { cancelled = true; };
   }, [caseId]);
 
@@ -39,7 +41,7 @@ export default function AppealResponseForm({ caseId, appeal, onSubmit, onClose }
 
   const submission: ResponseSubmission = { decision, explanation, evidence_ids: evidenceIds, witness_ids: witnessIds };
   const problem = validateResponse(submission);
-  const reasonLabel = APPEAL_REASONS.find(r => r.id === appeal.reason)?.label ?? 'Appeal';
+  const reasonLabel = APPEAL_REASONS.find(r => r.id === appeal.reason)?.id ? t(`appeal.reasons.${appeal.reason}.label`) : t('appeal.aria');
   const citedEvidence = evidence.filter(e => appeal.evidence_ids.includes(e.id)).map(e => e.title);
   const citedWitnesses = witnesses.filter(w => appeal.witness_ids.includes(w.id)).map(w => w.name);
 
@@ -50,33 +52,33 @@ export default function AppealResponseForm({ caseId, appeal, onSubmit, onClose }
     try {
       await onSubmit(submission);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not send your response. Please try again.');
+      setError(e instanceof Error ? e.message : t('appeal.errSendResponse'));
       setSending(false);
     }
   };
 
   return (
     <ModalSheet
-      title="RESPOND TO THE APPEAL"
+      title={t('appeal.respond.title')}
       icon={<Scale className="w-6 h-6 text-[#FFD43B]" />}
-      subtitle="Accepting agrees to reconsider the case. It does not admit the verdict was wrong."
+      subtitle={t('appeal.respond.subtitle')}
       onClose={sending ? undefined : onClose}
     >
       <div className="space-y-5">
         <div className="rounded-2xl bg-white/[0.06] border border-white/15 p-4 space-y-1">
-          <p className="text-xs font-bold tracking-widest text-[#FFD43B]">APPEAL {appeal.number} · {reasonLabel.toUpperCase()}</p>
+          <p className="text-xs font-bold tracking-widest text-[#FFD43B]">{t('appeal.respond.head', { n: appeal.number, reason: reasonLabel.toLocaleUpperCase(i18n.resolvedLanguage) })}</p>
           <p className="text-white/90 whitespace-pre-wrap">{appeal.explanation}</p>
           {(citedEvidence.length > 0 || citedWitnesses.length > 0) && (
             <p className="text-sm text-white/60">
-              Points to: {[...citedEvidence, ...citedWitnesses].join(', ')}
+              {t('appeal.respond.pointsTo', { list: [...citedEvidence, ...citedWitnesses].join(', ') })}
             </p>
           )}
         </div>
 
         <fieldset>
-          <legend className="font-game text-xl text-white/90 mb-2">YOUR RESPONSE</legend>
+          <legend className="font-game text-xl text-white/90 mb-2">{t('appeal.respond.yourResponse')}</legend>
           <div className="grid grid-cols-2 gap-2">
-            {([['accept', 'ACCEPT'], ['oppose', 'OPPOSE']] as const).map(([id, label]) => (
+            {([['accept', t('appeal.respond.accept')], ['oppose', t('appeal.respond.oppose')]] as const).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
@@ -92,32 +94,32 @@ export default function AppealResponseForm({ caseId, appeal, onSubmit, onClose }
           </div>
           <p className="mt-2 text-sm text-white/55">
             {decision === 'oppose'
-              ? 'Argue that the appeal does not justify reopening the case.'
+              ? t('appeal.respond.hintOppose')
               : decision === 'accept'
-                ? 'Agree that the case should be reconsidered.'
-                : 'Accept to reconsider the case, or oppose to argue it should stay closed.'}
+                ? t('appeal.respond.hintAccept')
+                : t('appeal.respond.hintNone')}
           </p>
         </fieldset>
 
         {decision && (
           <div>
-            <label htmlFor="appeal-response" className="font-game text-xl text-white/90 mb-2 block">EXPLAIN YOUR POSITION</label>
+            <label htmlFor="appeal-response" className="font-game text-xl text-white/90 mb-2 block">{t('appeal.respond.explainPos')}</label>
             <textarea
               id="appeal-response"
               value={explanation}
               onChange={e => setExplanation(e.target.value)}
               maxLength={MAX_EXPLANATION}
               rows={4}
-              placeholder={decision === 'oppose' ? 'Why should the verdict stand?' : 'Why are you willing to go again?'}
+              placeholder={decision === 'oppose' ? t('appeal.respond.phOppose') : t('appeal.respond.phAccept')}
               className={INPUT}
             />
-            <p className="mt-1 text-xs text-white/40">{explanation.trim().length}/{MAX_EXPLANATION} — at least {MIN_EXPLANATION} characters</p>
+            <p className="mt-1 text-xs text-white/40">{t('appeal.counter', { n: explanation.trim().length, max: MAX_EXPLANATION, min: MIN_EXPLANATION })}</p>
           </div>
         )}
 
         {decision && evidence.length > 0 && (
           <div>
-            <h3 className="font-game text-xl text-white/90 mb-2">EVIDENCE (optional)</h3>
+            <h3 className="font-game text-xl text-white/90 mb-2">{t('appeal.respond.evidenceOpt')}</h3>
             <div className="flex flex-wrap gap-2">
               {evidence.map(e => (
                 <button
@@ -136,7 +138,7 @@ export default function AppealResponseForm({ caseId, appeal, onSubmit, onClose }
 
         {decision && witnesses.length > 0 && (
           <div>
-            <h3 className="font-game text-xl text-white/90 mb-2">WITNESSES (optional)</h3>
+            <h3 className="font-game text-xl text-white/90 mb-2">{t('appeal.respond.witnessesOpt')}</h3>
             <div className="flex flex-wrap gap-2">
               {witnesses.map(w => (
                 <button
@@ -157,7 +159,7 @@ export default function AppealResponseForm({ caseId, appeal, onSubmit, onClose }
         {!error && decision && problem && <p className="text-white/50 text-sm">{problem}</p>}
 
         <button type="button" onClick={send} disabled={!!problem || sending} className={`${gameButton('gold', 'md')} w-full`}>
-          {sending ? 'SENDING…' : 'SUBMIT RESPONSE'}
+          {sending ? t('appeal.sending') : t('appeal.respond.submit')}
         </button>
       </div>
     </ModalSheet>

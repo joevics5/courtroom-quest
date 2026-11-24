@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /**
  * Appeals: a player who lost can ask the court to reopen the case.
  *
@@ -119,12 +120,12 @@ export function canAppeal(args: { playerWon: boolean; state: SessionStateLike })
 
 /** Why the form cannot be submitted yet (null when it can). */
 export function validateAppeal(input: AppealSubmission): string | null {
-  if (!input.reason) return 'Choose a reason for your appeal.';
+  if (!input.reason) return i18n.t('appeal.validation.chooseReason');
   const text = input.explanation.trim();
-  if (text.length < MIN_EXPLANATION) return `Explain your appeal in at least ${MIN_EXPLANATION} characters.`;
-  if (text.length > MAX_EXPLANATION) return `Keep your explanation under ${MAX_EXPLANATION} characters.`;
-  if (input.reason === 'missed_evidence' && input.evidence_ids.length === 0) return 'Select the evidence you missed.';
-  if (input.reason === 'missed_witness' && input.witness_ids.length === 0) return 'Select the witness whose insight you missed.';
+  if (text.length < MIN_EXPLANATION) return i18n.t('appeal.validation.explainMin', { min: MIN_EXPLANATION });
+  if (text.length > MAX_EXPLANATION) return i18n.t('appeal.validation.explainMax', { max: MAX_EXPLANATION });
+  if (input.reason === 'missed_evidence' && input.evidence_ids.length === 0) return i18n.t('appeal.validation.selectEvidence');
+  if (input.reason === 'missed_witness' && input.witness_ids.length === 0) return i18n.t('appeal.validation.selectWitness');
   return null;
 }
 
@@ -190,10 +191,10 @@ export interface ResponseSubmission {
 
 /** Why the opposing counsel's answer cannot be sent yet (null when it can). */
 export function validateResponse(input: ResponseSubmission): string | null {
-  if (!input.decision) return 'Choose Accept or Oppose.';
+  if (!input.decision) return i18n.t('appeal.validation.chooseDecision');
   const text = input.explanation.trim();
-  if (text.length < MIN_EXPLANATION) return `Explain your position in at least ${MIN_EXPLANATION} characters.`;
-  if (text.length > MAX_EXPLANATION) return `Keep your explanation under ${MAX_EXPLANATION} characters.`;
+  if (text.length < MIN_EXPLANATION) return i18n.t('appeal.validation.posMin', { min: MIN_EXPLANATION });
+  if (text.length > MAX_EXPLANATION) return i18n.t('appeal.validation.explainMax', { max: MAX_EXPLANATION });
   return null;
 }
 
