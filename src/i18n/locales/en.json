@@ -918,5 +918,71 @@
     "plea": "Defendant, how do you plead to the charges before this court?",
     "verdict": "After reviewing the evidence and testimony, the Court finds the defendant {{verdict}}.",
     "judgeEnters": "Judge enters"
+  },
+  "tutorial": {
+    "back": "Back",
+    "skip": "Skip",
+    "letsGo": "Let's Go",
+    "next": "Next",
+    "s1Title": "Welcome to the Courtroom",
+    "s1Body": "You're about to argue a real case. A judge presides, an opposing counsel argues against you, and witnesses testify, all reacting to what you actually say and do. Let's walk through the basics first.",
+    "s2Title": "Turns & the Clock",
+    "s2Body": "The trial moves through phases — opening statements, witness examinations, closing arguments. Each phase has a timer, and the header always shows whose turn it is. When it's your turn, the input box at the bottom lights up and waits for you.",
+    "s3Title": "Objections",
+    "s3Body": "If the other side says something improper — leading a witness, asking about something irrelevant, badgering — tap Object and pick a reason. The judge rules immediately: sustained or overruled. You can object even outside your own turn.",
+    "s4Title": "Witnesses & Evidence",
+    "s4Body": "During examination phases, call a witness and ask them questions — they'll answer based on their actual testimony, not scripted lines. You can also submit evidence exhibits to support your questions or arguments.",
+    "s5Title": "Talk Instead of Type",
+    "s5Body": "See the microphone icon in the input box? Tap it and just speak — your statement or question gets transcribed automatically. Handy for opening statements or when typing feels slow.",
+    "s6Title": "You're Ready",
+    "s6Body": "That's everything you need. Pick your case, choose your side, and make your argument — the verdict is based entirely on how the trial actually goes."
+  },
+  "watch": {
+    "title": "WATCH",
+    "sub": "Follow a trial as it happens, or catch up on ones that already wrapped.",
+    "loadingAria": "Loading trials",
+    "liveNow": "Live Now",
+    "noLive": "No live trials open to spectators right now.",
+    "recent": "Recently Finished",
+    "noRecent": "No shared trials yet — finish a trial and choose to share it to see it here."
+  },
+  "winners": {
+    "title": "PREVIOUS WINNERS",
+    "loading": "Loading…",
+    "error": "Couldn't load the winners. Try again in a moment.",
+    "none": "NO WINNERS YET",
+    "noneBody": "Win this case and your name goes up here.",
+    "lastWin": "{{level}} · Last win {{date}}",
+    "win": "WIN",
+    "wins": "WINS",
+    "tiebreak": "Most wins first. Ties go to the most recent winner."
+  },
+  "shareLink": {
+    "title": "Courtroom Quest challenge",
+    "aria": "Challenge link",
+    "copied": "Copied",
+    "copy": "Copy link"
+  },
+  "customIntro": {
+    "title": "Welcome to My Cases",
+    "sub": "Your own private cases, played like any case on the Case Board.",
+    "intro": "Build a case from a real or made-up file, then step into court. Interview the witnesses, go to trial against an opposing counsel, and find out where the other side is likely to hit you, so you can rehearse before it counts.",
+    "how": "HOW IT WORKS",
+    "step1": "<b>Create a case.</b> Tap \"Create New Custom Case\" and choose how to build it (below).",
+    "step2": "<b>Review and edit.</b> Check witnesses, evidence and details, and fix anything. Nothing is saved until you say so.",
+    "step3": "<b>Interview witnesses.</b> Open the saved case, pick your side and question the witnesses. They only know what their details say.",
+    "step4": "<b>Go to trial.</b> Same trial as the Case Board: jury, opening, examination, objections and a verdict.",
+    "two": "TWO WAYS TO CREATE",
+    "fromFile": "Build from a case file",
+    "fromFileBody": "Upload a case-file PDF (up to 10 MB) or paste your notes, and choose the side you will argue. The game builds the witnesses, evidence and timeline, plus an <b>Opposing playbook</b>: where the other side will attack, the questions they could ask, and how you can answer.",
+    "works": "Works best with clear facts, statements, exhibits and dates.",
+    "form": "Fill in the form",
+    "formBody": "Write the case, evidence and witnesses yourself, step by step. You get the same trial either way.",
+    "know": "GOOD TO KNOW",
+    "know1": "Your cases are private to you. Use the pencil on a case to edit it later.",
+    "know2": "The file reading can get things wrong. Check what it built against your documents, especially names, dates and quotes.",
+    "know3": "Uploaded PDFs are processed by Google's Gemini and deleted from our storage once the case is built. Redact client names and anything privileged first. There is a daily limit on case building.",
+    "gotIt": "Got it",
+    "reopen": "You can reopen this any time from \"How do custom cases work?\""
   }
 }

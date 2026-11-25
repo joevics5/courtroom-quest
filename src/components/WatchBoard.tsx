@@ -1,9 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Radio, Trophy, XCircle, ChevronRight, Tv } from 'lucide-react';
 import { supabase } from '../integrations/supabase/client';
 import type { CaseSession, Case, Outcome } from '../types';
-import { didPlayerWin, verdictLabel } from '../lib/verdictUtils';
+import { didPlayerWin, verdictText } from '../lib/verdictUtils';
 import ScreenShell from './ScreenShell';
 import { PANEL_SOFT, gameButton } from './ui';
 
@@ -31,6 +32,7 @@ function EmptyCard({ icon, children }: { icon: React.ReactNode; children: string
 }
 
 export default function WatchBoard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [live, setLive] = useState<ListedSession[]>([]);
   const [recent, setRecent] = useState<ListedSession[]>([]);
@@ -77,21 +79,21 @@ export default function WatchBoard() {
 
   return (
     <ScreenShell
-      title="WATCH"
-      subtitle="Follow a trial as it happens, or catch up on ones that already wrapped."
+      title={t('watch.title')}
+      subtitle={t('watch.sub')}
       onBack={() => navigate('/')}
     >
       {loading ? (
-        <div className="space-y-3" role="status" aria-label="Loading trials">
+        <div className="space-y-3" role="status" aria-label={t('watch.loadingAria')}>
           {[0, 1, 2].map(i => (
             <div key={i} className={`${PANEL_SOFT} h-16 animate-pulse`} />
           ))}
         </div>
       ) : (
         <>
-          <SectionTitle icon={<Radio className="w-5 h-5 text-red-400" />}>Live Now</SectionTitle>
+          <SectionTitle icon={<Radio className="w-5 h-5 text-red-400" />}>{t('watch.liveNow')}</SectionTitle>
           {live.length === 0 ? (
-            <EmptyCard icon={<Tv className="w-5 h-5" />}>No live trials open to spectators right now.</EmptyCard>
+            <EmptyCard icon={<Tv className="w-5 h-5" />}>{t('watch.noLive')}</EmptyCard>
           ) : (
             <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 mb-8">
               {live.map((s) => (
@@ -100,10 +102,10 @@ export default function WatchBoard() {
                   to={`/share/${s.id}`}
                   className={`${PANEL_SOFT} flex items-center gap-3 p-4 border-red-400/40 active:bg-white/10 transition-colors`}
                 >
-                  <p className="flex-1 min-w-0 text-white font-semibold truncate">{s.cases?.title || 'Trial'}</p>
+                  <p className="flex-1 min-w-0 text-white font-semibold truncate">{s.cases?.title || t('transcript.trialFallback')}</p>
                   <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/20 border border-red-400/50 rounded-full text-red-300 text-xs font-black shrink-0">
                     <Radio className="w-3 h-3 animate-pulse" />
-                    LIVE
+                    {t('transcript.live')}
                   </span>
                   <ChevronRight className="w-5 h-5 text-white/40 shrink-0" />
                 </Link>
@@ -111,9 +113,9 @@ export default function WatchBoard() {
             </div>
           )}
 
-          <SectionTitle>Recently Finished</SectionTitle>
+          <SectionTitle>{t('watch.recent')}</SectionTitle>
           {recent.length === 0 ? (
-            <EmptyCard icon={<Trophy className="w-5 h-5" />}>No shared trials yet — finish a trial and choose to share it to see it here.</EmptyCard>
+            <EmptyCard icon={<Trophy className="w-5 h-5" />}>{t('watch.noRecent')}</EmptyCard>
           ) : (
             <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 mb-8">
               {recent.map((s) => (
@@ -122,14 +124,14 @@ export default function WatchBoard() {
                   to={`/share/${s.id}`}
                   className={`${PANEL_SOFT} flex items-center gap-3 p-4 active:bg-white/10 transition-colors`}
                 >
-                  <p className="flex-1 min-w-0 text-white font-semibold truncate">{s.cases?.title || 'Trial'}</p>
+                  <p className="flex-1 min-w-0 text-white font-semibold truncate">{s.cases?.title || t('transcript.trialFallback')}</p>
                   {s.outcome && (() => {
                     const sessionPlayerRole = (s.session_state as any)?.playerRole || 'defense';
                     const playerWon = didPlayerWin(s.outcome, sessionPlayerRole);
                     return (
                       <span className={`flex items-center gap-1.5 text-xs font-black shrink-0 ${playerWon ? 'text-[#FFD43B]' : 'text-white/50'}`}>
                         {playerWon ? <Trophy className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                        {verdictLabel(s.outcome)}
+                        {verdictText(s.outcome)}
                       </span>
                     );
                   })()}
@@ -143,7 +145,7 @@ export default function WatchBoard() {
 
       <div className="text-center pt-2 pb-6">
         <Link to="/" className={`${gameButton('gold', 'md')} w-full sm:w-auto`}>
-          PLAY COURTROOM QUEST
+          {t('transcript.play')}
         </Link>
       </div>
     </ScreenShell>

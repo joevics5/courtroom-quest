@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { Check, Copy, Share2 } from 'lucide-react';
 
@@ -10,6 +11,7 @@ interface Props {
 
 /** A private challenge's link, with Copy and (where the device supports it) Share. */
 export default function ShareLinkBox({ link, shareText, className = '' }: Props) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const canShare = typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function';
 
@@ -42,7 +44,7 @@ export default function ShareLinkBox({ link, shareText, className = '' }: Props)
 
   const share = async () => {
     try {
-      await (navigator as any).share({ title: 'Courtroom Quest challenge', text: shareText, url: link });
+      await (navigator as any).share({ title: t('shareLink.title'), text: shareText, url: link });
     } catch {
       /* the person closed the share sheet */
     }
@@ -54,7 +56,7 @@ export default function ShareLinkBox({ link, shareText, className = '' }: Props)
         readOnly
         value={link}
         onFocus={e => e.currentTarget.select()}
-        aria-label="Challenge link"
+        aria-label={t('shareLink.aria')}
         className="w-full px-3 py-2.5 bg-black/50 border border-white/20 rounded-xl text-white/90 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#FFD43B]"
       />
       <div className="flex gap-2">
@@ -64,7 +66,7 @@ export default function ShareLinkBox({ link, shareText, className = '' }: Props)
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold rounded-xl border-b-4 border-[#B8860B] active:translate-y-0.5 active:border-b-2 transition-all"
         >
           {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-          {copied ? 'Copied' : 'Copy link'}
+          {copied ? t('shareLink.copied') : t('shareLink.copy')}
         </button>
         {canShare && (
           <button

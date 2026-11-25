@@ -918,5 +918,71 @@
     "plea": "Persona acusada, ¿cómo se declara ante los cargos presentados ante este tribunal?",
     "verdict": "Tras revisar las pruebas y los testimonios, el tribunal declara a la persona acusada {{verdict}}.",
     "judgeEnters": "Entra el tribunal"
+  },
+  "tutorial": {
+    "back": "Volver",
+    "skip": "Omitir",
+    "letsGo": "¡Vamos!",
+    "next": "Siguiente",
+    "s1Title": "Te damos la bienvenida a la sala",
+    "s1Body": "Estás a punto de argumentar un caso real. Un juez preside, una parte contraria argumenta contra ti y los testigos declaran, todos reaccionando a lo que realmente dices y haces. Veamos primero lo básico.",
+    "s2Title": "Turnos y reloj",
+    "s2Body": "El juicio avanza por etapas: alegatos de apertura, interrogatorio de testigos y alegatos de clausura. Cada etapa tiene su temporizador y el encabezado siempre muestra a quién le toca. Cuando es tu turno, el cuadro de texto de abajo se ilumina y te espera.",
+    "s3Title": "Objeciones",
+    "s3Body": "Si la otra parte hace algo indebido (sugerir la respuesta a un testigo, preguntar algo impertinente, hostigar), toca Objetar y elige un motivo. El tribunal resuelve de inmediato: ha lugar o no ha lugar. Puedes objetar incluso fuera de tu turno.",
+    "s4Title": "Testigos y pruebas",
+    "s4Body": "En las etapas de interrogatorio, llama a un testigo y hazle preguntas: responderá según su testimonio real, no con frases guionadas. También puedes presentar pruebas para respaldar tus preguntas o argumentos.",
+    "s5Title": "Habla en lugar de escribir",
+    "s5Body": "¿Ves el ícono del micrófono en el cuadro de texto? Tócalo y simplemente habla: tu alegato o tu pregunta se transcribe solo. Es útil para los alegatos de apertura o cuando escribir se hace lento.",
+    "s6Title": "Todo listo",
+    "s6Body": "Eso es todo lo que necesitas. Elige tu caso, elige tu parte y presenta tu argumento: el veredicto depende por completo de cómo se desarrolle el juicio."
+  },
+  "watch": {
+    "title": "MIRAR",
+    "sub": "Sigue un juicio mientras ocurre o ponte al día con los que ya terminaron.",
+    "loadingAria": "Cargando juicios",
+    "liveNow": "En vivo ahora",
+    "noLive": "No hay juicios en vivo abiertos al público en este momento.",
+    "recent": "Terminados recientemente",
+    "noRecent": "Aún no hay juicios compartidos: termina un juicio y elige compartirlo para verlo aquí."
+  },
+  "winners": {
+    "title": "GANADORES ANTERIORES",
+    "loading": "Cargando…",
+    "error": "No se pudo cargar a los ganadores. Inténtalo de nuevo en un momento.",
+    "none": "AÚN NO HAY GANADORES",
+    "noneBody": "Gana este caso y tu nombre aparecerá aquí.",
+    "lastWin": "{{level}} · Última victoria {{date}}",
+    "win": "VICTORIA",
+    "wins": "VICTORIAS",
+    "tiebreak": "Primero quienes tienen más victorias. En caso de empate, gana quien ganó más recientemente."
+  },
+  "shareLink": {
+    "title": "Reto de Courtroom Quest",
+    "aria": "Enlace del reto",
+    "copied": "Copiado",
+    "copy": "Copiar enlace"
+  },
+  "customIntro": {
+    "title": "Te damos la bienvenida a Mis casos",
+    "sub": "Tus propios casos privados, que se juegan como cualquier caso del Tablero de casos.",
+    "intro": "Crea un caso a partir de un expediente real o inventado y entra a la sala. Entrevista a los testigos, ve a juicio contra una parte contraria y descubre por dónde te atacaría la otra parte, para ensayar antes de que cuente.",
+    "how": "CÓMO FUNCIONA",
+    "step1": "<b>Crea un caso.</b> Toca «Crear caso personalizado» y elige cómo armarlo (abajo).",
+    "step2": "<b>Revisa y edita.</b> Revisa testigos, pruebas y detalles, y corrige lo que haga falta. Nada se guarda hasta que lo indiques.",
+    "step3": "<b>Entrevista a los testigos.</b> Abre el caso guardado, elige tu parte e interroga a los testigos. Solo saben lo que dicen sus datos.",
+    "step4": "<b>Ve a juicio.</b> Es el mismo juicio del Tablero de casos: jurado, apertura, interrogatorio, objeciones y veredicto.",
+    "two": "DOS FORMAS DE CREAR",
+    "fromFile": "Armar a partir de un expediente",
+    "fromFileBody": "Sube un expediente en PDF (hasta 10 MB) o pega tus notas y elige la parte que defenderás. El juego arma los testigos, las pruebas y la cronología, además de un <b>plan de la parte contraria</b>: por dónde atacará, qué preguntas podría hacer y cómo puedes responder.",
+    "works": "Funciona mejor con hechos, declaraciones, pruebas y fechas claras.",
+    "form": "Llenar el formulario",
+    "formBody": "Escribe tú el caso, las pruebas y los testigos, paso a paso. El juicio es el mismo de las dos formas.",
+    "know": "BUENO SABER",
+    "know1": "Tus casos son privados. Usa el lápiz de un caso para editarlo después.",
+    "know2": "La lectura del archivo puede equivocarse. Compara lo que armó con tus documentos, sobre todo nombres, fechas y citas.",
+    "know3": "Gemini, de Google, procesa los PDF que subes, y se eliminan de nuestro almacenamiento una vez armado el caso. Antes, tacha los nombres de clientes y todo lo que sea confidencial. Hay un límite diario de casos armados.",
+    "gotIt": "Entendido",
+    "reopen": "Puedes volver a abrir esto en cualquier momento desde «¿Cómo funcionan los casos personalizados?»"
   }
 }
