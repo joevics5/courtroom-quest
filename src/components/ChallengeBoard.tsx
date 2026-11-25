@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Shield, Gavel, X, Users, Loader2, Mail, Check, Clock, ChevronRight, Lock, Link2 } from 'lucide-react';
 import { db } from '../lib/database';
@@ -31,6 +32,7 @@ const SMALL_GOLD = 'bg-[#FFD43B] hover:bg-[#ffdc5e] text-black font-bold disable
 
 /** Defense / Prosecution chooser. Colours keep their meaning: blue = defense, red = prosecution. */
 function SidePicker({ value, onChange, className = 'mb-4' }: { value: PlayerRole; onChange: (role: PlayerRole) => void; className?: string }) {
+  const { t, i18n } = useTranslation();
   const option = (role: PlayerRole, label: string, Icon: typeof Shield, selectedCls: string, iconCls: string) => (
     <button
       type="button"
@@ -45,14 +47,16 @@ function SidePicker({ value, onChange, className = 'mb-4' }: { value: PlayerRole
   );
   return (
     <div className={`grid grid-cols-2 gap-3 ${className}`}>
-      {option('defense', 'DEFENSE', Shield, 'border-blue-500 bg-blue-500/15', 'text-blue-400')}
-      {option('prosecution', 'PROSECUTION', Gavel, 'border-red-500 bg-red-500/15', 'text-red-400')}
+      {option('defense', t('roles.defense').toLocaleUpperCase(i18n.resolvedLanguage), Shield, 'border-blue-500 bg-blue-500/15', 'text-blue-400')}
+      {option('prosecution', t('roles.prosecution').toLocaleUpperCase(i18n.resolvedLanguage), Gavel, 'border-red-500 bg-red-500/15', 'text-red-400')}
     </div>
   );
 }
 
 
 export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, onOpenMyGames, initialCase, initialTab }: Props) {
+  const { t, i18n } = useTranslation();
+  const roleLower = (r: string) => t(r === 'prosecution' ? 'roles.prosecution' : 'roles.defense').toLocaleLowerCase(i18n.resolvedLanguage);
   const [tab, setTab] = useState<Tab>(initialTab ?? 'quick');
   const [cases, setCases] = useState<Case[]>([]);
 
@@ -152,9 +156,9 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
         className="w-full flex items-center gap-3 px-3 py-3 bg-black/50 border border-white/20 rounded-xl text-left mb-4 hover:border-[#FFD43B]/60 transition-colors"
       >
         <span className={`flex-1 min-w-0 truncate ${chosen ? 'text-white font-semibold' : 'text-white/50'}`}>
-          {chosen ? chosen.title : 'Choose a case…'}
+          {chosen ? chosen.title : t('cb.chooseCase')}
         </span>
-        <span className="flex-none text-[#FFD43B] text-xs font-bold tracking-wide">{chosen ? 'CHANGE' : 'BROWSE'}</span>
+        <span className="flex-none text-[#FFD43B] text-xs font-bold tracking-wide">{chosen ? t('cb.change') : t('cb.browse')}</span>
         <ChevronRight className="flex-none w-4 h-4 text-[#FFD43B]" />
       </button>
     );
@@ -184,7 +188,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       await refresh();
     } catch (err) {
       console.error('Failed to create challenge:', err);
-      setError('Could not create the challenge. Try again.');
+      setError(t('cb.errCreate'));
     } finally {
       setCreating(false);
     }
@@ -198,7 +202,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       onMatched(session);
     } catch (err: any) {
       console.error('Failed to join challenge:', err);
-      setError(err?.message || 'Could not join this challenge.');
+      setError(err?.message || t('cb.errJoin'));
       await refresh();
     } finally {
       setJoiningId(null);
@@ -215,7 +219,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       onMatched(session);
     } catch (err) {
       console.error('Failed to open the accepted game:', err);
-      setError('Could not open the game. Try again.');
+      setError(t('cb.errOpen'));
     } finally {
       setOpeningGameId(null);
     }
@@ -248,7 +252,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       await refresh();
     } catch (err) {
       console.error('Failed to create the private challenge:', err);
-      setInviteError('Could not create the link. Try again.');
+      setInviteError(t('cb.errLink'));
     } finally {
       setSendingInvite(false);
     }
@@ -262,7 +266,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       onMatched(session);
     } catch (err: any) {
       console.error('Failed to accept invitation:', err);
-      setInviteError(err?.message || 'Could not accept this invitation.');
+      setInviteError(err?.message || t('cb.errInvite'));
       await refreshInvites();
     } finally {
       setRespondingId(null);
@@ -299,7 +303,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       onMatched(session);
     } catch (err) {
       console.error('Failed to start pass & play session:', err);
-      setLocalError('Could not start the match. Try again.');
+      setLocalError(t('cb.errMatch'));
     } finally {
       setStartingLocal(false);
     }
@@ -313,8 +317,8 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
 
   return (
     <ScreenShell
-      title="CHALLENGE BOARD"
-      subtitle="You against a real person. Match online, invite a friend, or share one device."
+      title={t('cb.title')}
+      subtitle={t('cb.sub')}
       onBack={onBack}
     >
       <div>
@@ -323,13 +327,13 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
             onClick={() => setTab('quick')}
             className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'quick' ? 'bg-[#FFD43B] text-black' : 'text-white/60 hover:text-white'}`}
           >
-            Online Match
+            {t('cb.tabQuick')}
           </button>
           <button
             onClick={() => setTab('invite')}
             className={`px-4 py-2 rounded-full text-sm font-bold transition-colors flex items-center gap-2 ${tab === 'invite' ? 'bg-[#FFD43B] text-black' : 'text-white/60 hover:text-white'}`}
           >
-            Invite a Friend
+            {t('cb.tabInvite')}
             {receivedInvites.length > 0 && (
               <span className="w-5 h-5 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full">
                 {receivedInvites.length}
@@ -340,7 +344,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
             onClick={() => setTab('local')}
             className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'local' ? 'bg-[#FFD43B] text-black' : 'text-white/60 hover:text-white'}`}
           >
-            Same Device
+            {t('cb.tabLocal')}
           </button>
         </div>
 
@@ -350,16 +354,16 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
           return (
             <div key={game.id} className={`${CARD} !border-emerald-400/60 mb-3 flex items-center justify-between gap-3`}>
               <div className="min-w-0">
-                <p className="text-emerald-300 text-[11px] font-black tracking-wider">CHALLENGE ACCEPTED</p>
-                <p className="text-white font-semibold text-sm truncate">{game.case_title || 'Case'}</p>
-                <p className="text-white/50 text-xs">You're playing the {myRole}. Review the evidence and question witnesses.</p>
+                <p className="text-emerald-300 text-[11px] font-black tracking-wider">{t('cb.accepted')}</p>
+                <p className="text-white font-semibold text-sm truncate">{game.case_title || t('cb.caseFallback')}</p>
+                <p className="text-white/50 text-xs">{t('cb.youPlaying', { role: roleLower(myRole) })}</p>
               </div>
               <button
                 onClick={() => handleOpenGame(game.session_id as string)}
                 disabled={openingGameId === game.session_id}
                 className={`shrink-0 px-4 py-2 ${SMALL_GOLD} text-sm`}
               >
-                {openingGameId === game.session_id ? 'Opening…' : 'Continue'}
+                {openingGameId === game.session_id ? t('cb.opening') : t('cb.continue')}
               </button>
             </div>
           );
@@ -382,11 +386,11 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                       Waiting for an opponent — {waiting.case_title}
                     </p>
                     <p className="text-white/50 text-xs">
-                      You're playing {waiting.creator_role}. It starts when someone joins — find it under My games.
+                      {t('cb.waitingRole', { role: roleLower(waiting.creator_role) })}
                     </p>
                     {onOpenMyGames && (
                       <button onClick={onOpenMyGames} className="mt-1 text-xs font-bold text-[#FFD43B] underline underline-offset-2">
-                        Open My games
+                        {t('cb.openGames')}
                       </button>
                     )}
                   </div>
@@ -394,7 +398,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 <button
                   onClick={() => handleCancel(waiting.id)}
                   className="text-white/40 hover:text-white transition-colors shrink-0"
-                  title="Cancel challenge"
+                  title={t('cb.cancelChallenge')}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -413,7 +417,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                   <button
                     onClick={() => handleCancel(waiting.id)}
                     className="text-white/40 hover:text-white transition-colors shrink-0"
-                    title="Cancel challenge"
+                    title={t('cb.cancelChallenge')}
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -435,14 +439,14 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
 
             <h2 className={SECTION_HEADING}>
               <Users className="w-4 h-4" />
-              Open Challenges
+              {t('cb.openChallenges')}
             </h2>
 
             {loading ? (
-              <p className="text-white/40 text-sm">Loading...</p>
+              <p className="text-white/40 text-sm">{t('cb.loading')}</p>
             ) : openChallenges.length === 0 ? (
               <div className={`${CARD} text-center`}>
-                <p className="text-white/50 text-sm">No open challenges right now. Be the first to open one.</p>
+                <p className="text-white/50 text-sm">{t('cb.noOpen')}</p>
               </div>
             ) : (
               <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
@@ -454,8 +458,8 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                         <p className="text-white font-semibold text-sm truncate">{challenge.case_title || 'Case'}</p>
                         <p className="text-white/50 text-xs flex items-center gap-1 mt-1">
                           Creator is playing {challenge.creator_role === 'defense'
-                            ? <span className="inline-flex items-center gap-1 text-blue-400"><Shield className="w-3 h-3" /> Defense</span>
-                            : <span className="inline-flex items-center gap-1 text-red-400"><Gavel className="w-3 h-3" /> Prosecution</span>
+                            ? <span className="inline-flex items-center gap-1 text-blue-400"><Shield className="w-3 h-3" /> {t('roles.defense')}</span>
+                            : <span className="inline-flex items-center gap-1 text-red-400"><Gavel className="w-3 h-3" /> {t('roles.prosecution')}</span>
                           }
                           — you'd play {opponentRole}
                         </p>
@@ -465,7 +469,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                         disabled={joiningId === challenge.id}
                         className={`shrink-0 px-5 py-2 ${SMALL_GOLD} text-sm`}
                       >
-                        {joiningId === challenge.id ? 'Joining...' : 'Join'}
+                        {joiningId === challenge.id ? t('cb.joining') : t('cb.join')}
                       </button>
                     </div>
                   );
@@ -487,7 +491,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
               <div className="mb-6">
                 <h2 className={SECTION_HEADING}>
                   <Mail className="w-4 h-4" />
-                  Invitations For You
+                  {t('cb.invitesForYou')}
                 </h2>
                 <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
                   {receivedInvites.map((invite) => {
@@ -498,8 +502,8 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                           <p className="text-white font-semibold text-sm truncate">{invite.case_title || 'Case'}</p>
                           <p className="text-white/50 text-xs mt-1">
                             You'd play {myRole === 'defense'
-                              ? <span className="inline-flex items-center gap-1 text-blue-400"><Shield className="w-3 h-3" /> Defense</span>
-                              : <span className="inline-flex items-center gap-1 text-red-400"><Gavel className="w-3 h-3" /> Prosecution</span>
+                              ? <span className="inline-flex items-center gap-1 text-blue-400"><Shield className="w-3 h-3" /> {t('roles.defense')}</span>
+                              : <span className="inline-flex items-center gap-1 text-red-400"><Gavel className="w-3 h-3" /> {t('roles.prosecution')}</span>
                             }
                           </p>
                         </div>
@@ -509,7 +513,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                             disabled={respondingId === invite.id}
                             className="px-3 py-2 text-white/60 hover:text-white transition-colors text-sm"
                           >
-                            Decline
+                            {t('cb.decline')}
                           </button>
                           <button
                             onClick={() => handleAcceptInvite(invite.id)}
@@ -517,7 +521,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                             className={`px-4 py-2 ${SMALL_GOLD} text-sm flex items-center gap-1`}
                           >
                             <Check className="w-4 h-4" />
-                            {respondingId === invite.id ? 'Joining...' : 'Accept'}
+                            {respondingId === invite.id ? t('cb.joining') : t('cb.accept')}
                           </button>
                         </div>
                       </div>
@@ -528,14 +532,14 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
             )}
 
             <div className={`${PANEL} mb-6`}>
-              <h2 className="font-game text-3xl text-white leading-none mb-1">INVITE A FRIEND</h2>
+              <h2 className="font-game text-3xl text-white leading-none mb-1">{t('cb.inviteHeading')}</h2>
               <p className="text-white/60 text-sm mb-4">
-                Create a private challenge and send your friend its link. It never shows on the board, and anyone with the link can accept it. No email needed.
+                {t('cb.inviteBody')}
               </p>
-              <label className={LABEL}>Case</label>
+              <label className={LABEL}>{t('cb.case')}</label>
               {renderCaseField(inviteCaseId, 'invite')}
 
-              <label className={LABEL}>Your side</label>
+              <label className={LABEL}>{t('cb.yourSide')}</label>
               <SidePicker value={inviteRole} onChange={setInviteRole} className="mb-4" />
 
               <label className="flex items-center gap-2 mb-4 cursor-pointer">
@@ -545,7 +549,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                   onChange={(e) => setInviteAllowSpectators(e.target.checked)}
                   className="w-5 h-5 rounded accent-[#FFD43B]"
                 />
-                <span className="text-white/80 text-sm">Let people watch this trial live</span>
+                <span className="text-white/80 text-sm">{t('cb.watch')}</span>
               </label>
 
               <button
@@ -554,7 +558,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 className={`w-full px-4 py-3 flex items-center justify-center gap-2 ${BIG_GOLD}`}
               >
                 <Link2 className="w-5 h-5" />
-                {sendingInvite ? 'Creating…' : 'Create Invite Link'}
+                {sendingInvite ? t('cb.creating') : t('cb.createInvite')}
               </button>
             </div>
 
@@ -562,7 +566,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
               <div className="mb-6">
                 <h2 className={SECTION_HEADING}>
                   <Lock className="w-4 h-4" />
-                  Private Links Waiting
+                  {t('cb.privateWaiting')}
                 </h2>
                 <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
                   {myPrivateOpen.map(ch => (
@@ -575,7 +579,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                         <button
                           onClick={() => handleCancel(ch.id)}
                           className="text-white/40 hover:text-white transition-colors shrink-0"
-                          title="Cancel challenge"
+                          title={t('cb.cancelChallenge')}
                         >
                           <X className="w-5 h-5" />
                         </button>
@@ -592,19 +596,19 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
 
             <h2 className={SECTION_HEADING}>
               <Clock className="w-4 h-4" />
-              Earlier Email Invites
+              {t('cb.earlier')}
             </h2>
             <p className="text-white/45 text-xs -mt-1 mb-3">
-              Invites sent by email before links existed. When your friend accepts, the game appears under My games.
+              {t('cb.earlierBody')}
               {onOpenMyGames && (
-                <button onClick={onOpenMyGames} className="ml-1 font-bold text-[#FFD43B] underline underline-offset-2">Open My games</button>
+                <button onClick={onOpenMyGames} className="ml-1 font-bold text-[#FFD43B] underline underline-offset-2">{t('cb.openGames')}</button>
               )}
             </p>
             {invitesLoading ? (
-              <p className="text-white/40 text-sm">Loading...</p>
+              <p className="text-white/40 text-sm">{t('cb.loading')}</p>
             ) : pendingSentInvites.length === 0 ? (
               <div className={`${CARD} text-center`}>
-                <p className="text-white/50 text-sm">No pending email invites.</p>
+                <p className="text-white/50 text-sm">{t('cb.noEmail')}</p>
               </div>
             ) : (
               <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
@@ -619,7 +623,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                     <button
                       onClick={() => handleCancelInvite(invite.id)}
                       className="text-white/40 hover:text-white transition-colors shrink-0"
-                      title="Cancel invite"
+                      title={t('cb.cancelInvite')}
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -638,18 +642,18 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
               </div>
             )}
             <div className={PANEL}>
-              <h2 className="font-game text-3xl text-white leading-none mb-1">SAME DEVICE</h2>
+              <h2 className="font-game text-3xl text-white leading-none mb-1">{t('cb.sameHeading')}</h2>
               <p className="text-white/60 text-sm mb-4">
-                Share one phone and pass it each turn — no second account needed. Objections need quick timing, so two devices work better for those.
+                {t('cb.sameBody')}
               </p>
 
-              <label className={LABEL}>Case</label>
+              <label className={LABEL}>{t('cb.case')}</label>
               {renderCaseField(localCaseId, 'local')}
 
-              <label className={LABEL}>Who goes first (Player 1)</label>
+              <label className={LABEL}>{t('cb.goesFirst')}</label>
               <SidePicker value={localCreatorRole} onChange={setLocalCreatorRole} className="mb-4" />
               <p className="text-white/40 text-xs mb-4">
-                Player 2 automatically gets the other side. The app will prompt you to pass the device at every turn change.
+                {t('cb.player2')}
               </p>
 
               <label className="flex items-center gap-2 mb-4 cursor-pointer">
@@ -659,7 +663,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                   onChange={(e) => setLocalAllowSpectators(e.target.checked)}
                   className="w-5 h-5 rounded accent-[#FFD43B]"
                 />
-                <span className="text-white/80 text-sm">Let people watch this trial live</span>
+                <span className="text-white/80 text-sm">{t('cb.watch')}</span>
               </label>
 
               <button
@@ -667,7 +671,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 disabled={!localCaseId || startingLocal}
                 className={`w-full px-4 py-3 ${BIG_GOLD}`}
               >
-                {startingLocal ? 'Starting...' : 'Start Match'}
+                {startingLocal ? t('cb.starting') : t('cb.startMatch')}
               </button>
             </div>
           </>
@@ -677,15 +681,15 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
       {showCreate && (
         <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
           <div className="bg-[#14161f] rounded-3xl p-6 max-w-md w-full border border-white/15 shadow-2xl">
-            <h2 className="font-game text-3xl text-white mb-4 leading-none">OPEN A CHALLENGE</h2>
+            <h2 className="font-game text-3xl text-white mb-4 leading-none">{t('cb.openHeading')}</h2>
 
-            <label className={LABEL}>Case</label>
+            <label className={LABEL}>{t('cb.case')}</label>
             {renderCaseField(selectedCaseId, 'quick')}
 
-            <label className={LABEL}>Your side</label>
+            <label className={LABEL}>{t('cb.yourSide')}</label>
             <SidePicker value={selectedRole} onChange={setSelectedRole} className="mb-4" />
 
-            <label className={LABEL}>Who can accept it</label>
+            <label className={LABEL}>{t('cb.whoAccepts')}</label>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <button
                 type="button"
@@ -695,7 +699,7 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                   createPublic ? 'border-[#FFD43B] bg-[#FFD43B]/15 text-[#FFD43B]' : 'border-white/15 bg-white/5 text-white/70'
                 }`}
               >
-                PUBLIC
+                {t('cb.public')}
               </button>
               <button
                 type="button"
@@ -705,13 +709,13 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                   !createPublic ? 'border-[#FFD43B] bg-[#FFD43B]/15 text-[#FFD43B]' : 'border-white/15 bg-white/5 text-white/70'
                 }`}
               >
-                PRIVATE
+                {t('cb.private')}
               </button>
             </div>
             <p className="text-white/50 text-xs mb-6">
               {createPublic
-                ? 'Shown in the Challenge list. Anyone can accept it.'
-                : 'Not listed anywhere. You get a link to send; anyone with the link can accept.'}
+                ? t('cb.publicNote')
+                : t('cb.privateNote')}
             </p>
 
             <div className="flex gap-3">
@@ -719,14 +723,14 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
                 onClick={() => setShowCreate(false)}
                 className="flex-1 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold transition-colors"
               >
-                Cancel
+                {t('cb.cancel')}
               </button>
               <button
                 onClick={handleCreate}
                 disabled={!selectedCaseId || creating}
                 className={`flex-1 px-4 py-3 ${BIG_GOLD}`}
               >
-                {creating ? 'Creating...' : createPublic ? 'Open Challenge' : 'Create Link'}
+                {creating ? t('cb.creatingDots') : createPublic ? t('cb.openChallenge') : t('cb.createLink')}
               </button>
             </div>
           </div>
@@ -736,18 +740,21 @@ export default function ChallengeBoard({ userId, userEmail, onBack, onMatched, o
         <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
           <div className="bg-[#14161f] rounded-3xl p-6 max-w-md w-full border border-white/15 shadow-2xl">
             <h2 className="font-game text-3xl text-white mb-1 leading-none flex items-center gap-2">
-              <Lock className="w-6 h-6 text-[#FFD43B]" /> PRIVATE CHALLENGE
+              <Lock className="w-6 h-6 text-[#FFD43B]" /> {t('cb.privateHeading')}
             </h2>
             <p className="text-white/70 text-sm mb-4">
-              {createdPrivate.case_title ? <span className="text-white font-semibold">{createdPrivate.case_title}</span> : 'Your challenge'} is ready.
-              Send this link to your friend: they open it, accept, and take the {createdPrivate.creator_role === 'defense' ? 'prosecution' : 'defense'}. It won't show on the board.
+              <Trans
+                i18nKey="cb.privateReady"
+                values={{ side: roleLower(createdPrivate.creator_role === 'defense' ? 'prosecution' : 'defense') }}
+                components={{ title: createdPrivate.case_title ? <span className="text-white font-semibold">{createdPrivate.case_title}</span> : <span>{t('cb.yourChallenge')}</span> }}
+              />
             </p>
             <ShareLinkBox
               link={buildChallengeLink(createdPrivate.id, window.location.origin)}
               shareText={challengeShareText(createdPrivate.case_title, createdPrivate.creator_role)}
               className="mb-4"
             />
-            <p className="text-white/45 text-xs mb-4">The game starts when they accept and appears under My games. You can find the link again under Private Links Waiting.</p>
+            <p className="text-white/45 text-xs mb-4">{t('cb.privateFooter')}</p>
             <button
               onClick={() => setCreatedPrivate(null)}
               className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold transition-colors"

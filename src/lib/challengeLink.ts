@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /**
  * Private challenge links.
  *
@@ -96,7 +97,7 @@ export function captureChallengeLink(): string | null {
 
 /** Text to send along with the link. */
 export function challengeShareText(caseTitle: string | null | undefined, creatorRole: 'defense' | 'prosecution'): string {
-  const you = creatorRole === 'defense' ? 'prosecution' : 'defense';
+  const you = i18n.t(creatorRole === 'defense' ? 'roles.prosecution' : 'roles.defense').toLocaleLowerCase(i18n.resolvedLanguage);
   const title = caseTitle ? ` "${caseTitle}"` : '';
-  return `I challenge you in Courtroom Quest${title}! You'd play the ${you}. Accept here:`;
+  return i18n.t('cb.shareText', { title, side: you });
 }
