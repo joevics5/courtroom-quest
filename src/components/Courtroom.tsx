@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next';
+import { phaseLabel } from '../lib/phaseLabel';
+import { verdictText } from '../lib/verdictUtils';
 import { useLockPageScroll } from '@/lib/useLockPageScroll';
 import { questionRestSeconds, questionRestLabel, OBJECTION_WINDOW_SECONDS } from '@/lib/questionRest';
 import HandoffPill from './HandoffPill';
@@ -66,6 +69,9 @@ interface CourtroomProps {
 }
 
 export default function Courtroom({ session, onComplete, onBack, playerWins = 0 }: CourtroomProps) {
+  const { t, i18n } = useTranslation();
+  const cap = (text: string) => text.charAt(0).toLocaleUpperCase(i18n.resolvedLanguage) + text.slice(1);
+  const sideLower = (side: string) => t(side === 'prosecution' ? 'court.sideLower.prosecution' : 'court.sideLower.defense');
   const { user } = useAuth();
   const [showPreTrial, setShowPreTrial] = useState(() => {
     // If session is already in trial phase, skip pretrial
@@ -125,12 +131,12 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
   const effectiveProsecutorName = playerRole === 'prosecution'
     ? humanDisplayName
     : onlineTwoPlayerEarly
-      ? (sharedState.nameProsecution || opponentProfile?.username || 'Opposing Counsel')
-      : plainLawyerName(prosecutorName || 'Prosecution');
+      ? (sharedState.nameProsecution || opponentProfile?.username || t('speakers.opposing'))
+      : plainLawyerName(prosecutorName || t('roles.prosecution'));
   const effectiveDefenseName = playerRole === 'defense'
     ? humanDisplayName
     : onlineTwoPlayerEarly
-      ? (sharedState.nameDefense || opponentProfile?.username || 'Opposing Counsel')
+      ? (sharedState.nameDefense || opponentProfile?.username || t('speakers.opposing'))
       : aiDefenseName(session.id);
   // Avatars for the stage: the human plays their own saved avatar; the judge and the
   // AI counsel come from the ready-made sets (same name -> same face every time).
@@ -683,14 +689,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         speakAs('recorder', announcement);
         break;
       case 3:
-        announcement = "Judge enters";
+        announcement = t('judgePrompts.judgeEnters');
         break;
       case 4:
-        announcement = JUDGE_PROMPTS.caseAnnouncement.replace('{plaintiff}', 'The State').replace('{defendant}', 'Defendant');
+        announcement = t('judgePrompts.caseAnnouncement', { caseTitle: caseData?.title ?? '' });
         speakAs('judge', announcement);
         break;
       case 6:
-        announcement = JUDGE_PROMPTS.plea;
+        announcement = t('judgePrompts.plea');
         speakAs('judge', announcement);
         break;
     }
@@ -715,10 +721,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const resolvedRole: 'judge' | 'prosecution' | 'defense' | 'witness' =
       role === 'judge' ? 'judge' : role === 'witness' ? 'witness' : ((turnState?.current_turn as any) || 'defense');
     const resolvedName =
-      resolvedRole === 'judge' ? (judgeName || 'Judge')
+      resolvedRole === 'judge' ? (judgeName || t('speakers.judge'))
       : resolvedRole === 'prosecution' ? effectiveProsecutorName
       : resolvedRole === 'defense' ? effectiveDefenseName
-      : 'Witness';
+      : t('transcript.witness');
 
     // Which kind of statement this actually is, by phase — this used to
     // be hardcoded to 'opening' unconditionally, which meant a human's
@@ -902,7 +908,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         // Redirect is one short question: nothing longer, and no second question.
         if (turnState.current_phase_type === 'redirect') {
           const alreadyAsked = redirectQuestionAsked(eventsRef.current, currentPhase);
-          const problem = alreadyAsked ? 'Redirect is one question only.' : redirectQuestionProblem(input);
+          const problem = alreadyAsked ? t('court.redirectOne') : redirectQuestionProblem(input);
           if (problem) {
             setRedirectHint(problem);
             return;
@@ -1736,8 +1742,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       console.error('[Courtroom] ❌ Failed to generate opening statement:', error);
       // Fallback statement - don't wait for DB, just show it
       const fallback = aiRole === 'prosecution'
-        ? `Good morning, Your Honor. The prosecution is ready to present its case. We will show that the defendant is guilty beyond a reasonable doubt.`
-        : `Good morning, Your Honor. The defense is ready to present its case. We will show that the evidence does not support a finding of guilt beyond a reasonable doubt.`;
+        ? t('court.openProsecution')
+        : t('court.openDefense');
       try {
         // Use a simpler version that doesn't require DB
         const fallbackEvent: TrialEvent = {
@@ -1824,8 +1830,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     } catch (error) {
       console.error('[Courtroom] ❌ Failed to generate closing argument:', error);
       const fallback = aiRole === 'prosecution'
-        ? `Your Honor, members of the jury — the evidence and testimony you've heard today prove beyond a reasonable doubt that the defendant is guilty. We ask you to return a guilty verdict.`
-        : `Your Honor, members of the jury — the prosecution has not met its burden of proof. The evidence and testimony leave real, reasonable doubt, and we ask you to return a verdict of not guilty.`;
+        ? t('court.closeProsecution')
+        : t('court.closeDefense');
       try {
         const fallbackEvent: TrialEvent = {
           id: `temp-${Date.now()}`,
@@ -2042,7 +2048,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       speaker_name: turnState.current_turn === 'prosecution' 
         ? effectiveProsecutorName
         : effectiveDefenseName,
-      content: `Submits ${evidenceItem.exhibit_label || evidenceItem.title} to the court.`,
+      content: t('court.submits', { item: evidenceItem.exhibit_label || evidenceItem.title }),
       metadata: { 
         evidence_id: evidenceItem.id,
         exhibit_label: evidenceItem.exhibit_label,
@@ -2095,7 +2101,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     const now = Date.now();
     if (turnState.objection_cooldown_until && now < turnState.objection_cooldown_until) {
       const remainingSeconds = Math.ceil((turnState.objection_cooldown_until - now) / 1000);
-      void appAlert({ title: 'OBJECTION COOLDOWN', message: `Please wait ${remainingSeconds} more seconds before objecting again.`, tone: 'info' });
+      void appAlert({ title: t('court.cooldownTitle'), message: t('court.cooldownMsg', { count: remainingSeconds }), tone: 'info' });
       setShowObjectionSelector(false);
       return;
     }
@@ -2106,19 +2112,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
     pauseForObjection();
 
     try {
-      const objectionReasonMap: Record<string, string> = {
-        leading: 'Leading question',
-        hearsay: 'Hearsay',
-        speculation: 'Speculation',
-        relevance: 'Relevance',
-        argumentative: 'Argumentative',
-        compound: 'Compound question',
-        asked_and_answered: 'Asked and answered',
-        outside_scope: 'Outside the scope of cross-examination',
-        other: 'Objection'
-      };
-
-      const objectionReason = objectionReasonMap[reason] || 'Objection';
+      const objectionReason = t(`court.reason.${reason}`, { defaultValue: t('court.reason.other') });
 
       // Add objection to transcript — only the human objects, so this is
       // always the player's side, whichever role they chose (or, in pass
@@ -2128,7 +2122,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         event_type: 'objection',
         speaker_role: objectorRole,
         speaker_name: objectorRole === 'prosecution' ? effectiveProsecutorName : effectiveDefenseName,
-        content: `Objection: ${objectionReason}`,
+        content: t('court.objectionLine', { reason: objectionReason }),
         metadata: {
           objection_reason: reason,
           objected_to_event_id: targetEvent.id,
@@ -2159,8 +2153,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         session_id: session.id,
         event_type: 'ruling',
         speaker_role: 'judge',
-        speaker_name: judgeName || 'Judge',
-        content: `Objection ${ruling.ruling}. ${ruling.reasoning}`,
+        speaker_name: judgeName || t('speakers.judge'),
+        content: t(ruling.ruling === 'sustained' ? 'court.rulingSustained' : 'court.rulingOverruled', { reasoning: ruling.reasoning }),
         metadata: {
           objection_id: objectionEvent.id,
           ruling: ruling.ruling,
@@ -2194,13 +2188,13 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       // If sustained, prosecution should rephrase (this will be handled in their next turn)
       if (ruling.ruling === 'sustained') {
-        speakAs('judge', `Objection sustained. ${ruling.reasoning}`);
+        speakAs('judge', t('court.rulingSustained', { reasoning: ruling.reasoning }));
       } else {
-        speakAs('judge', `Objection overruled. ${ruling.reasoning}`);
+        speakAs('judge', t('court.rulingOverruled', { reasoning: ruling.reasoning }));
       }
     } catch (error) {
       console.error('Failed to process objection:', error);
-      void appAlert({ title: "OBJECTION DIDN'T GO THROUGH", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('court.objectionFail'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setIsProcessingObjection(false);
     }
@@ -2213,10 +2207,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
   const handleEndTrial = async () => {
     const endIt = await appConfirm({
-      title: 'END THE TRIAL?',
-      message: 'This will conclude the case.',
-      confirmLabel: 'END TRIAL',
-      cancelLabel: 'KEEP GOING',
+      title: t('court.endTitle'),
+      message: t('court.endMsg'),
+      confirmLabel: t('court.endConfirm'),
+      cancelLabel: t('court.endCancel'),
       tone: 'danger'
     });
     if (!endIt) return;
@@ -2231,7 +2225,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         id: crypto.randomUUID(),
         session_id: session.id,
         outcome: forfeitOutcome,
-        reasoning: `Trial ended prematurely. The ${playerRole === 'defense' ? 'defense' : 'prosecution'} forfeits the case.`,
+        reasoning: t('court.forfeit', { side: cap(sideLower(playerRole === 'defense' ? 'defense' : 'prosecution')) }),
         evidence_cited: [],
         witness_performance: {},
         missed_opportunities: [],
@@ -2253,7 +2247,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       onComplete(verdict);
     } catch (error) {
       console.error('[Courtroom] ❌ Failed to end trial:', error);
-      void appAlert({ title: "COULDN'T END THE TRIAL", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('court.endFail'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     }
   };
 
@@ -2286,9 +2280,9 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       if (config && !practiceMode && isWitnessPhase(phaseInfo)) {
         const planned = planNextPhase();
         const nextName = planned === 'verdict'
-          ? 'the verdict'
-          : config.phases.find(p => p.number === planned.nextPhase)?.name ?? 'the next phase';
-        await runHandoffBreak(`Up next: ${nextName}`);
+          ? t('court.theVerdict')
+          : (config.phases.find(p => p.number === planned.nextPhase)?.name ? phaseLabel(config.phases.find(p => p.number === planned.nextPhase)!.name) : t('court.nextPhase'));
+        await runHandoffBreak(t('court.upNext', { name: nextName }));
         await waitForQuestionAnswer(30000);
         if (!aliveRef.current) return;
       }
@@ -2306,7 +2300,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         speaker_name: turnState.current_turn === 'prosecution'
           ? effectiveProsecutorName
           : effectiveDefenseName,
-        content: `The ${turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense'} rests.`,
+        content: t('court.rests', { side: cap(sideLower(turnState.current_turn === 'prosecution' ? 'prosecution' : 'defense')) }),
         metadata: { phase: currentPhase, rested: true },
         event_order: eventsRef.current.length + 1
       });
@@ -2319,7 +2313,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       // An opening or closing statement is read for a fixed minute before anything else happens, like a
       // witness answer is. The clock is stopped and nobody can send anything until it is over.
       if (config && restStatementSide && !practiceMode) {
-        await runHandoffBreak(`Reading the ${eventType === 'closing' ? 'closing' : 'opening'} statement`, STATEMENT_READ_SECONDS, true);
+        await runHandoffBreak(t('court.reading', { kind: t(eventType === 'closing' ? 'court.kind.closing' : 'court.kind.opening') }), STATEMENT_READ_SECONDS, true);
         if (!aliveRef.current) return;
       }
 
@@ -2508,10 +2502,10 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       });
 
       const isJuryTrial = trialType === 'jury';
-      const verdictText = verdictResult.outcome === 'win' ? 'guilty' : 'not guilty';
+      const verdictWordSpoken = verdictText(verdictResult.outcome).toLocaleLowerCase(i18n.resolvedLanguage);
       const announcement = isJuryTrial
-        ? `Members of the jury, have you reached a verdict? We have, Your Honor. We the jury find the defendant ${verdictText}.`
-        : JUDGE_PROMPTS.verdict.replace('{verdict}', verdictText);
+        ? t('court.juryVerdict', { verdict: verdictWordSpoken })
+        : t('judgePrompts.verdict', { verdict: verdictWordSpoken });
       speakAs('judge', announcement);
 
       if (isJuryTrial && juryResult) {
@@ -2530,7 +2524,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
       const fallbackVerdict = await db.verdicts.createVerdict({
         session_id: session.id,
         outcome: 'partial',
-        reasoning: 'The Court was unable to reach a clear verdict due to a technical issue. This result is inconclusive.',
+        reasoning: t('court.fallbackVerdict'),
         evidence_cited: [],
         score: 50
       });
@@ -2711,14 +2705,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
         <div className="w-full max-w-[1800px] mx-auto px-3 sm:px-6 py-2.5 sm:py-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <button onClick={onBack} aria-label="Back" className={ICON_BUTTON}>
+              <button onClick={onBack} aria-label={t('common.back')} className={ICON_BUTTON}>
                 <ArrowLeft className="w-5 h-5" />
               </button>
                <div className="min-w-0">
-                 <h1 className="hidden sm:block logo-gold font-game text-3xl leading-none truncate">{phase?.name || 'COURTROOM'}</h1>
+                 <h1 className="hidden sm:block logo-gold font-game text-3xl leading-none truncate">{phase?.name ? phaseLabel(phase.name) : t('court.courtroom').toLocaleUpperCase(i18n.resolvedLanguage)}</h1>
                  {practiceMode
-                   ? <p className="text-[#FFD43B] text-sm font-semibold sm:mt-1">Practice Mode — no time limit</p>
-                   : timerActive && <p className="text-white text-base font-semibold tabular-nums sm:text-sm sm:font-normal sm:text-white/70 sm:mt-1 whitespace-nowrap">{formatTime(totalTimeRemaining)} remaining</p>}
+                   ? <p className="text-[#FFD43B] text-sm font-semibold sm:mt-1">{t('court.practice')}</p>
+                   : timerActive && <p className="text-white text-base font-semibold tabular-nums sm:text-sm sm:font-normal sm:text-white/70 sm:mt-1 whitespace-nowrap">{t('court.remaining', { time: formatTime(totalTimeRemaining) })}</p>}
                </div>
             </div>
 
@@ -2727,30 +2721,30 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                <button
                  onClick={handleEndTrial}
                  className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-[#E5484D] text-white font-semibold text-sm transition-colors active:bg-[#c93a3f]"
-                 title="End Trial"
+                 title={t('court.endTrial')}
                >
                  <RotateCcw className="w-4 h-4" />
-                 <span className="hidden sm:inline">End Trial</span>
+                 <span className="hidden sm:inline">{t('court.endTrial')}</span>
                </button>
               <button
                 onClick={() => setShowVideoDisplay(v => !v)}
                 className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-black/55 border border-white/15 text-white text-sm transition-colors active:bg-white/15"
-                title={showVideoDisplay ? 'Hide avatars' : 'Show avatars'}
-                aria-label={showVideoDisplay ? 'Hide avatars' : 'Show avatars'}
+                title={showVideoDisplay ? t('court.hideAvatars') : t('court.showAvatars')}
+                aria-label={showVideoDisplay ? t('court.hideAvatars') : t('court.showAvatars')}
                 aria-pressed={showVideoDisplay}
                 data-testid="scene-toggle"
               >
                 <Landmark className="w-4 h-4" />
-                <span className="hidden sm:inline">Courtroom</span>
+                <span className="hidden sm:inline">{t('court.courtroom')}</span>
               </button>
                {timerActive && (
                  <button
                    onClick={togglePause}
-                   aria-label={timerPaused ? 'Resume' : 'Pause'}
+                   aria-label={timerPaused ? t('court.resume') : t('court.pause')}
                    className="flex items-center gap-2 h-10 px-3 sm:px-4 rounded-full bg-[#FFD43B] text-black font-semibold text-sm transition-colors active:bg-[#e6bd2c]"
                  >
                    {timerPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                    <span className="hidden sm:inline">{timerPaused ? (pausedForDefense ? 'Start' : 'Resume') : 'Pause'}</span>
+                    <span className="hidden sm:inline">{timerPaused ? (pausedForDefense ? t('court.start') : t('court.resume')) : t('court.pause')}</span>
                  </button>
                )}
             </div>
@@ -2771,7 +2765,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               totalTimeRemaining={totalTimeRemaining}
               practiceMode={practiceMode}
               events={events}
-              prosecutorName={prosecutorName || 'Prosecution'}
+              prosecutorName={prosecutorName || t('roles.prosecution')}
               defenseName="Defense"
             />}
           </div>
@@ -2854,8 +2848,8 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                   onPointerCancel={handleFloatingButtonPointerUp}
                   style={{ bottom: `${12 + floatingButtonOffset}px`, touchAction: 'none' }}
                   className="absolute right-3 w-12 h-12 bg-[#FFD43B] active:bg-[#e6bd2c] text-black rounded-full shadow-[0_3px_0_#B8860B,0_6px_14px_rgba(0,0,0,0.5)] flex items-center justify-center transition-colors z-20 cursor-grab active:cursor-grabbing select-none"
-                  title="Witnesses & Evidence (drag to move)"
-                  aria-label="Witnesses and evidence"
+                  title={t('court.weTitle')}
+                  aria-label={t('court.weAria')}
                 >
                   <Scale className="w-5 h-5" />
                 </button>
@@ -2869,13 +2863,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                 <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg pl-2.5 pr-3 py-1.5 text-white/85">
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#FFD43B] border-t-transparent flex-none"></div>
                   <span className="text-xs sm:text-sm leading-tight">
-                    {aiRole === 'prosecution' ? 'Prosecution' : 'Defense'} is {(() => {
+                    {(() => {
                       const phaseNameLower = trialDuration
                         ? (getTrialConfig(trialDuration).phases.find(p => p.number === currentPhase)?.name.toLowerCase() || '')
                         : '';
-                      if (phaseNameLower.includes('opening')) return 'preparing its opening…';
-                      if (phaseNameLower.includes('closing')) return 'preparing its closing…';
-                      return 'deciding its next move…';
+                      const who = cap(sideLower(aiRole));
+                      if (phaseNameLower.includes('opening')) return t('court.thinkOpening', { who });
+                      if (phaseNameLower.includes('closing')) return t('court.thinkClosing', { who });
+                      return t('court.thinkNext', { who });
                     })()}
                   </span>
                 </div>
@@ -2915,14 +2910,14 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               {waitingForStatement && (
                 <div className="rounded-full border border-amber-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-amber-200">
                   {statementSide === playerRole && !sameDevicePlay
-                    ? `Waiting for your ${statementKind} statement${statementWords < MIN_STATEMENT_WORDS ? ` · at least ${MIN_STATEMENT_WORDS} words (${statementWords} so far)` : ''}`
-                    : `Waiting for the ${statementSide}'s ${statementKind} statement${statementPlayedByPerson && statementWords > 0 && statementWords < MIN_STATEMENT_WORDS ? ` · ${statementWords} of ${MIN_STATEMENT_WORDS} words so far` : ''}`}
+                    ? `${t('court.waitYourStatement', { kind: t(`court.kind.${statementKind}`) })}${statementWords < MIN_STATEMENT_WORDS ? t('court.waitYourMin', { min: MIN_STATEMENT_WORDS, n: statementWords }) : ''}`
+                    : `${t('court.waitSideStatement', { side: sideLower(statementSide), kind: t(`court.kind.${statementKind}`) })}${statementPlayedByPerson && statementWords > 0 && statementWords < MIN_STATEMENT_WORDS ? t('court.waitSideProgress', { n: statementWords, min: MIN_STATEMENT_WORDS }) : ''}`}
                 </div>
               )}
 
               {statementSide && statementPlayedByPerson && !statementDone && !waitingForStatement && !practiceMode && (statementSide === playerRole || sameDevicePlay) && (
                 <div className="rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/85 tabular-nums">
-                  Your {statementKind} statement: {statementWords} of {MIN_STATEMENT_WORDS} words
+                  {t('court.yourProgress', { kind: t(`court.kind.${statementKind}`), n: statementWords, min: MIN_STATEMENT_WORDS })}
                 </div>
               )}
 
@@ -2938,13 +2933,13 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
               {objectionPaused && (
                 <div className="rounded-full border border-red-400/40 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-red-200">
-                  Objection — clock paused until counsel speaks
+                  {t('court.objectionPaused')}
                 </div>
               )}
 
               {!isMultiplayer && !isProsecutionThinking && autoRestSecondsLeft === null && !restLabel && !sameDevicePlay && turnState?.current_turn === aiRole && (
                 <div className="rounded-full border border-white/15 bg-black/80 backdrop-blur-md shadow-lg px-3 py-1.5 text-xs sm:text-sm text-white/85">
-                  Waiting for {aiRole === 'prosecution' ? 'prosecution' : 'the defense'}…
+                  {t('court.waitingFor', { side: sideLower(aiRole) })}
                 </div>
               )}
               </div>
@@ -2964,20 +2959,20 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       {pendingHandoff && turnState && (
         <ModalSheet
-          title="PASS THE DEVICE"
+          title={t('appeal.panel.passHead')}
           icon={turnState.current_turn === 'prosecution'
             ? <Gavel className="w-6 h-6 text-[#E5484D]" />
             : <Shield className="w-6 h-6 text-[#FFD43B]" />}
           maxWidth="max-w-md"
         >
           <p className="text-white/70 text-sm mb-5">
-            It's the {turnState.current_turn === 'prosecution' ? 'Prosecution' : 'Defense'} player's turn. Hand over the device, then tap below when you're ready.
+            {t('court.turnBody', { role: t(turnState.current_turn === 'prosecution' ? 'roles.prosecution' : 'roles.defense') })}
           </p>
           <button
             onClick={() => turnHandoffKey && setDeviceRevealedFor(turnHandoffKey)}
             className={`${gameButton(turnState.current_turn === 'prosecution' ? 'danger' : 'gold')} w-full`}
           >
-            I'm the {turnState.current_turn === 'prosecution' ? 'Prosecution' : 'Defense'} player — ready
+            {t('court.imReady', { role: t(turnState.current_turn === 'prosecution' ? 'roles.prosecution' : 'roles.defense') })}
           </button>
         </ModalSheet>
       )}
@@ -2999,12 +2994,12 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                          }}
                          placeholder={
                            restLabel
-                             ? `${restLabel}… (you can draft it now)`
+                             ? t('court.draftRest', { rest: restLabel })
                              : turnState?.current_phase_type === 'redirect'
-                             ? "Redirect: ask ONE short question, or rest"
+                             ? t('court.phRedirect')
                              : turnState?.current_phase_type === 'direct' || turnState?.current_phase_type === 'cross'
-                             ? "Ask a question to the witness... (Shift+Enter for a new line)"
-                             : "Type your statement or question... (Shift+Enter for a new line)"
+                             ? t('court.phQuestion')
+                             : t('court.phStatement')
                          }
                          disabled={!inputOpen}
                          maxLength={turnState?.current_phase_type === 'redirect' ? REDIRECT_MAX_CHARS : undefined}
@@ -3016,7 +3011,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                            type="button"
                            onClick={() => isListening ? stopListening() : startListening()}
                            disabled={isProcessing || !inputOpen}
-                           title={isListening ? 'Stop recording' : 'Speak your statement'}
+                           title={isListening ? t('invest.stopRec') : t('court.speakStatement')}
                            className={`absolute right-2 top-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                              isListening ? 'bg-[#E5484D] animate-pulse' : 'bg-white/15 active:bg-white/25'
                            }`}
@@ -3032,7 +3027,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                          className={`flex-1 sm:flex-none ${gameButton('gold', 'sm')}`}
                        >
                          <Send className="w-5 h-5" />
-                         Submit
+                         {t('court.submit')}
                        </button>
                         {/* The other counsel's redirect is theirs alone: no "No redirect" / "Done" for the player. */}
                         {!(getExaminationType(uiPhaseInfo) === 'redirect' && !isPlayerTurn) && (
@@ -3042,29 +3037,29 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                            className={`flex-1 sm:flex-none ${gameButton('ghost', 'sm')}`}
                          >
                            <SkipForward className="w-5 h-5" />
-                           {turnState?.current_phase_type === 'redirect' ? (redirectAsked ? 'Done' : 'No redirect') : 'Rest'}
+                           {turnState?.current_phase_type === 'redirect' ? (redirectAsked ? t('court.done') : t('court.noRedirect')) : t('court.rest')}
                          </button>
                         )}
                        {turnState?.current_turn !== 'judge' && (
                          <button
                            onClick={() => setShowObjectionSelector(true)}
                            disabled={isProcessingObjection || (isPlayerTurn && !sameDevicePlay) || actionsPaused}
-                           title={isPlayerTurn && !sameDevicePlay ? "You can't object during your own turn" : "Object"}
+                           title={isPlayerTurn && !sameDevicePlay ? t('court.cantObject') : t('court.object')}
                            className={`flex-1 sm:flex-none ${gameButton('danger', 'sm')}`}
                          >
                            <AlertCircle className="w-5 h-5" />
-                           Object
+                           {t('court.object')}
                          </button>
                        )}
                        {turnState && (turnState.current_phase_type === 'direct' || turnState.current_phase_type === 'cross' || turnState.current_phase_type === 'redirect') && !turnState.current_witness_id && (
                          <button
                            onClick={() => setShowWitnessSelector(true)}
                            disabled={!witnessCallAllowed}
-                           title={witnessCallAllowed ? 'Call Witness' : "You can only call a witness on your own turn, during direct examination"}
+                           title={witnessCallAllowed ? t('court.callWitness') : t('court.callWitnessBlocked')}
                            className={`flex-1 sm:flex-none ${gameButton('outline', 'sm')}`}
                          >
                            <User className="w-4 h-4" />
-                           Call Witness
+                           {t('court.callWitness')}
                          </button>
                        )}
                      </div>
@@ -3107,7 +3102,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
 
       {/* Defence Actions Modal */}
       {showDefenceModal && (
-        <ModalSheet title="DEFENCE ACTIONS" onClose={() => { setShowDefenceModal(false); setDefenceDetail(null); }}>
+        <ModalSheet title={t('court.defenceActions')} onClose={() => { setShowDefenceModal(false); setDefenceDetail(null); }}>
           {defenceDetail ? (
             <ItemDetail target={defenceDetail} onBack={() => setDefenceDetail(null)} />
           ) : (
@@ -3117,15 +3112,15 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
               onClick={() => setDefenceModalTab('witnesses')}
               className={`${gameButton(activeModalTab === 'witnesses' ? 'gold' : 'ghost', 'sm')} flex-1`}
             >
-              <User className="w-4 h-4" /> Witnesses
+              <User className="w-4 h-4" /> {t('selectors.tabWitnesses')}
             </button>
             <button
               onClick={() => { if (evidenceAllowed) setDefenceModalTab('evidence'); }}
               disabled={!evidenceAllowed}
-              title={evidenceAllowed ? undefined : 'Evidence can only be submitted while witnesses are being called and examined'}
+              title={evidenceAllowed ? undefined : t('court.evidenceBlocked')}
               className={`${gameButton(activeModalTab === 'evidence' ? 'gold' : 'ghost', 'sm')} flex-1`}
             >
-              <FileText className="w-4 h-4" /> Evidence
+              <FileText className="w-4 h-4" /> {t('selectors.tabEvidence')}
             </button>
             <button
               onClick={() => setDefenceModalTab('case')}
@@ -3142,7 +3137,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
           {activeModalTab === 'witnesses' && (
             <div className="space-y-3">
               {witnesses.filter(w => !turnState?.witnesses_called.includes(w.id)).length === 0 ? (
-                <p className="text-white/60 text-center py-8">All witnesses have been called.</p>
+                <p className="text-white/60 text-center py-8">{t('selectors.allCalled')}</p>
               ) : (
                 witnesses.filter(w => !turnState?.witnesses_called.includes(w.id)).map((witness) => (
                   <div key={witness.id} className="flex items-stretch gap-2">
@@ -3160,7 +3155,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                         <div className="text-xs text-white/45 mt-2 line-clamp-2">{witness.background}</div>
                       )}
                     </button>
-                    <EyeButton label={`View ${witness.name}`} onClick={() => setDefenceDetail({ kind: 'witness', item: witness })} />
+                    <EyeButton label={t('casefile.viewItem', { name: witness.name })} onClick={() => setDefenceDetail({ kind: 'witness', item: witness })} />
                   </div>
                 ))
               )}

@@ -5,6 +5,7 @@
  * screen does with a line the OTHER player's screen wrote: read it out, put the witness on the stand,
  * show that the other player is typing. Pure functions, no network.
  */
+import i18n from '../i18n';
 import type { TrialEvent } from '../types';
 import type { TurnState } from './trialTurnSystem';
 
@@ -108,7 +109,7 @@ export function currentActivity(watch: ActivityWatch | null, now: number): 'typi
 
 /** What to show under the turn badge for the other player, or null for nothing. */
 export function activityLine(name: string, activity: 'typing' | 'speaking' | null): string | null {
-  if (activity === 'typing') return `${name} is typing…`;
-  if (activity === 'speaking') return `${name} is speaking…`;
+  if (activity === 'typing') return i18n.t('court.typing', { name });
+  if (activity === 'speaking') return i18n.t('court.speaking', { name });
   return null;
 }

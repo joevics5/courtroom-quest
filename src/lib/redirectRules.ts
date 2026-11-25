@@ -1,11 +1,12 @@
+import i18n from '../i18n';
 /** Redirect examination is one short question from the counsel who called the witness, after the cross. */
 export const REDIRECT_MAX_CHARS = 200;
 
 /** Why this redirect question can't be sent, or null when it is fine. */
 export function redirectQuestionProblem(text: string): string | null {
   const question = text.trim();
-  if (question.length > REDIRECT_MAX_CHARS) return `Redirect is one short question (${REDIRECT_MAX_CHARS} characters at most).`;
-  if ((question.match(/\?/g) ?? []).length > 1) return 'Redirect is one question only.';
+  if (question.length > REDIRECT_MAX_CHARS) return i18n.t('court.redirectShort', { max: REDIRECT_MAX_CHARS });
+  if ((question.match(/\?/g) ?? []).length > 1) return i18n.t('court.redirectOne');
   return null;
 }
 

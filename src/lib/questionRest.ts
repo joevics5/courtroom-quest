@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /**
  * Read-out time after each witness answer during witness examination.
  *
@@ -20,5 +21,5 @@ export function questionRestLabel(secondsLeft: number | null): string | null {
   if (secondsLeft === null || secondsLeft <= 0) return null;
   const m = Math.floor(secondsLeft / 60);
   const s = String(secondsLeft % 60).padStart(2, '0');
-  return `Next question in ${m}:${s}`;
+  return i18n.t('court.nextQuestion', { time: `${m}:${s}` });
 }
