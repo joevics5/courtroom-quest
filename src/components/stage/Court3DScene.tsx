@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Suspense, lazy, useState } from 'react';
 import AvatarScene from './AvatarScene';
 import { TurnPill } from '../ui';
@@ -12,13 +13,14 @@ const Court3D = lazy(() => import('../court3d/Court3D'));
  * witness phases. Falls back to the avatar tiles when WebGL is not available.
  */
 export default function Court3DScene(props: SceneProps) {
+  const { t } = useTranslation();
   const { cast, active, talking, phaseName, turn, compact, witness, jurors = [], jurorVotes, playerRole, gavel } = props;
   const [failed, setFailed] = useState(false);
   const phaseFlash = useRecentPulse(phaseName, 2800);
   if (failed) return <AvatarScene {...props} />;
   return (
     <div className={`relative w-full mx-auto px-3 py-2 ${compact ? 'max-w-[20rem]' : 'max-w-3xl'}`}>
-      <Suspense fallback={<div className="w-full aspect-[16/10] rounded-2xl bg-black/40 ring-1 ring-white/15 grid place-items-center text-white/60 text-sm">Entering the courtroom...</div>}>
+      <Suspense fallback={<div className="w-full aspect-[16/10] rounded-2xl bg-black/40 ring-1 ring-white/15 grid place-items-center text-white/60 text-sm">{t('pretrial.entering')}</div>}>
         <Court3D
           mode="trial"
           className={`w-full rounded-2xl ring-1 ring-white/20 ${compact ? 'aspect-[16/9] max-h-[24dvh]' : 'aspect-[16/10] max-h-[46dvh]'}`}

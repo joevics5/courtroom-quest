@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { roleLabel } from '../../lib/displayName';
 import { Gavel } from 'lucide-react';
 import AvatarFace from '../AvatarFace';
 import { TurnPill } from '../ui';
@@ -22,6 +24,7 @@ function Tile({
   gavel?: boolean;
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={`relative min-w-0 aspect-square rounded-2xl overflow-hidden bg-black/40 transition-all duration-200 ${
@@ -29,9 +32,9 @@ function Tile({
       }`}
       aria-current={active ? 'true' : undefined}
     >
-      <AvatarFace config={participant.avatar} speaking={moving} rank={participant.rank} label={`${role}: ${participant.name}`} />
+      <AvatarFace config={participant.avatar} speaking={moving} rank={participant.rank} label={`${roleLabel(role)}: ${participant.name}`} />
       {gavel && (
-        <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-7 h-7 rounded-full bg-black/60 border border-[#FFD43B]/60" aria-label="Gavel">
+        <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-7 h-7 rounded-full bg-black/60 border border-[#FFD43B]/60" aria-label={t('scene.gavel')}>
           <Gavel className="w-4 h-4 text-[#FFD43B]" aria-hidden="true" />
         </span>
       )}
@@ -53,9 +56,10 @@ function Tile({
  * badge. The active person glows and their mouth moves while they speak.
  */
 export default function AvatarScene({ cast, active, talking, turn, compact }: SceneProps) {
+  const { t } = useTranslation();
   const moving = (role: SceneProps['active']) => active === role && talking;
   const floorLabel =
-    active === 'witness' ? 'Witness speaking' : active === 'jury' ? 'Jury deliberating' : active === 'bailiff' ? 'Bailiff speaking' : null;
+    active === 'witness' ? t('scene.witnessSpeaking') : active === 'jury' ? t('scene.juryDeliberating') : active === 'bailiff' ? t('scene.bailiffSpeaking') : null;
 
   return (
     <div className={`relative w-full px-3 ${compact ? 'pb-2 pt-9' : 'pb-3 pt-12'}`}>

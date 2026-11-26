@@ -466,7 +466,8 @@
     "rulingAria": "Fallo sobre cada solicitud",
     "decidesVerdict": " · DECIDE EL VEREDICTO",
     "granted": "CONCEDIDA",
-    "notGranted": "NO CONCEDIDA"
+    "notGranted": "NO CONCEDIDA",
+    "maybeLater": "Más tarde"
   },
   "objection": {
     "title": "¡OBJECIÓN!",
@@ -1260,5 +1261,52 @@
       "photoType": "Las fotos deben ser JPG, PNG o WebP.",
       "photoBig": "La foto es demasiado grande (máx. {{mb}} MB)."
     }
+  },
+  "app": {
+    "caseNotFoundTitle": "CASO NO ENCONTRADO",
+    "caseNotFound": "No se encontró ese caso.",
+    "caseNotOpened": "No se pudo abrir ese caso.",
+    "appealNotOpened": "No se pudo abrir esa apelación.",
+    "gameNotFoundTitle": "PARTIDA NO ENCONTRADA",
+    "gameNotFound": "No se encontró esa partida.",
+    "couldntStart": "NO SE PUDO INICIAR EL CASO",
+    "couldntResume": "NO SE PUDO RETOMAR EL CASO",
+    "couldntContinue": "NO SE PUDO CONTINUAR LA PARTIDA",
+    "couldntAccept": "NO SE PUDO ACEPTAR LA INVITACIÓN",
+    "couldntOpenCase": "NO SE PUDO ABRIR EL CASO",
+    "couldntOpenAppeal": "NO SE PUDO ABRIR LA APELACIÓN",
+    "challengeAcceptedTitle": "TU RETO FUE ACEPTADO",
+    "challengeAccepted": "Tu oponente se unió. Encuentra la nueva partida en Mis partidas.",
+    "loadingCase": "Cargando caso...",
+    "keepPlaying": "SIGUE JUGANDO",
+    "keepPlayingMsg": "Jugaste {{count}} partidas como invitado. Crea una cuenta gratis para seguir jugando y conservar tus victorias y tu rango.",
+    "niceTrial": "BUEN JUICIO",
+    "niceTrialMsg": "Crea una cuenta gratis para guardar tus victorias, tu rango y tus partidas. El progreso de invitado se pierde si borras los datos del navegador o cambias de teléfono.",
+    "settingUp": "PREPARANDO EL JUICIO",
+    "settingUpMsg": "{{name}} está eligiendo el tipo y la duración del juicio. Seguirán juntos.",
+    "upgrades": "LAS MEJORAS LLEGAN PRONTO",
+    "upgradesMsg": "Los planes de pago aún no están disponibles. ¡Un poco de paciencia!",
+    "allRise": "PÓNGANSE DE PIE…",
+    "loading": "Cargando",
+    "judgeAssigned": "Se asignó a {{name}} como juez/a de este caso."
+  },
+  "gate": {
+    "title": "Mejora tu plan para acceder a {{feature}}",
+    "sub": "Elige el plan que mejor te convenga",
+    "recommended": "RECOMENDADO",
+    "payPer": "OPCIONES DE PAGO POR JUICIO",
+    "choose": "Elegir un plan",
+    "featureCustom": "la creación de casos personalizados",
+    "featureUnlimited": "juicios ilimitados"
+  },
+  "scene": {
+    "seat": "Llévame a mi asiento",
+    "walk": "Camina hasta la silla que brilla",
+    "juror": "Jurado {{n}}",
+    "gavel": "Mazo",
+    "witnessSpeaking": "Habla el testigo",
+    "juryDeliberating": "El jurado delibera",
+    "bailiffSpeaking": "Habla el alguacil",
+    "move": "Mover"
   }
 }

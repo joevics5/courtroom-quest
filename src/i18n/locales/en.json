@@ -466,7 +466,8 @@
     "rulingAria": "Ruling on each request",
     "decidesVerdict": " · DECIDES THE VERDICT",
     "granted": "GRANTED",
-    "notGranted": "NOT GRANTED"
+    "notGranted": "NOT GRANTED",
+    "maybeLater": "Maybe later"
   },
   "objection": {
     "title": "OBJECTION!",
@@ -1260,5 +1261,52 @@
       "photoType": "Photos must be JPG, PNG or WebP.",
       "photoBig": "Photo is too large (max {{mb}} MB)."
     }
+  },
+  "app": {
+    "caseNotFoundTitle": "CASE NOT FOUND",
+    "caseNotFound": "That case could not be found.",
+    "caseNotOpened": "That case could not be opened.",
+    "appealNotOpened": "That appeal could not be opened.",
+    "gameNotFoundTitle": "GAME NOT FOUND",
+    "gameNotFound": "That game could not be found.",
+    "couldntStart": "COULDN'T START THE CASE",
+    "couldntResume": "COULDN'T RESUME THE CASE",
+    "couldntContinue": "COULDN'T CONTINUE THE GAME",
+    "couldntAccept": "COULDN'T ACCEPT THE INVITATION",
+    "couldntOpenCase": "COULDN'T OPEN THE CASE",
+    "couldntOpenAppeal": "COULDN'T OPEN THE APPEAL",
+    "challengeAcceptedTitle": "YOUR CHALLENGE WAS ACCEPTED",
+    "challengeAccepted": "Your opponent joined. Find the new game under My games.",
+    "loadingCase": "Loading case...",
+    "keepPlaying": "KEEP PLAYING",
+    "keepPlayingMsg": "You've played {{count}} games as a guest. Create a free account to keep playing and keep your wins and rank.",
+    "niceTrial": "NICE TRIAL",
+    "niceTrialMsg": "Create a free account to save your wins, your rank and your games. Guest progress is lost if you clear your browser or switch phones.",
+    "settingUp": "SETTING UP THE TRIAL",
+    "settingUpMsg": "{{name}} is choosing the trial type and length. You'll move on together.",
+    "upgrades": "UPGRADES ARE COMING SOON",
+    "upgradesMsg": "Paid plans aren't available just yet. Hang tight!",
+    "allRise": "ALL RISE…",
+    "loading": "Loading",
+    "judgeAssigned": "Judge {{name}} has been assigned this case."
+  },
+  "gate": {
+    "title": "Upgrade to access {{feature}}",
+    "sub": "Choose a plan that fits your needs",
+    "recommended": "RECOMMENDED",
+    "payPer": "PAY-PER-TRIAL OPTIONS",
+    "choose": "Choose a Plan",
+    "featureCustom": "Custom Case Creation",
+    "featureUnlimited": "Unlimited Trials"
+  },
+  "scene": {
+    "seat": "Take me to my seat",
+    "walk": "Walk to the glowing chair",
+    "juror": "Juror {{n}}",
+    "gavel": "Gavel",
+    "witnessSpeaking": "Witness speaking",
+    "juryDeliberating": "Jury deliberating",
+    "bailiffSpeaking": "Bailiff speaking",
+    "move": "Move"
   }
 }

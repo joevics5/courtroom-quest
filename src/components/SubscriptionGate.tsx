@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Crown, Zap, Users, Shield } from 'lucide-react';
 import ModalSheet from './ModalSheet';
 import { gameButton } from './ui';
@@ -91,6 +92,7 @@ interface Props {
 }
 
 export default function SubscriptionGate({ requiredTier, currentTier, feature, onUpgrade, onClose }: Props) {
+  const { t } = useTranslation();
   const tierHierarchy: SubscriptionTier[] = ['free', 'basic', 'pro', 'max', 'family'];
   const currentTierIndex = tierHierarchy.indexOf(currentTier);
   const requiredTierIndex = requiredTier ? tierHierarchy.indexOf(requiredTier) : -1;
@@ -103,8 +105,8 @@ export default function SubscriptionGate({ requiredTier, currentTier, feature, o
 
   return (
     <ModalSheet
-      title={`Upgrade to access ${feature}`}
-      subtitle="Choose a plan that fits your needs"
+      title={t('gate.title', { feature })}
+      subtitle={t('gate.sub')}
       icon={<recommendedPlan.icon className="w-6 h-6 text-[#FFD43B]" />}
       onClose={onClose}
       maxWidth="max-w-3xl"
@@ -125,7 +127,7 @@ export default function SubscriptionGate({ requiredTier, currentTier, feature, o
             >
               {isRecommended && (
                 <div className="bg-[#FFD43B] text-black text-[10px] font-black px-2 py-1 rounded-full mb-2 inline-block">
-                  RECOMMENDED
+                  {t('gate.recommended')}
                 </div>
               )}
               <div className={`inline-block p-2 bg-gradient-to-br ${plan.color} rounded-xl mb-3`}>
@@ -147,7 +149,7 @@ export default function SubscriptionGate({ requiredTier, currentTier, feature, o
       </div>
 
       <div className="rounded-2xl bg-white/5 border border-white/10 p-4 mb-5">
-        <h3 className="text-xs font-black tracking-widest text-[#FFD43B] mb-3">PAY-PER-TRIAL OPTIONS</h3>
+        <h3 className="text-xs font-black tracking-widest text-[#FFD43B] mb-3">{t('gate.payPer')}</h3>
         <div className="grid grid-cols-3 gap-2">
           {[['$3.49', '15-min'], ['$5.99', '30-min'], ['$10.99', '60-min']].map(([price, len]) => (
             <div key={len} className="bg-white/5 rounded-xl p-3 text-center">
@@ -159,7 +161,7 @@ export default function SubscriptionGate({ requiredTier, currentTier, feature, o
       </div>
 
       <button onClick={onUpgrade} className={`w-full ${gameButton('gold', 'md')}`}>
-        Choose a Plan
+        {t('gate.choose')}
       </button>
     </ModalSheet>
   );

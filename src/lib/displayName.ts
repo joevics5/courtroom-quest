@@ -25,3 +25,16 @@ export function translateRankTitle(title: string): string {
   const level = LEVELS.find(l => l.title === title);
   return level ? rankTitle(level.level) : title;
 }
+
+/** 'Judge' | 'Prosecution' | 'Defense' | 'Witness' | 'Bailiff' | 'Jury' -> the same role in the player's language. */
+export function roleLabel(role: string): string {
+  switch (role) {
+    case 'Judge': return i18n.t('speakers.judge');
+    case 'Prosecution': return i18n.t('roles.prosecution');
+    case 'Defense': return i18n.t('roles.defense');
+    case 'Witness': return i18n.t('transcript.witness');
+    case 'Bailiff': return i18n.t('speakers.bailiff');
+    case 'Jury': return i18n.t('transcript.jury');
+    default: return role;
+  }
+}

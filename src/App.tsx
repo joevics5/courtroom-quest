@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { appAlert } from './lib/appDialog';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -71,6 +72,7 @@ type AppView =
   | 'admin';
 
 function AppContent() {
+  const { t } = useTranslation();
   const { user, loading: authLoading, signInAsGuest } = useAuth();
   const [bootDone, setBootDone] = useState(false);
 
@@ -284,7 +286,7 @@ function AppContent() {
             const session = await db.sessions.getSession(matched[0].sessionId);
             if (alive && session) {
               if (inGameViews.includes(viewRef.current)) {
-                void appAlert({ title: 'YOUR CHALLENGE WAS ACCEPTED', message: 'Your opponent joined. Find the new game under My games.', tone: 'info' });
+                void appAlert({ title: t('app.challengeAcceptedTitle'), message: t('app.challengeAccepted'), tone: 'info' });
               } else {
                 setChallengeSeed(null);
                 await resumeSessionRef.current(session);
@@ -318,7 +320,7 @@ function AppContent() {
     if (!opponentId) { setOpponent(null); return; }
     let cancelled = false;
     fetchPublicProfile(opponentId).then(p => {
-      if (!cancelled) setOpponent({ name: p?.username || 'Opposing Counsel', avatar: p?.avatar ?? null, rank: p?.rank ?? null });
+      if (!cancelled) setOpponent({ name: p?.username || t('speakers.opposing'), avatar: p?.avatar ?? null, rank: p?.rank ?? null });
     });
     return () => { cancelled = true; };
   }, [opponentId]);
@@ -597,7 +599,7 @@ function AppContent() {
 
       const caseDetails = await db.cases.getCaseWithDetails(caseId);
       if (!caseDetails) {
-        void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be found.', tone: 'error' });
+        void appAlert({ title: t('app.caseNotFoundTitle'), message: t('app.caseNotFound'), tone: 'error' });
         return;
       }
       setCurrentCase(caseDetails);
@@ -614,7 +616,7 @@ function AppContent() {
       setView('role-selection');
     } catch (error) {
       console.error('Failed to start case:', error);
-      void appAlert({ title: "COULDN'T START THE CASE", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('app.couldntStart'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -628,7 +630,7 @@ function AppContent() {
       setIsLoading(true);
       const caseDetails = await db.cases.getCaseWithDetails(caseId);
       if (!caseDetails) {
-        void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be found.', tone: 'error' });
+        void appAlert({ title: t('app.caseNotFoundTitle'), message: t('app.caseNotFound'), tone: 'error' });
         return;
       }
       setCurrentCase(caseDetails);
@@ -640,7 +642,7 @@ function AppContent() {
       setView('role-selection');
     } catch (error) {
       console.error('Failed to start quick case:', error);
-      void appAlert({ title: "COULDN'T START THE CASE", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('app.couldntStart'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -648,7 +650,7 @@ function AppContent() {
 
   const handleCreateCustomCase = () => {
     if (!canCreateCustomCase(userProfile.subscription_tier)) {
-      setSubscriptionGateFeature('Custom Case Creation');
+      setSubscriptionGateFeature(t('gate.featureCustom'));
       setSubscriptionGateRequired('basic');
       setShowSubscriptionGate(true);
       return;
@@ -691,7 +693,7 @@ function AppContent() {
       setIsLoading(true);
       const caseDetails = await db.cases.getCaseWithDetails(session.case_id);
       if (!caseDetails) {
-        void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be found.', tone: 'error' });
+        void appAlert({ title: t('app.caseNotFoundTitle'), message: t('app.caseNotFound'), tone: 'error' });
         return;
       }
       setCurrentCase(caseDetails);
@@ -727,7 +729,7 @@ function AppContent() {
       }
     } catch (error) {
       console.error('Failed to resume session:', error);
-      void appAlert({ title: "COULDN'T RESUME THE CASE", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('app.couldntResume'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -744,11 +746,11 @@ function AppContent() {
       if (session) {
         await resumeSession(session);
       } else {
-        void appAlert({ title: 'GAME NOT FOUND', message: 'That game could not be found.', tone: 'error' });
+        void appAlert({ title: t('app.gameNotFoundTitle'), message: t('app.gameNotFound'), tone: 'error' });
       }
     } catch (error) {
       console.error('Failed to continue game:', error);
-      void appAlert({ title: "COULDN'T CONTINUE THE GAME", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('app.couldntContinue'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -807,7 +809,7 @@ function AppContent() {
     if (!userProfile.is_admin) {
       const trialLimit = getTrialLimit(userProfile.subscription_tier);
       if (userProfile.trial_count >= trialLimit) {
-        setSubscriptionGateFeature('Unlimited Trials');
+        setSubscriptionGateFeature(t('gate.featureUnlimited'));
         setSubscriptionGateRequired('basic');
         setShowSubscriptionGate(true);
         return;
@@ -868,7 +870,7 @@ function AppContent() {
       await handleMatched(session);
     } catch (error: any) {
       console.error('Failed to accept invitation:', error);
-      void appAlert({ title: "COULDN'T ACCEPT THE INVITATION", message: error?.message || 'Could not accept this invitation.', tone: 'error' });
+      void appAlert({ title: t('app.couldntAccept'), message: error?.message || t('cb.errInvite'), tone: 'error' });
       if (user.email) {
         db.invitations.getInvitationsByEmail(user.email).then(setInvites).catch(() => {});
       }
@@ -987,7 +989,7 @@ function AppContent() {
             event_type: 'announcement',
             speaker_role: 'judge',
             speaker_name: 'Court',
-            content: `Judge ${judgeName} has been assigned this case.`,
+            content: t('app.judgeAssigned', { name: judgeName }),
             metadata: { phase: 0 },
             event_order: 0
           });
@@ -1112,7 +1114,7 @@ function AppContent() {
       const session = await db.sessions.getSession(entry.sessionId);
       const caseDetails = session ? await db.cases.getCaseWithDetails(session.case_id) : null;
       if (!session || !caseDetails) {
-        void appAlert({ title: 'CASE NOT FOUND', message: 'That case could not be opened.', tone: 'error' });
+        void appAlert({ title: t('app.caseNotFoundTitle'), message: t('app.caseNotOpened'), tone: 'error' });
         return;
       }
       setCurrentSession(session);
@@ -1122,7 +1124,7 @@ function AppContent() {
       setView('verdict');
     } catch (error) {
       console.error('Failed to open case from history:', error);
-      void appAlert({ title: "COULDN'T OPEN THE CASE", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('app.couldntOpenCase'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -1138,7 +1140,7 @@ function AppContent() {
         db.verdicts.getSessionVerdict(sessionId)
       ]);
       if (!session || !caseDetails || !verdict) {
-        void appAlert({ title: 'CASE NOT FOUND', message: 'That appeal could not be opened.', tone: 'error' });
+        void appAlert({ title: t('app.caseNotFoundTitle'), message: t('app.appealNotOpened'), tone: 'error' });
         return;
       }
       setCurrentSession(session);
@@ -1148,7 +1150,7 @@ function AppContent() {
       setView('verdict');
     } catch (error) {
       console.error('Failed to open appeal:', error);
-      void appAlert({ title: "COULDN'T OPEN THE APPEAL", message: 'Please try again.', tone: 'error' });
+      void appAlert({ title: t('app.couldntOpenAppeal'), message: t('verdictScreen.tryAgain'), tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -1174,7 +1176,7 @@ function AppContent() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-lg">Loading case...</div>
+        <div className="text-white text-lg">{t('app.loadingCase')}</div>
       </div>
     );
   }
@@ -1216,19 +1218,19 @@ function AppContent() {
       {tutorialOverlay}
       {showGuestWall && (
         <GuestSavePrompt
-          title="KEEP PLAYING"
-          message={`You've played ${GUEST_GAME_LIMIT} games as a guest. Create a free account to keep playing and keep your wins and rank.`}
-          primaryLabel="SAVE MY PROGRESS"
-          closeLabel="Maybe later"
+          title={t('app.keepPlaying')}
+          message={t('app.keepPlayingMsg', { count: GUEST_GAME_LIMIT })}
+          primaryLabel={t('settings.account.saveProgress')}
+          closeLabel={t('ui.maybeLater')}
           onPrimary={() => { setShowGuestWall(false); setShowUpgrade(true); }}
           onClose={() => setShowGuestWall(false)}
         />
       )}
       {view === 'verdict' && user.is_anonymous && !guestNudgeDismissed && !showGuestWall && !hasSeen('guest-nudge', user.id) && (
         <GuestSavePrompt
-          title="NICE TRIAL"
-          message="Create a free account to save your wins, your rank and your games. Guest progress is lost if you clear your browser or switch phones."
-          primaryLabel="SAVE MY PROGRESS"
+          title={t('app.niceTrial')}
+          message={t('app.niceTrialMsg')}
+          primaryLabel={t('settings.account.saveProgress')}
           onPrimary={() => { markSeen('guest-nudge', user.id); setGuestNudgeDismissed(true); setShowUpgrade(true); }}
           onClose={() => { markSeen('guest-nudge', user.id); setGuestNudgeDismissed(true); }}
         />
@@ -1327,7 +1329,7 @@ function AppContent() {
 
       {liveOnline && user && currentSession && (view === 'investigation' || view === 'trial-type-selection' || view === 'jury-selection' || view === 'pre-trial') && (
         <LiveStatusBar
-          text={statusLine(opponent?.name || 'Opposing counsel', parseStatus(currentSession, otherSide(mySideIn(currentSession, user.id))))}
+          text={statusLine(opponent?.name || t('speakers.opposing'), parseStatus(currentSession, otherSide(mySideIn(currentSession, user.id))))}
         />
       )}
 
@@ -1340,7 +1342,7 @@ function AppContent() {
           onStatus={liveOnline ? reportStatus : undefined}
           liveReady={
             liveOnline && user
-              ? { ...readyState(currentSession, mySideIn(currentSession, user.id)), opponentName: opponent?.name || 'Opposing Counsel' }
+              ? { ...readyState(currentSession, mySideIn(currentSession, user.id)), opponentName: opponent?.name || t('speakers.opposing') }
               : undefined
           }
           showCaseReview={showCaseReview}
@@ -1358,7 +1360,7 @@ function AppContent() {
                 setShowCaseReview(false);
               } catch (error) {
                 console.error('Failed to create/resume session:', error);
-                void appAlert({ title: "COULDN'T START THE CASE", message: 'Please try again.', tone: 'error' });
+                void appAlert({ title: t('app.couldntStart'), message: t('verdictScreen.tryAgain'), tone: 'error' });
               } finally {
                 setIsLoading(false);
               }
@@ -1406,8 +1408,8 @@ function AppContent() {
 
       {view === 'trial-type-selection' && currentSession && liveOnline && !isSessionHost(currentSession, user.id) && (
         <WaitingRoom
-          title="SETTING UP THE TRIAL"
-          message={`${opponent?.name || 'Your opponent'} is choosing the trial type and length. You'll move on together.`}
+          title={t('app.settingUp')}
+          message={t('app.settingUpMsg', { name: opponent?.name || t('speakers.opponent') })}
           onBack={handleBackFromInvestigation}
         />
       )}
@@ -1442,7 +1444,7 @@ function AppContent() {
           mode={playMode(currentSession)}
           live={liveOnline ? pretrialLive(currentSession) : undefined}
           onLivePatch={patch => { void patchLive(patch); }}
-          opponent={liveOnline ? opponent ?? { name: 'Opposing Counsel', avatar: null, rank: null } : undefined}
+          opponent={liveOnline ? opponent ?? { name: t('speakers.opposing'), avatar: null, rank: null } : undefined}
           sessionId={currentSession.id}
           playerWins={userProfile?.wins_count ?? 0}
           onComplete={handlePreTrialComplete}
@@ -1493,7 +1495,7 @@ function AppContent() {
               setShowUpgrade(true);
               return;
             }
-            void appAlert({ title: 'UPGRADES ARE COMING SOON', message: "Paid plans aren't available just yet. Hang tight!", tone: 'info' });
+            void appAlert({ title: t('app.upgrades'), message: t('app.upgradesMsg'), tone: 'info' });
           }}
         />
       )}
@@ -1502,9 +1504,10 @@ function AppContent() {
 }
 
 function ScreenFallback() {
+  const { t } = useTranslation();
   return (
-    <div role="status" aria-label="Loading" className="min-h-[100dvh] bg-[#05060a] flex items-center justify-center">
-      <p className="font-game text-3xl text-white/70 animate-pulse">ALL RISE…</p>
+    <div role="status" aria-label={t('app.loading')} className="min-h-[100dvh] bg-[#05060a] flex items-center justify-center">
+      <p className="font-game text-3xl text-white/70 animate-pulse">{t('app.allRise')}</p>
     </div>
   );
 }

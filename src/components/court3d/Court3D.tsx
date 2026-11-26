@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { roleLabel } from '../../lib/displayName';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StageSpeaker } from '../../lib/stageSpeaker';
 import { CourtStage, type Person, type ShotName, type StageInput } from './stage';
@@ -31,10 +33,11 @@ export interface Court3DProps {
   children?: React.ReactNode;
 }
 
-const NAMES: Record<string, string> = { judge: 'Judge', prosecution: 'Prosecution', defense: 'Defense', witness: 'Witness', jury: 'Jury', bailiff: 'Bailiff' };
+const nameOf = (key: string) => roleLabel(key.charAt(0).toUpperCase() + key.slice(1));
 
 /** The WebGL canvas, the walking joystick and a caption for whoever has the floor. */
 export default function Court3D(p: Court3DProps) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<CourtStage | null>(null);
   const joyRef = useRef<HTMLDivElement>(null);
@@ -96,29 +99,29 @@ export default function Court3D(p: Court3DProps) {
     speaker === 'judge' ? p.judge.name
       : speaker === 'prosecution' ? p.prosecution.name
         : speaker === 'defense' ? p.defense.name
-          : speaker === 'witness' ? p.witness?.name || 'Witness'
-            : speaker === 'bailiff' ? p.bailiff?.name || 'Bailiff'
-              : 'Jury';
+          : speaker === 'witness' ? p.witness?.name || roleLabel('Witness')
+            : speaker === 'bailiff' ? p.bailiff?.name || roleLabel('Bailiff')
+              : roleLabel('Jury');
 
   return (
     <div className={`relative overflow-hidden bg-[#120d14] ${p.className ?? ''}`} data-testid="court3d">
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block touch-none" aria-label="3D courtroom" role="img" />
       {ready && (p.mode === 'trial' || p.begun) && (
         <div className="absolute left-2 bottom-2 z-10 pointer-events-none rounded-lg bg-black/60 border border-white/15 px-2.5 py-1 text-white">
-          <span className="text-[10px] uppercase tracking-wider text-[#FFD43B] block leading-tight">{NAMES[speaker]}</span>
+          <span className="text-[10px] uppercase tracking-wider text-[#FFD43B] block leading-tight">{nameOf(speaker)}</span>
           <span className="text-xs sm:text-sm leading-tight block max-w-[14rem] truncate">{caption}</span>
         </div>
       )}
       {walking && (
         <>
-          <div ref={joyRef} data-testid="joystick" aria-label="Move" className="absolute left-3 bottom-3 z-10 w-24 h-24 rounded-full bg-white/10 border border-white/25 touch-none select-none">
+          <div ref={joyRef} data-testid="joystick" aria-label={t('scene.move')} className="absolute left-3 bottom-3 z-10 w-24 h-24 rounded-full bg-white/10 border border-white/25 touch-none select-none">
             <i className="absolute left-1/2 top-1/2 -ml-6 -mt-6 w-12 h-12 rounded-full bg-[#FFD43B]/90 shadow-lg" />
           </div>
           <button type="button" onClick={() => stageRef.current?.autoWalkToSeat()} className="absolute right-3 bottom-3 z-10 rounded-full bg-black/65 border border-white/25 text-white text-xs px-3 py-2">
-            Take me to my seat
+            {t('scene.seat')}
           </button>
           <div className="absolute inset-x-0 top-2 z-10 flex justify-center pointer-events-none">
-            <span className="rounded-full bg-black/65 border border-[#FFD43B]/60 text-[#FFD43B] text-xs px-3 py-1">Walk to the glowing chair</span>
+            <span className="rounded-full bg-black/65 border border-[#FFD43B]/60 text-[#FFD43B] text-xs px-3 py-1">{t('scene.walk')}</span>
           </div>
         </>
       )}

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { roleLabel } from '../../lib/displayName';
 import CourtFigure, { ROLE_STYLE, jurorStyle } from './CourtFigure';
 import { TurnPill } from '../ui';
 import { useRecentPulse } from './signals';
@@ -109,7 +111,7 @@ function Person({
             : 'drop-shadow(0 3px 4px rgba(0,0,0,0.55)) brightness(0.88)'
         }}
       >
-        <CourtFigure pose={standing ? 'standing' : 'seated'} style={ROLE_STYLE[styleKey]} label={`${role}: ${participant.name}`} />
+        <CourtFigure pose={standing ? 'standing' : 'seated'} style={ROLE_STYLE[styleKey]} label={`${roleLabel(role)}: ${participant.name}`} />
       </div>
       {/* The name is centred on the seat and never cut off: it takes the width it needs, and a long name wraps onto a second line. */}
       <p
@@ -129,6 +131,7 @@ function Person({
  * courtroomLayout.ts.
  */
 export default function CourtroomScene({ cast, active, phaseName, turn, compact, witness, jurors = [], jurorVotes }: SceneProps) {
+  const { t } = useTranslation();
   const L = COURTROOM_LAYOUT;
   const phaseFlash = useRecentPulse(phaseName, 2800);
   const juryActive = active === 'jury';
@@ -161,7 +164,7 @@ export default function CourtroomScene({ cast, active, phaseName, turn, compact,
                 }`}
                 style={{ left: `${seat.x}%`, top: `${seat.y}%`, width: `${seat.w}%`, transform: 'translate(-50%, -50%)', zIndex: 10 }}
               >
-                <CourtFigure style={jurorStyle(i)} label={j.name || `Juror ${i + 1}`} />
+                <CourtFigure style={jurorStyle(i)} label={j.name || t('scene.juror', { n: i + 1 })} />
                 {vote && (
                   <span
                     data-vote={vote}
