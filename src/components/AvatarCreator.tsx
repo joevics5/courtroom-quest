@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { rankTitle } from '../lib/displayName';
 import { useRef, useState, useEffect } from 'react';
 import { Check, Lock, Shuffle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -49,29 +51,7 @@ const GHOST_BUTTON =
   'rounded-xl bg-white/10 border border-white/20 text-white font-game text-xl px-4 py-2.5 active:translate-y-0.5 transition-transform';
 
 type TabId = 'face' | 'hair' | 'outfit' | 'extras' | 'backdrop';
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'face', label: 'FACE' },
-  { id: 'hair', label: 'HAIR' },
-  { id: 'outfit', label: 'OUTFIT' },
-  { id: 'extras', label: 'EXTRAS' },
-  { id: 'backdrop', label: 'BACKGROUND' }
-];
-
-const HAIR_LABELS: Record<(typeof HAIR_STYLES)[number], string> = {
-  short: 'Short',
-  slick: 'Slick',
-  bob: 'Bob',
-  long: 'Long',
-  bun: 'Bun',
-  curly: 'Curly',
-  afro: 'Afro',
-  wig: 'Court wig',
-  bald: 'Bald'
-};
-const ATTIRE_LABELS: Record<(typeof ATTIRES)[number], string> = { robe: 'Robe', suit: 'Suit', blazer: 'Blazer', collar: 'Shirt' };
-const BEARD_LABELS: Record<(typeof BEARDS)[number], string> = { none: 'None', stubble: 'Stubble', full: 'Full', goatee: 'Goatee' };
-const GENDER_LABELS = { male: 'Male', female: 'Female' } as const;
-const AGE_LABELS = { '0': 'Young', '1': 'Mature', '2': 'Senior' } as const;
+const TABS: { id: TabId }[] = [{ id: 'face' }, { id: 'hair' }, { id: 'outfit' }, { id: 'extras' }, { id: 'backdrop' }];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -178,6 +158,9 @@ type ShapeField = 'headShape' | 'eyeShape' | 'noseShape' | 'mouthShape' | 'browS
  * metadata, so the avatar appears on the trial screen.
  */
 export default function AvatarCreator({ mode = 'signup', initialUsername = '', initialAvatar, wins = 0, onDone, onBack }: AvatarCreatorProps) {
+  const { t } = useTranslation();
+  const names = <K extends string>(group: string, ids: readonly K[]) => Object.fromEntries(ids.map(id => [id, t(`avatarCreator.${group}.${id}`, { defaultValue: String(id) })])) as Record<K, string>;
+  const L = (key: string) => t(`avatarCreator.labels.${key}`);
   const myRank = getLevelForWins(wins).level;
   const [previewRank, setPreviewRank] = useState(myRank);
   const [step, setStep] = useState<'username' | 'avatar'>(mode === 'signup' ? 'username' : 'avatar');
@@ -229,7 +212,7 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
     const free = await isUsernameAvailable(username);
     setCheckingName(false);
     if (!free) {
-      setUsernameError('That username is taken. Try another one.');
+      setUsernameError(t('settings.nickname.errTaken'));
       return;
     }
     setUsernameError('');
@@ -246,9 +229,9 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
       setSaving(false);
       if (shared.error === 'taken') {
         setStep('username');
-        setUsernameError('That username was just taken. Pick another one.');
+        setUsernameError(t('avatarCreator.errJustTaken'));
       } else {
-        setSaveError('Could not save your avatar. Check your connection and try again.');
+        setSaveError(t('avatarCreator.errSave'));
       }
       return;
     }
@@ -258,7 +241,7 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
     setSaving(false);
     if (error) {
       console.error('Failed to save avatar:', error);
-      setSaveError('Could not save your avatar. Check your connection and try again.');
+      setSaveError(t('avatarCreator.errSave'));
       return;
     }
     onDone();
@@ -266,11 +249,11 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
 
   if (step === 'username') {
     return (
-      <ScreenShell title="CHOOSE A NAME" subtitle="This is the name the judge and other players see." maxWidth="max-w-md">
+      <ScreenShell title={t('avatarCreator.chooseName')} subtitle={t('avatarCreator.chooseNameSub')} maxWidth="max-w-md">
         <form onSubmit={submitUsername} className={`${PANEL} space-y-4`}>
           <div>
             <label htmlFor="username" className="block font-game text-2xl text-white leading-none mb-2">
-              USERNAME
+              {t('avatarCreator.usernameLabel')}
             </label>
             <input
               id="username"
@@ -280,14 +263,14 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
               maxLength={USERNAME_MAX}
               autoFocus
               autoComplete="nickname"
-              placeholder="Counsel Adebayo"
+              placeholder={t('avatarCreator.placeholder')}
               className="w-full rounded-xl bg-black/50 border border-white/20 px-3 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FFD43B]"
             />
-            <p className="mt-2 text-xs text-white/50">3 to {USERNAME_MAX} characters. Your email is never shown.</p>
+            <p className="mt-2 text-xs text-white/50">{t('avatarCreator.nameHint', { max: USERNAME_MAX })}</p>
             {usernameError && <p className="mt-2 text-sm text-red-400">{usernameError}</p>}
           </div>
           <button type="submit" disabled={checkingName} className={`${GOLD_BUTTON} w-full`}>
-            {checkingName ? 'CHECKING...' : 'CONTINUE'}
+            {checkingName ? t('avatarCreator.checking') : t('pretrial.continue')}
           </button>
         </form>
       </ScreenShell>
@@ -296,8 +279,8 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
 
   return (
     <ScreenShell
-      title={mode === 'signup' ? 'YOUR AVATAR' : 'CHANGE AVATAR'}
-      subtitle="This is how you look in court."
+      title={mode === 'signup' ? t('avatarCreator.titleSignup') : t('settings.avatar.change')}
+      subtitle={t('avatarCreator.sub')}
       maxWidth="max-w-md"
       onBack={mode === 'signup' ? () => setStep('username') : onBack}
     >
@@ -307,39 +290,39 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
           <button
             type="button"
             onClick={testMouth}
-            aria-label="Preview your avatar speaking"
+            aria-label={t('avatarCreator.previewAria')}
             className="relative w-44 h-44 rounded-3xl overflow-hidden border-4 border-[#FFD43B] shadow-[0_8px_0_#B8860B,0_0_32px_rgba(255,212,59,0.25)] active:translate-y-0.5 transition-transform"
           >
-            <AvatarFace config={avatar} speaking={previewSpeaking} rank={previewRank} label="Your avatar preview" />
+            <AvatarFace config={avatar} speaking={previewSpeaking} rank={previewRank} label={t('avatarCreator.previewLabel')} />
           </button>
           <p className="mt-4 font-game text-2xl text-white leading-none truncate max-w-full">
-            {mode === 'signup' ? username.trim() : 'Tap to preview'}
+            {mode === 'signup' ? username.trim() : t('avatarCreator.tapPreview')}
           </p>
           <p className="mt-1 text-xs text-white/60">
             {previewRank === myRank
-              ? `Rank: ${LEVELS[myRank - 1].title}`
-              : `Previewing: ${LEVELS[previewRank - 1].title}${previewRank > myRank ? ' (locked)' : ''}`}
+              ? t('avatarCreator.rank', { title: rankTitle(myRank) })
+              : t(previewRank > myRank ? 'avatarCreator.previewingLocked' : 'avatarCreator.previewing', { title: rankTitle(previewRank) })}
           </p>
           <button type="button" onClick={() => setAvatar(randomAvatar())} className={`${GHOST_BUTTON} mt-3 inline-flex items-center gap-2 !text-lg !py-1.5`}>
             <Shuffle className="w-4 h-4" />
-            SHUFFLE
+            {t('avatarCreator.shuffle')}
           </button>
         </div>
 
         {/* tabs */}
         <div role="tablist" className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
-          {TABS.map(t => (
+          {TABS.map(tb => (
             <button
-              key={t.id}
+              key={tb.id}
               role="tab"
-              aria-selected={tab === t.id}
+              aria-selected={tab === tb.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(tb.id)}
               className={`flex-none rounded-full px-4 py-1.5 font-game text-xl border transition-colors ${
-                tab === t.id ? 'bg-[#FFD43B] text-black border-[#FFD43B]' : 'bg-white/10 text-white border-white/20'
+                tab === tb.id ? 'bg-[#FFD43B] text-black border-[#FFD43B]' : 'bg-white/10 text-white border-white/20'
               }`}
             >
-              {t.label}
+              {t(`avatarCreator.tabs.${tb.id}`)}
             </button>
           ))}
         </div>
@@ -349,24 +332,24 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
           {tab === 'face' && (
             <>
               <PickGrid
-                label="VERSION"
+                label={L('version')}
                 options={GENDERS}
-                names={GENDER_LABELS}
+                names={names('gender', GENDERS)}
                 value={avatar.gender}
                 preview={o => adaptToGender(avatar, o)}
                 onPick={o => setAvatar(prev => adaptToGender(prev, o))}
               />
-              <Swatches label="SKIN" colors={SKIN_TONES} value={avatar.skin} onChange={i => set('skin', i)} />
-              {shapes('HEAD', 'headShape', HEAD_SHAPES)}
-              {shapes('EYES', 'eyeShape', EYE_SHAPES)}
-              <Swatches label="EYE COLOR" colors={EYE_COLORS} value={avatar.eyeColor} onChange={i => set('eyeColor', i)} />
-              {shapes('NOSE', 'noseShape', NOSE_SHAPES)}
-              {shapes('MOUTH', 'mouthShape', MOUTH_SHAPES)}
-              {shapes('BROWS', 'browShape', BROW_SHAPES)}
+              <Swatches label={L('skin')} colors={SKIN_TONES} value={avatar.skin} onChange={i => set('skin', i)} />
+              {shapes(L('head'), 'headShape', HEAD_SHAPES)}
+              {shapes(L('eyes'), 'eyeShape', EYE_SHAPES)}
+              <Swatches label={L('eyeColor')} colors={EYE_COLORS} value={avatar.eyeColor} onChange={i => set('eyeColor', i)} />
+              {shapes(L('nose'), 'noseShape', NOSE_SHAPES)}
+              {shapes(L('mouth'), 'mouthShape', MOUTH_SHAPES)}
+              {shapes(L('brows'), 'browShape', BROW_SHAPES)}
               <PickGrid
-                label="AGE"
+                label={L('age')}
                 options={['0', '1', '2'] as const}
-                names={AGE_LABELS}
+                names={names('age', ['0', '1', '2'] as const)}
                 value={String(avatar.age) as '0' | '1' | '2'}
                 preview={o => withValue('age', Number(o))}
                 onPick={o => set('age', Number(o))}
@@ -376,21 +359,21 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
           {tab === 'hair' && (
             <>
               <PickGrid
-                label="HAIR STYLE"
+                label={L('hairStyle')}
                 options={hairStylesFor(avatar.gender)}
-                names={HAIR_LABELS}
+                names={names('hair', HAIR_STYLES)}
                 value={avatar.hairStyle}
                 preview={o => withValue('hairStyle', o)}
                 onPick={o => set('hairStyle', o)}
               />
               {avatar.hairStyle !== 'bald' && avatar.hairStyle !== 'wig' && (
-                <Swatches label="HAIR COLOR" colors={HAIR_COLORS} value={avatar.hairColor} onChange={i => set('hairColor', i)} />
+                <Swatches label={L('hairColor')} colors={HAIR_COLORS} value={avatar.hairColor} onChange={i => set('hairColor', i)} />
               )}
               {avatar.gender === 'male' && (
               <PickGrid
-                label="FACIAL HAIR"
+                label={L('facialHair')}
                 options={BEARDS}
-                names={BEARD_LABELS}
+                names={names('beard', BEARDS)}
                 value={avatar.beard}
                 preview={o => withValue('beard', o)}
                 onPick={o => set('beard', o)}
@@ -401,15 +384,15 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
           {tab === 'outfit' && (
             <>
               <PickGrid
-                label="OUTFIT"
+                label={L('outfit')}
                 options={ATTIRES}
-                names={ATTIRE_LABELS}
+                names={names('attire', ATTIRES)}
                 value={avatar.attire}
                 preview={o => withValue('attire', o)}
                 onPick={o => set('attire', o)}
                 crop="full"
               />
-              <Section title="RANK OUTFITS">
+              <Section title={L('rankOutfits')}>
                 <div className="grid grid-cols-5 gap-2">
                   {LEVELS.map(l => {
                     const locked = l.level > myRank;
@@ -419,7 +402,7 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
                         key={l.level}
                         type="button"
                         onClick={() => setPreviewRank(l.level)}
-                        aria-label={`${l.title}${locked ? `, locked, ${l.wins} wins` : ''}`}
+                        aria-label={locked ? t('avatarCreator.rankLocked', { title: rankTitle(l.level), n: l.wins }) : rankTitle(l.level)}
                         aria-pressed={selected}
                         className="text-center"
                       >
@@ -443,20 +426,20 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
                   })}
                 </div>
                 <p className="mt-2 text-xs text-white/60">
-                  {LEVELS[previewRank - 1].title}
+                  {rankTitle(previewRank)}
                   {previewRank <= myRank
                     ? previewRank === myRank
-                      ? ': your current outfit.'
-                      : ': unlocked.'
-                    : `: win ${LEVELS[previewRank - 1].wins - wins} more ${LEVELS[previewRank - 1].wins - wins === 1 ? 'case' : 'cases'} to unlock.`}
-                  {' '}Your avatar wears the outfit for your rank automatically.
+                      ? t('avatarCreator.rankCurrent')
+                      : t('avatarCreator.rankUnlocked')
+                    : t('avatarCreator.rankMore', { count: LEVELS[previewRank - 1].wins - wins })}
+                  {' '}{t('avatarCreator.rankAuto')}
                 </p>
               </Section>
               {avatar.attire !== 'robe' && (
-                <Swatches label="OUTFIT COLOR" colors={ATTIRE_COLORS} value={avatar.attireColor} onChange={i => set('attireColor', i)} />
+                <Swatches label={L('outfitColor')} colors={ATTIRE_COLORS} value={avatar.attireColor} onChange={i => set('attireColor', i)} />
               )}
               <Swatches
-                label={avatar.attire === 'robe' ? 'TRIM COLOR' : 'TIE AND ACCENT'}
+                label={avatar.attire === 'robe' ? L('trim') : L('tie')}
                 colors={ACCENT_COLORS}
                 value={avatar.accent}
                 onChange={i => set('accent', i)}
@@ -465,15 +448,15 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
           )}
           {tab === 'extras' && (
             <PickGrid
-              label="GLASSES"
+              label={L('glasses')}
               options={['off', 'on'] as const}
-              names={{ off: 'None', on: 'Glasses' }}
+              names={names('glasses', ['off', 'on'] as const)}
               value={avatar.glasses ? 'on' : 'off'}
               preview={o => withValue('glasses', o === 'on')}
               onPick={o => set('glasses', o === 'on')}
             />
           )}
-          {tab === 'backdrop' && <Swatches label="BACKGROUND" colors={BACKDROPS} value={avatar.backdrop} onChange={i => set('backdrop', i)} />}
+          {tab === 'backdrop' && <Swatches label={L('backdrop')} colors={BACKDROPS} value={avatar.backdrop} onChange={i => set('backdrop', i)} />}
         </div>
 
         {saveError && <div className="rounded-xl bg-red-500/10 border border-red-500/50 p-3 text-red-300 text-sm">{saveError}</div>}
@@ -488,7 +471,7 @@ export default function AvatarCreator({ mode = 'signup', initialUsername = '', i
       >
         <div className="max-w-md mx-auto">
           <button type="button" onClick={save} disabled={saving} className={`${GOLD_BUTTON} w-full`}>
-            {saving ? 'SAVING...' : mode === 'signup' ? 'GO TO CASES' : 'SAVE AVATAR'}
+            {saving ? t('avatarCreator.saving') : mode === 'signup' ? t('avatarCreator.goCases') : t('avatarCreator.save')}
           </button>
         </div>
       </div>

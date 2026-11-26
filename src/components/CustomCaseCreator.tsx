@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import ScreenShell from './ScreenShell';
 import { INPUT, PANEL, PANEL_SOFT, gameButton } from './ui';
 import { appConfirm } from '../lib/appDialog';
@@ -45,29 +46,9 @@ const uid = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.ran
 
 const STEPS: CreatorStep[] = ['info', 'evidence', 'witnesses'];
 
-const CASE_TYPES: { value: CaseType; label: string }[] = [
-  { value: 'burglary', label: 'Burglary' },
-  { value: 'fraud', label: 'Fraud' },
-  { value: 'assault', label: 'Assault' },
-  { value: 'murder', label: 'Murder' },
-  { value: 'theft', label: 'Theft' },
-  { value: 'criminal', label: 'Criminal (other)' },
-  { value: 'civil', label: 'Civil' },
-  { value: 'other', label: 'Other' },
-];
+const CASE_TYPES: { value: CaseType }[] = ['burglary', 'fraud', 'assault', 'murder', 'theft', 'criminal', 'civil', 'other'].map(value => ({ value: value as CaseType }));
 
-const EVIDENCE_TYPES: { value: EvidenceType; label: string }[] = [
-  { value: 'documents', label: 'Documents' },
-  { value: 'photographs', label: 'Photographs' },
-  { value: 'video_recordings', label: 'Video Recordings' },
-  { value: 'audio_recordings', label: 'Audio Recordings' },
-  { value: 'witness_testimony', label: 'Witness Testimony' },
-  { value: 'physical_evidence', label: 'Physical Evidence' },
-  { value: 'digital_evidence', label: 'Digital Evidence' },
-  { value: 'expert_reports', label: 'Expert Reports' },
-  { value: 'confessions_statements', label: 'Confessions/Statements' },
-  { value: 'timeline_logs', label: 'Timeline/Logs' },
-];
+const EVIDENCE_TYPES: { value: EvidenceType }[] = ['documents', 'photographs', 'video_recordings', 'audio_recordings', 'witness_testimony', 'physical_evidence', 'digital_evidence', 'expert_reports', 'confessions_statements', 'timeline_logs'].map(value => ({ value: value as EvidenceType }));
 
 const inputCls = INPUT;
 const cardCls = `${PANEL_SOFT} p-4`;
@@ -76,6 +57,7 @@ const primaryBtn = `${gameButton('gold')} w-full`;
 const emptyInfo = { title: '', defendant_name: '', description: '', caseType: 'burglary' as CaseType, difficulty: 'medium' as Difficulty };
 
 export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: CustomCaseCreatorProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isEditMode = !!editCaseId;
   // New cases start by choosing how to fill the case in; editing always uses the form.
@@ -129,9 +111,9 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
         setLoadError(null);
         const caseData = await db.cases.getCaseWithDetails(editCaseId, { fresh: true });
         if (cancelled) return;
-        if (!caseData) { setLoadError('This case could not be found.'); return; }
+        if (!caseData) { setLoadError(t('creator.notFound')); return; }
         if (caseData.is_preset || caseData.created_by !== userId) {
-          setLoadError('You can only edit custom cases that you created.');
+          setLoadError(t('creator.notYours'));
           return;
         }
         const info = {
@@ -157,7 +139,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
         setBaseline(JSON.stringify([info, ev.map(({ uid: _u, ...e }) => e), wi.map(({ uid: _u, photoFile, ...w }) => ({ ...w, hasNewPhoto: false }))]));
       } catch (error) {
         console.error('Failed to load case data:', error);
-        if (!cancelled) setLoadError('Failed to load this case. Please try again.');
+        if (!cancelled) setLoadError(t('creator.loadFail'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -171,7 +153,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
   const filledWitnesses = witnesses.filter((w) => !isBlankWitness(w)).length;
 
   const handleCancel = async () => {
-    if (isDirty && !(await appConfirm({ title: 'DISCARD YOUR CHANGES?', message: 'Anything you changed here will be lost.', confirmLabel: 'DISCARD', cancelLabel: 'KEEP EDITING', tone: 'danger' }))) return;
+    if (isDirty && !(await appConfirm({ title: t('creator.discardTitle'), message: t('creator.discardMsg'), confirmLabel: t('creator.discard'), cancelLabel: t('creator.keepEditing'), tone: 'danger' }))) return;
     onCancel();
   };
 
@@ -239,7 +221,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
           const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, w.photoFile, {
             contentType: w.photoFile.type, cacheControl: '31536000',
           });
-          if (error) throw new Error(`Uploading the photo for ${w.name.trim()} failed: ${error.message}`);
+          if (error) throw new Error(t('creator.errPhoto', { name: w.name.trim(), message: error.message }));
           pendingUploads.add(path);
           photoByUid.set(w.uid, { path, url: supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl });
         } else {
@@ -274,7 +256,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
         for (const row of await db.evidence.getCaseEvidence(caseId, true)) {
           if (keep.has(row.id)) continue;
           try { await db.evidence.deleteEvidence(row.id); } catch {
-            notes.push(`Evidence "${row.title}" could not be removed because players already used it. It was kept.`);
+            notes.push(t('creator.keptEvidence', { title: row.title }));
             if (row.exhibit_label) keptLabels.push(row.exhibit_label);
           }
         }
@@ -289,7 +271,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
           if (item.id) await db.evidence.updateEvidence(item.id, fields);
           else await db.evidence.addEvidence({ ...fields, case_id: caseId, is_hidden: false, auto_tagged: true });
         } catch (e) {
-          throw new Error(`Saving evidence "${fields.title}" failed: ${e instanceof Error ? e.message : 'unknown error'}`);
+          throw new Error(t('creator.errEvidenceSave', { title: fields.title, message: e instanceof Error ? e.message : t('creator.unknownError') }));
         }
       }
 
@@ -303,7 +285,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
             const old = photoPathFromUrl(row.photo_url);
             if (old) replaced.push(old);
           } catch {
-            notes.push(`Witness "${row.name}" could not be removed because players already questioned them. They were kept.`);
+            notes.push(t('creator.keptWitness', { name: row.name }));
           }
         }
       }
@@ -326,7 +308,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
           }
           if (photo?.path) pendingUploads.delete(photo.path);
         } catch (e) {
-          throw new Error(`Saving witness "${fields.name}" failed: ${e instanceof Error ? e.message : 'unknown error'}`);
+          throw new Error(t('creator.errWitnessSave', { name: fields.name, message: e instanceof Error ? e.message : t('creator.unknownError') }));
         }
       }
 
@@ -347,10 +329,10 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
       // Don't leave a half-built case behind, and don't leave uploaded files nobody points at.
       if (createdCaseId) await db.cases.deleteCase(createdCaseId).catch(() => undefined);
       if (pendingUploads.size) await supabase.storage.from(PHOTO_BUCKET).remove([...pendingUploads]).catch(() => undefined);
-      const reason = error instanceof Error ? error.message : 'Something went wrong.';
+      const reason = error instanceof Error ? error.message : t('creator.wentWrong');
       setSaveError(editCaseId
-        ? `${reason} Some of your changes may already be saved. Please check the case and try again.`
-        : `${reason} Nothing was saved, so you can try again.`);
+        ? t('creator.partial', { reason })
+        : t('creator.nothingSaved', { reason }));
     } finally {
       setSaving(false);
     }
@@ -362,25 +344,25 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
   if (mode === 'choose') {
     return (
-      <ScreenShell title="NEW CASE" onBack={onCancel} maxWidth="max-w-3xl lg:max-w-4xl">
+      <ScreenShell title={t('creator.newCase')} onBack={onCancel} maxWidth="max-w-3xl lg:max-w-4xl">
         <div className={`${PANEL} space-y-4`}>
-          <p className="text-white/70 text-sm">How do you want to build your case?</p>
+          <p className="text-white/70 text-sm">{t('creator.how')}</p>
           <button
             onClick={() => setMode('ai')}
             className="w-full text-left rounded-2xl border border-[#FFD43B]/60 bg-[#FFD43B]/10 hover:bg-[#FFD43B]/20 p-4 transition-colors"
           >
-            <div className="flex items-center gap-2 text-[#FFD43B] font-bold"><Sparkles className="w-5 h-5" /> Build from a case file</div>
+            <div className="flex items-center gap-2 text-[#FFD43B] font-bold"><Sparkles className="w-5 h-5" /> {t('creator.fromFile')}</div>
             <p className="text-sm text-white/80 mt-1">
-              Upload a case-file PDF or paste your notes. The game builds the witnesses, evidence and timeline, and shows where opposing counsel is likely to attack.
+              {t('creator.fromFileBody')}
             </p>
-            <p className="text-xs text-white/55 mt-2 flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> You review and edit everything before saving.</p>
+            <p className="text-xs text-white/55 mt-2 flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> {t('creator.reviewNote')}</p>
           </button>
           <button
             onClick={() => setMode('manual')}
             className="w-full text-left rounded-2xl border border-white/20 bg-white/[0.06] hover:border-[#FFD43B]/60 p-4 transition-colors"
           >
-            <div className="flex items-center gap-2 text-white font-bold"><PenLine className="w-5 h-5" /> Fill in the form</div>
-            <p className="text-sm text-white/70 mt-1">Write the case, evidence and witnesses yourself.</p>
+            <div className="flex items-center gap-2 text-white font-bold"><PenLine className="w-5 h-5" /> {t('creator.form')}</div>
+            <p className="text-sm text-white/70 mt-1">{t('creator.formBody')}</p>
           </button>
         </div>
       </ScreenShell>
@@ -389,14 +371,14 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
   if (loading || loadError) {
     return (
-      <ScreenShell title="EDIT CASE" onBack={onCancel} maxWidth="max-w-3xl lg:max-w-4xl">
+      <ScreenShell title={t('creator.editCase')} onBack={onCancel} maxWidth="max-w-3xl lg:max-w-4xl">
         <div className={`${PANEL} p-8 text-center text-white/70`}>
           {loadError ? (
             <div className="space-y-4">
               <p className="text-red-300">{loadError}</p>
-              <button onClick={onCancel} className={gameButton('gold', 'sm')}>Back</button>
+              <button onClick={onCancel} className={gameButton('gold', 'sm')}>{t('common.back')}</button>
             </div>
-          ) : 'Loading case...'}
+          ) : t('creator.loading')}
         </div>
       </ScreenShell>
     );
@@ -405,7 +387,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
   const issueList = showIssues ? live.errors : [];
 
   return (
-    <ScreenShell title={isEditMode ? 'EDIT CASE' : 'NEW CASE'} onBack={handleCancel} maxWidth="max-w-3xl lg:max-w-4xl">
+    <ScreenShell title={isEditMode ? t('creator.editCase') : t('creator.newCase')} onBack={handleCancel} maxWidth="max-w-3xl lg:max-w-4xl">
       <div className={`${PANEL_SOFT} overflow-hidden`}>
         <div className="border-b border-white/15 px-6 py-4">
           <div className="flex gap-3">
@@ -427,7 +409,7 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
         <div className="p-6">
           {issueList.length > 0 && (
             <div role="alert" className="mb-4 rounded-lg border border-red-400/40 bg-red-950/40 p-4 text-sm text-red-200 space-y-1">
-              <p className="font-semibold">Fix these before saving:</p>
+              <p className="font-semibold">{t('creator.fixThese')}</p>
               {issueList.map((it, i) => (
                 <button key={i} onClick={() => setStep(it.step)} className="block text-left underline-offset-2 hover:underline">
                   • {it.message}
@@ -438,60 +420,60 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
           {step === 'info' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">Case Title</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">{t('creator.caseTitle')}</label>
                 <input
                   type="text" value={caseInfo.title} maxLength={120}
                   onChange={(e) => setCaseInfo({ ...caseInfo, title: e.target.value })}
-                  placeholder="The State vs. John Doe" className={inputCls}
+                  placeholder={t('creator.titlePh')} className={inputCls}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">Defendant Name</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">{t('creator.defendant')}</label>
                 <input
                   type="text" value={caseInfo.defendant_name} maxLength={80}
                   onChange={(e) => setCaseInfo({ ...caseInfo, defendant_name: e.target.value })}
-                  placeholder="John Doe" className={inputCls}
+                  placeholder={t('creator.defendantPh')} className={inputCls}
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">Case Type</label>
+                  <label className="block text-sm font-medium text-white/70 mb-2">{t('creator.caseType')}</label>
                   <select
                     value={caseInfo.caseType}
                     onChange={(e) => setCaseInfo({ ...caseInfo, caseType: e.target.value as CaseType })}
                     className={inputCls}
                   >
-                    {CASE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    {CASE_TYPES.map((ct) => <option key={ct.value} value={ct.value}>{t(`creator.types.${ct.value}`)}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">Difficulty</label>
+                  <label className="block text-sm font-medium text-white/70 mb-2">{t('creator.difficulty')}</label>
                   <select
                     value={caseInfo.difficulty}
                     onChange={(e) => setCaseInfo({ ...caseInfo, difficulty: e.target.value as Difficulty })}
                     className={inputCls}
                   >
-                    <option value="easy">Easy (2-3 witnesses &amp; evidence)</option>
-                    <option value="medium">Medium (4-6)</option>
-                    <option value="hard">Hard (7-10)</option>
+                    <option value="easy">{t('creator.easyOpt')}</option>
+                    <option value="medium">{t('creator.mediumOpt')}</option>
+                    <option value="hard">{t('creator.hardOpt')}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">Case Description</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">{t('creator.desc')}</label>
                 <textarea
                   value={caseInfo.description} maxLength={4000} rows={6}
                   onChange={(e) => setCaseInfo({ ...caseInfo, description: e.target.value })}
-                  placeholder="Provide a detailed description of the case..." className={inputCls}
+                  placeholder={t('creator.descPh')} className={inputCls}
                 />
-                <p className="text-xs text-white/55 mt-1">Players see this. Don't give away loopholes or hidden evidence.</p>
+                <p className="text-xs text-white/55 mt-1">{t('creator.descNote')}</p>
               </div>
 
               <button onClick={() => setStep('evidence')} disabled={!infoValid} className={primaryBtn}>
-                Continue to Evidence
+                {t('creator.toEvidence')}
               </button>
             </div>
           )}
@@ -499,18 +481,18 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
           {step === 'evidence' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Evidence Items</h3>
+                <h3 className="text-lg font-semibold text-white">{t('creator.evidenceItems')}</h3>
                 <button
                   onClick={addEvidence}
                   className={gameButton('gold', 'sm')}
                 >
                   <Plus className="w-4 h-4" />
-                  Add Evidence
+                  {t('creator.addEvidence')}
                 </button>
               </div>
 
               {evidenceItems.length === 0 ? (
-                <div className="text-center py-12 text-white/55">No evidence added yet. Click "Add Evidence" to begin.</div>
+                <div className="text-center py-12 text-white/55">{t('creator.noEvidence')}</div>
               ) : (
                 evidenceItems.map((item) => (
                   <div key={item.uid} className={cardCls}>
@@ -519,9 +501,9 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                         type="text" value={item.exhibitLabel} maxLength={30}
                         onChange={(e) => updateEvidence(item.uid, 'exhibitLabel', e.target.value)}
                         className="text-sm font-medium text-blue-400 bg-transparent border-b border-transparent hover:border-blue-400 focus:border-blue-400 focus:outline-none px-1"
-                        placeholder="Exhibit label" aria-label="Exhibit label"
+                        placeholder={t('creator.exhibitLabel')} aria-label={t('creator.exhibitLabel')}
                       />
-                      <button onClick={() => removeEvidence(item.uid)} aria-label="Remove evidence" className="text-red-400 hover:text-red-300">
+                      <button onClick={() => removeEvidence(item.uid)} aria-label={t('creator.removeEvidence')} className="text-red-400 hover:text-red-300">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -530,70 +512,70 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                       <input
                         type="text" value={item.title} maxLength={120}
                         onChange={(e) => updateEvidence(item.uid, 'title', e.target.value)}
-                        placeholder="Evidence title" className={inputCls}
+                        placeholder={t('creator.evidenceTitle')} className={inputCls}
                       />
                       <select
                         value={item.type}
                         onChange={(e) => updateEvidence(item.uid, 'type', e.target.value as EvidenceType)}
                         className={inputCls}
                       >
-                        {EVIDENCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        {!EVIDENCE_TYPES.some((t) => t.value === item.type) && <option value={item.type}>{item.type}</option>}
+                        {EVIDENCE_TYPES.map((et) => <option key={et.value} value={et.value}>{t(`evidenceType.${et.value}`)}</option>)}
+                        {!EVIDENCE_TYPES.some((et) => et.value === item.type) && <option value={item.type}>{item.type}</option>}
                       </select>
                       <textarea
                         value={item.description} maxLength={1000} rows={2}
                         onChange={(e) => updateEvidence(item.uid, 'description', e.target.value)}
-                        placeholder="Description" className={inputCls}
+                        placeholder={t('creator.description')} className={inputCls}
                       />
                       <textarea
                         value={item.content} maxLength={5000} rows={3}
                         onChange={(e) => updateEvidence(item.uid, 'content', e.target.value)}
-                        placeholder="Content / Details" className={inputCls}
+                        placeholder={t('creator.content')} className={inputCls}
                       />
                     </div>
                   </div>
                 ))
               )}
 
-              <button onClick={() => setStep('witnesses')} className={primaryBtn}>Continue to Witnesses</button>
+              <button onClick={() => setStep('witnesses')} className={primaryBtn}>{t('creator.toWitnesses')}</button>
             </div>
           )}
 
           {step === 'witnesses' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Witnesses</h3>
+                <h3 className="text-lg font-semibold text-white">{t('creator.witnesses')}</h3>
                 <button
                   onClick={addWitness}
                   className={gameButton('gold', 'sm')}
                 >
                   <Plus className="w-4 h-4" />
-                  Add Witness
+                  {t('creator.addWitness')}
                 </button>
               </div>
 
               {witnesses.length === 0 ? (
-                <div className="text-center py-12 text-white/55">No witnesses added yet. Click "Add Witness" to begin.</div>
+                <div className="text-center py-12 text-white/55">{t('creator.noWitnesses')}</div>
               ) : (
                 witnesses.map((witness, index) => (
                   <div key={witness.uid} className={cardCls}>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium text-blue-400">Witness {index + 1}</span>
-                      <button onClick={() => removeWitness(witness.uid)} aria-label="Remove witness" className="text-red-400 hover:text-red-300">
+                      <button onClick={() => removeWitness(witness.uid)} aria-label={t('creator.removeWitness')} className="text-red-400 hover:text-red-300">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
 
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-white/70 mb-2">Witness Photo (Optional)</label>
+                        <label className="block text-sm font-medium text-white/70 mb-2">{t('creator.photoOpt')}</label>
                         <div className="flex items-center gap-3 flex-wrap">
                           {witness.photoUrl && (
-                            <img src={witness.photoUrl} alt={witness.name || 'Witness'} className="w-16 h-16 rounded-full object-cover" />
+                            <img src={witness.photoUrl} alt={witness.name || t('transcript.witness')} className="w-16 h-16 rounded-full object-cover" />
                           )}
                           <label className={`${gameButton("ghost", "sm")} cursor-pointer`}>
                             <Upload className="w-4 h-4" />
-                            {witness.photoUrl ? 'Change Photo' : 'Upload Photo'}
+                            {witness.photoUrl ? t('creator.changePhoto') : t('creator.uploadPhoto')}
                             <input
                               type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                               onChange={(e) => {
@@ -618,22 +600,22 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                       <input
                         type="text" value={witness.name} maxLength={80}
                         onChange={(e) => updateWitness(witness.uid, 'name', e.target.value)}
-                        placeholder="Witness name" className={inputCls}
+                        placeholder={t('creator.witnessName')} className={inputCls}
                       />
                       <input
                         type="text" value={witness.role} maxLength={80}
                         onChange={(e) => updateWitness(witness.uid, 'role', e.target.value)}
-                        placeholder="Role (e.g., neighbor, officer, expert)" className={inputCls}
+                        placeholder={t('creator.rolePh')} className={inputCls}
                       />
                       <textarea
                         value={witness.background} maxLength={1000} rows={2}
                         onChange={(e) => updateWitness(witness.uid, 'background', e.target.value)}
-                        placeholder="Background information" className={inputCls}
+                        placeholder={t('creator.background')} className={inputCls}
                       />
                       <textarea
                         value={witness.testimony} maxLength={4000} rows={4}
                         onChange={(e) => updateWitness(witness.uid, 'testimony', e.target.value)}
-                        placeholder="Base testimony (what they will say)" className={inputCls}
+                        placeholder={t('creator.baseTestimony')} className={inputCls}
                       />
                     </div>
                   </div>
@@ -652,13 +634,13 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
 
               {savedNotes.length > 0 && savedId && (
                 <div className="rounded-lg border border-amber-400/30 bg-amber-950/30 p-4 text-sm text-amber-200 space-y-2">
-                  <p className="font-semibold">Saved, with notes:</p>
+                  <p className="font-semibold">{t('creator.savedNotes')}</p>
                   {savedNotes.map((n, i) => <p key={i}>{n}</p>)}
                 </div>
               )}
 
               {savedId && savedNotes.length > 0 ? (
-                <button onClick={() => onComplete(savedId)} className={primaryBtn}>Continue</button>
+                <button onClick={() => onComplete(savedId)} className={primaryBtn}>{t('pretrial.continue')}</button>
               ) : (
                 <button
                   onClick={handleSubmit}
@@ -666,8 +648,8 @@ export default function CustomCaseCreator({ onComplete, onCancel, editCaseId }: 
                   className={primaryBtn}
                 >
                   {saving
-                    ? (isEditMode ? 'Saving Changes...' : 'Creating Case...')
-                    : (isEditMode ? 'Save & Continue' : 'Create Case & Begin')}
+                    ? (isEditMode ? t('creator.saving') : t('creator.creating'))
+                    : (isEditMode ? t('creator.saveContinue') : t('creator.createBegin'))}
                 </button>
               )}
             </div>

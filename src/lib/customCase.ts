@@ -1,4 +1,5 @@
 // Pure helpers for the user-facing Custom Case creator (no React, no Supabase) so they can be unit tested.
+import i18n from '../i18n';
 import { exhibitLabel } from './exhibitLabel';
 import { TIERS, rangeText, tierOf } from './caseCreator/tiers';
 
@@ -36,27 +37,27 @@ export function validateCustomCase(
   const warnings: string[] = [];
   const err = (step: CreatorStep, message: string) => errors.push({ step, message });
 
-  if (!info.title.trim()) err('info', 'Give the case a title.');
-  if (!info.description.trim()) err('info', 'Add a case description.');
-  if (!info.caseType) err('info', 'Pick a case type.');
+  if (!info.title.trim()) err('info', i18n.t('creator.v.giveTitle'));
+  if (!info.description.trim()) err('info', i18n.t('creator.v.addDesc'));
+  if (!info.caseType) err('info', i18n.t('creator.v.pickType'));
 
   const ev = evidence.map((e, i) => ({ e, n: i + 1 })).filter(({ e }) => !isBlankEvidence(e));
   ev.forEach(({ e, n }) => {
-    if (!e.title.trim()) err('evidence', `Evidence ${n} has details but no title.`);
+    if (!e.title.trim()) err('evidence', i18n.t('creator.v.evNoTitle', { n }));
   });
   const evCount = ev.filter(({ e }) => e.title.trim()).length;
-  if (evCount < MIN_EVIDENCE) err('evidence', `Add at least ${MIN_EVIDENCE} evidence items (you have ${evCount}).`);
+  if (evCount < MIN_EVIDENCE) err('evidence', i18n.t('creator.v.evMin', { min: MIN_EVIDENCE, count: evCount }));
 
   const wi = witnesses.map((w, i) => ({ w, n: i + 1 })).filter(({ w }) => !isBlankWitness(w));
   wi.forEach(({ w, n }) => {
-    if (!w.name.trim()) err('witnesses', `Witness ${n} has details but no name.`);
+    if (!w.name.trim()) err('witnesses', i18n.t('creator.v.wNoName', { n }));
     else if (!w.testimony.trim()) err('witnesses', `${w.name.trim()} needs testimony, or the witness will have nothing to say.`);
   });
   const wCount = wi.filter(({ w }) => w.name.trim()).length;
-  if (wCount < MIN_WITNESSES) err('witnesses', `Add at least ${MIN_WITNESSES} witnesses (you have ${wCount}).`);
+  if (wCount < MIN_WITNESSES) err('witnesses', i18n.t('creator.v.wMin', { min: MIN_WITNESSES, count: wCount }));
 
   const names = wi.map(({ w }) => w.name.trim().toLowerCase()).filter(Boolean);
-  if (new Set(names).size !== names.length) warnings.push('Two witnesses share the same name.');
+  if (new Set(names).size !== names.length) warnings.push(i18n.t('creator.v.sameName'));
 
   const tier = tierOf(info.difficulty);
   const t = TIERS[tier];
@@ -97,8 +98,8 @@ export function assignExhibitLabels(labels: (string | undefined)[]): string[] {
 }
 
 export function validatePhoto(file: { type: string; size: number }): string | null {
-  if (!PHOTO_TYPES[file.type]) return 'Photos must be JPG, PNG or WebP.';
-  if (file.size > MAX_PHOTO_BYTES) return `Photo is too large (max ${MAX_PHOTO_BYTES / 1024 / 1024} MB).`;
+  if (!PHOTO_TYPES[file.type]) return i18n.t('creator.v.photoType');
+  if (file.size > MAX_PHOTO_BYTES) return i18n.t('creator.v.photoBig', { mb: MAX_PHOTO_BYTES / 1024 / 1024 });
   return null;
 }
 
