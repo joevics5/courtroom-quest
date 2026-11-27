@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import { supabase } from './supabase';
 
 /** Public bucket for case thumbnails and evidence pictures (admins upload, everyone can read). */
@@ -36,7 +37,7 @@ export function firstImageUrl(fileUrl?: string | null): string | null {
 /** A readable reason the file can't be used, or null when it's fine. */
 export function checkImageFile(file: File): string | null {
   if (!ALLOWED_TYPES.includes(file.type)) return 'Please choose a JPG, PNG, WebP or GIF picture.';
-  if (file.size > MAX_CASE_IMAGE_BYTES) return 'That picture is over 5 MB. Please choose a smaller one.';
+  if (file.size > MAX_CASE_IMAGE_BYTES) return i18n.t('misc.imgBig', { mb: Math.round(MAX_CASE_IMAGE_BYTES / 1024 / 1024) });
   return null;
 }
 

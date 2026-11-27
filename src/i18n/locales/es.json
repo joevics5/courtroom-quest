@@ -1308,5 +1308,19 @@
     "juryDeliberating": "El jurado delibera",
     "bailiffSpeaking": "Habla el alguacil",
     "move": "Mover"
+  },
+  "misc": {
+    "noEmail": "No uses una dirección de correo.",
+    "fileEmpty": "Ese archivo está vacío.",
+    "notPdf": "Ese archivo no parece un PDF válido.",
+    "readFail": "No se pudo leer ese archivo.",
+    "imgBig": "Esa imagen supera los {{mb}} MB. Elige una más pequeña.",
+    "seatOpp": "{{name}} ya tomó asiento. Toma asiento tú también.",
+    "seatWaitOpp": "Esperando a la parte contraria…",
+    "seatBothDrive": "Ambas partes ya tomaron asiento. Pulsa Empezar cuando quieras.",
+    "seatBothWait": "Ambas partes ya tomaron asiento. Esperando a que {{name}} abra la audiencia…",
+    "transcriptNone": "Aún no hay entradas en la transcripción.",
+    "micDenied": "Se denegó el acceso al micrófono. Actívalo en la configuración del navegador para usar la entrada de voz.",
+    "micUnsupported": "Este navegador no admite la entrada de voz. Prueba con Chrome o Edge."
   }
 }

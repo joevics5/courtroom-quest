@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import type { TrialEvent } from '../types';
 
 /**
@@ -5,7 +6,7 @@ import type { TrialEvent } from '../types';
  */
 export function generateTranscript(events: TrialEvent[]): string {
   if (events.length === 0) {
-    return 'No transcript entries yet.';
+    return i18n.t('misc.transcriptNone');
   }
 
   // Sort by event_order or timestamp

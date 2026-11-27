@@ -6,6 +6,7 @@
  * case_sessions.session_state and is read back by polling, the same way the trial itself stays in sync.
  * This file holds the pure rules; nothing here touches the network.
  */
+import i18n from '../i18n';
 import type { CaseSession, PlayerRole } from '../types';
 import { getSessionPlayerRole } from './verdictUtils';
 
@@ -124,9 +125,9 @@ export const drivesPretrial = (side: PlayerRole | Side) => side === 'defense';
 /** What the pre-trial screen tells a player about the seats, before court opens. */
 export function seatNotice(input: { mySeated: boolean; opponentSeated: boolean; iDrive: boolean; opponentName: string }): string {
   const { mySeated, opponentSeated, iDrive, opponentName } = input;
-  if (!mySeated) return opponentSeated ? `${opponentName} is seated. Take a seat.` : 'Walk to your chair at the counsel table to begin.';
-  if (!opponentSeated) return 'Waiting for opposing counsel…';
-  return iDrive ? 'Both counsel are seated. Press Start when you are ready.' : `Both counsel are seated. Waiting for ${opponentName} to open court…`;
+  if (!mySeated) return opponentSeated ? i18n.t('misc.seatOpp', { name: opponentName }) : i18n.t('pretrial.walk');
+  if (!opponentSeated) return i18n.t('misc.seatWaitOpp');
+  return iDrive ? i18n.t('misc.seatBothDrive') : i18n.t('misc.seatBothWait', { name: opponentName });
 }
 
 // ---- "what is my opponent doing" before the trial ----

@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /**
  * Avatar data for the courtroom: what an avatar looks like (AvatarConfig),
  * the parts a player can pick from, and ready-made judges and opposing
@@ -297,6 +298,6 @@ export function validateUsername(raw: string): string | null {
   if (value.length < USERNAME_MIN) return `Use at least ${USERNAME_MIN} characters.`;
   if (value.length > USERNAME_MAX) return `Use ${USERNAME_MAX} characters or fewer.`;
   if (!/^[\p{L}\p{N}_ .'-]+$/u.test(value)) return 'Use letters, numbers, spaces, and . _ - only.';
-  if (value.includes('@')) return 'Do not use an email address.';
+  if (value.includes('@')) return i18n.t('misc.noEmail');
   return null;
 }

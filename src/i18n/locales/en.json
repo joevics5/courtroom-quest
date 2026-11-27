@@ -1308,5 +1308,19 @@
     "juryDeliberating": "Jury deliberating",
     "bailiffSpeaking": "Bailiff speaking",
     "move": "Move"
+  },
+  "misc": {
+    "noEmail": "Do not use an email address.",
+    "fileEmpty": "That file is empty.",
+    "notPdf": "That file does not look like a valid PDF.",
+    "readFail": "Could not read that file.",
+    "imgBig": "That picture is over {{mb}} MB. Please choose a smaller one.",
+    "seatOpp": "{{name}} is seated. Take a seat.",
+    "seatWaitOpp": "Waiting for opposing counsel…",
+    "seatBothDrive": "Both counsel are seated. Press Start when you are ready.",
+    "seatBothWait": "Both counsel are seated. Waiting for {{name}} to open court…",
+    "transcriptNone": "No transcript entries yet.",
+    "micDenied": "Microphone access was denied. Enable it in your browser settings to use voice input.",
+    "micUnsupported": "Voice input is not supported in this browser. Try Chrome or Edge."
   }
 }

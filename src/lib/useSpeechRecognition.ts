@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 /**
@@ -99,7 +100,7 @@ export function useSpeechRecognition({ onResult, onError }: UseSpeechRecognition
       if (event.error === 'not-allowed' || event.error === 'permission-denied') {
         shouldListenRef.current = false;
         setIsListening(false);
-        onErrorRef.current?.('Microphone access was denied. Enable it in your browser settings to use voice input.');
+        onErrorRef.current?.(i18n.t('misc.micDenied'));
         return;
       }
       shouldListenRef.current = false;
@@ -133,7 +134,7 @@ export function useSpeechRecognition({ onResult, onError }: UseSpeechRecognition
   const start = useCallback(() => {
     const SpeechRecognitionCtor = getSpeechRecognitionConstructor();
     if (!SpeechRecognitionCtor) {
-      onErrorRef.current?.('Voice input is not supported in this browser. Try Chrome or Edge.');
+      onErrorRef.current?.(i18n.t('misc.micUnsupported'));
       return;
     }
     shouldListenRef.current = true;
