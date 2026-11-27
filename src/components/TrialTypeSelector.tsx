@@ -1,11 +1,20 @@
-import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Scale, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Lock, Scale, Users } from 'lucide-react';
 import HeroBackground from './HeroBackground';
+import UpgradePrompt from './UpgradePrompt';
+import { db } from '../lib/database';
+import { adviceFor, creditCostLabel, creditsLeftLabel, isLocked, type CreditStatus, type StartTrialResult, type StartTrialAdvice } from '../lib/credits';
 import type { TrialType, TrialDuration } from '../types';
 
 interface Props {
-  onSelect: (type: TrialType, duration: TrialDuration) => void;
+  /**
+   * Starts the trial. Return the server's answer: when it was refused (out of credits, a Pro length...) the
+   * picker explains why instead of moving on.
+   */
+  onSelect: (type: TrialType, duration: TrialDuration) => void | StartTrialResult | Promise<void | StartTrialResult>;
   onCancel: () => void;
+  /** A guest who needs a free account to carry on. */
+  onCreateAccount?: () => void;
 }
 
 const COURTS: Array<{
@@ -46,12 +55,59 @@ const LENGTHS: Array<{ value: TrialDuration; big: string; unit: string; label: s
  * One screen, no scrolling: pick the court, pick how long, confirm.
  * The confirm button is always on screen at the bottom.
  */
-export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
+export default function TrialTypeSelector({ onSelect, onCancel, onCreateAccount }: Props) {
   const [selectedType, setSelectedType] = useState<TrialType | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<TrialDuration>(30);
+  const [status, setStatus] = useState<CreditStatus | null>(null);
+  const [advice, setAdvice] = useState<StartTrialAdvice | null>(null);
+  const [starting, setStarting] = useState(false);
 
-  const confirm = () => {
-    if (selectedType) onSelect(selectedType, selectedDuration);
+  // What this plan may start and how many credits are left. If it can't be read, nothing is locked here and the
+  // server decides when the trial starts.
+  useEffect(() => {
+    let cancelled = false;
+    db.credits.getStatus().then(s => { if (!cancelled && s) setStatus(s); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+
+  // A free player's best default is the longest trial they can have.
+  useEffect(() => {
+    if (status && !status.allowed_minutes.includes(selectedDuration)) {
+      setSelectedDuration(Math.max(...status.allowed_minutes) as TrialDuration);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  const showLock = (type?: TrialType, minutes?: number) => {
+    const error = type === 'jury' ? 'jury_locked' : 'duration_locked';
+    setAdvice(adviceFor({ ok: false, error, upgrade_required: true, tier: status?.tier }));
+    void minutes;
+  };
+
+  const pickCourt = (type: TrialType) => {
+    if (isLocked(status, { mode: type })) { showLock(type); return; }
+    setSelectedType(type);
+  };
+
+  const pickLength = (minutes: TrialDuration) => {
+    if (isLocked(status, { minutes })) { showLock(undefined, minutes); return; }
+    setSelectedDuration(minutes);
+  };
+
+  const confirm = async () => {
+    if (!selectedType || starting) return;
+    setStarting(true);
+    try {
+      const result = await onSelect(selectedType, selectedDuration);
+      const refusal = result ? adviceFor(result) : null;
+      if (refusal) {
+        setAdvice(refusal);
+        // The plan may have changed (credits spent elsewhere, an upgrade): look again.
+        db.credits.getStatus().then(s => { if (s) setStatus(s); }).catch(() => undefined);
+      }
+    } finally {
+      setStarting(false);
+    }
   };
 
   return (
@@ -73,6 +129,7 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
           <div className="min-w-0">
             <h1 className="logo-gold font-game text-4xl leading-none truncate">CHOOSE YOUR COURT</h1>
             <p className="text-white/60 text-xs mt-1">Who decides the outcome, and for how long?</p>
+            {status?.enforced && <p className="text-[#FFD43B] text-xs font-bold mt-0.5" data-testid="credits-left">{creditsLeftLabel(status)}</p>}
           </div>
         </header>
 
@@ -84,7 +141,7 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
             return (
               <button
                 key={court.type}
-                onClick={() => setSelectedType(court.type)}
+                onClick={() => pickCourt(court.type)}
                 aria-pressed={selected}
                 className={`relative flex items-center gap-4 rounded-3xl border-2 border-b-[6px] p-4 text-left transition-all active:translate-y-0.5 active:border-b-2 ${
                   selected ? 'border-[#FFD43B] bg-[#FFD43B]/10' : 'border-white/15 bg-black/60 backdrop-blur-sm'
@@ -98,6 +155,11 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
                 <span className={`flex-none flex items-center justify-center w-16 h-16 rounded-2xl ${court.iconBg}`}>
                   <Icon className="w-8 h-8 text-white" />
                 </span>
+                {isLocked(status, { mode: court.type }) && (
+                  <span className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-[#FFD43B] px-2 py-0.5 text-[11px] font-black text-black">
+                    <Lock className="w-3 h-3" aria-hidden="true" />PRO
+                  </span>
+                )}
                 <span className="flex-1 min-w-0">
                   <span className="block font-game text-3xl text-white leading-none">{court.title}</span>
                   <span className="block mt-1 text-sm text-white/70 leading-snug">{court.tagline}</span>
@@ -124,16 +186,22 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
                   <button
                     key={len.value}
                     type="button"
-                    onClick={() => setSelectedDuration(len.value)}
+                    onClick={() => pickLength(len.value)}
                     aria-pressed={selected}
                     data-testid={`length-${len.value}`}
-                    className={`rounded-2xl border-2 py-2 px-0.5 text-center active:translate-y-0.5 ${
+                    className={`relative rounded-2xl border-2 py-2 px-0.5 text-center active:translate-y-0.5 ${
                       selected ? 'border-[#FFD43B] bg-[#FFD43B]' : 'border-white/20 bg-[#1b1e2b]'
-                    }`}
+                    } ${isLocked(status, { minutes: len.value }) ? 'opacity-70' : ''}`}
                   >
+                    {isLocked(status, { minutes: len.value }) && (
+                      <span className="absolute -top-2 -right-1 flex items-center gap-0.5 rounded-full bg-[#FFD43B] px-1.5 py-px text-[10px] font-black text-black">
+                        <Lock className="w-2.5 h-2.5" aria-hidden="true" />PRO
+                      </span>
+                    )}
                     <span className={`block font-game text-4xl leading-none ${selected ? 'text-black' : 'text-white'}`}>{len.big}</span>
                     <span className={`block text-[11px] font-black tracking-widest ${selected ? 'text-black' : 'text-white'}`}>{len.unit}</span>
                     <span className={`block text-[11px] font-semibold whitespace-nowrap ${selected ? 'text-black/75' : 'text-white/70'}`}>{len.label}</span>
+                    <span className={`block text-[10px] font-bold whitespace-nowrap ${selected ? 'text-black/80' : 'text-[#FFD43B]'}`}>{status?.enforced ? creditCostLabel(len.value) : ''}</span>
                   </button>
                 );
               })}
@@ -143,13 +211,24 @@ export default function TrialTypeSelector({ onSelect, onCancel }: Props) {
 
         <button
           onClick={confirm}
-          disabled={!selectedType}
+          disabled={!selectedType || starting}
           className="flex-none w-full flex items-center justify-center gap-2 rounded-2xl bg-[#FFD43B] text-black font-game text-3xl py-3 border-b-[6px] border-[#B8860B] active:translate-y-1 active:border-b-2 transition-all disabled:opacity-40 disabled:grayscale"
         >
           {selectedType === 'jury' ? 'PICK YOUR JURY' : selectedType === 'judge' ? 'TO THE COURTROOM' : 'PICK A COURT'}
           {selectedType && <ArrowRight className="w-6 h-6" />}
         </button>
       </div>
+
+      {advice && (
+        <UpgradePrompt
+          title={advice.title}
+          message={advice.message}
+          canUpgrade={advice.canUpgrade}
+          needsAccount={advice.needsAccount}
+          onCreateAccount={() => { setAdvice(null); onCreateAccount?.(); }}
+          onClose={() => setAdvice(null)}
+        />
+      )}
     </div>
   );
 }

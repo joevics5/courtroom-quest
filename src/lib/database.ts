@@ -20,6 +20,7 @@ import type {
   PlayerRole
 } from '../types';
 import { parseFeeBoard, type FeeBoard } from './coins';
+import { fetchCreditStatus, startTrialCharge } from './credits';
 
 export type HistorySession = CaseSession & {
   cases: { title: string; difficulty?: string } | null;
@@ -995,6 +996,13 @@ export const db = {
 
       return session as CaseSession;
     }
+  },
+
+  credits: {
+    /** Trial credits left and what this plan may start. Null when it can't be read. */
+    getStatus: fetchCreditStatus,
+    /** Charges the credits for a game (once per game) and checks the plan allows it. */
+    startTrial: startTrialCharge
   },
 
   coins: {

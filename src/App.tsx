@@ -5,6 +5,9 @@ import { SessionProvider } from './contexts/SessionContext';
 import Auth from './components/Auth';
 import AccessGate from './components/AccessGate';
 import GuestSavePrompt from './components/GuestSavePrompt';
+import UpgradePrompt from './components/UpgradePrompt';
+import ProWelcomeBanner from './components/ProWelcomeBanner';
+import { adviceFor, type StartTrialAdvice, type StartTrialResult } from './lib/credits';
 import { guestNeedsAccount, recordGuestGame, GUEST_GAME_LIMIT } from './lib/guestLimit';
 import { hasSeen, markSeen } from './lib/firstVisit';
 import { hasSavedAvatar } from './lib/avatars';
@@ -128,6 +131,8 @@ function AppContent() {
   // Guests: save-your-progress screen, the wall after a few games, and the soft nudge after the first game.
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showGuestWall, setShowGuestWall] = useState(false);
+  // Why a trial could not start (out of credits, a Pro length...), for the Quick Start path that has no picker.
+  const [startAdvice, setStartAdvice] = useState<StartTrialAdvice | null>(null);
   const [guestNudgeDismissed, setGuestNudgeDismissed] = useState(false);
   // A private-challenge link was opened (?challenge=...): shown instead of the home screen until accepted or dismissed.
   const [linkChallengeId, setLinkChallengeId] = useState<string | null>(() => captureChallengeLink());
@@ -838,7 +843,8 @@ function AppContent() {
 
     // Quick Start: skip the trial-type screen. A bench trial of the shortest length, on easy, straight to pre-trial.
     if (currentSession.session_state?.quickStart) {
-      await handleTrialTypeSelect('judge', 10, 'easy');
+      const refusal = await handleTrialTypeSelect('judge', 10, 'easy');
+      if (refusal) setStartAdvice(adviceFor(refusal));
       return;
     }
 
@@ -928,8 +934,20 @@ function AppContent() {
     setView('investigation');
   };
 
-  const handleTrialTypeSelect = async (trialType: TrialType, duration: number, difficultyOverride?: Difficulty) => {
+  const handleTrialTypeSelect = async (trialType: TrialType, duration: number, difficultyOverride?: Difficulty): Promise<StartTrialResult | void> => {
     if (!currentSession) return;
+
+    // Credits first: the server checks this plan may play it and charges it (once per game). A refusal goes back
+    // to the picker, which explains it. A game that was already charged keeps the length and court it paid for.
+    const charge = await db.credits.startTrial(currentSession.id, duration, trialType);
+    if (charge.ok === false) {
+      if (charge.error === 'already_started' && charge.minutes && charge.mode) {
+        duration = charge.minutes;
+        trialType = charge.mode;
+      } else {
+        return charge;
+      }
+    }
 
     try {
       // Judge and prosecutor are decided ONCE, here, before the flow
@@ -1214,6 +1232,17 @@ function AppContent() {
   return (
     <>
       {tutorialOverlay}
+      <ProWelcomeBanner />
+      {startAdvice && (
+        <UpgradePrompt
+          title={startAdvice.title}
+          message={startAdvice.message}
+          canUpgrade={startAdvice.canUpgrade}
+          needsAccount={startAdvice.needsAccount}
+          onCreateAccount={() => { setStartAdvice(null); setShowUpgrade(true); }}
+          onClose={() => setStartAdvice(null)}
+        />
+      )}
       {showGuestWall && (
         <GuestSavePrompt
           title="KEEP PLAYING"
@@ -1416,6 +1445,7 @@ function AppContent() {
         <TrialTypeSelector
           onSelect={handleTrialTypeSelect}
           onCancel={handleBackFromInvestigation}
+          onCreateAccount={() => setShowUpgrade(true)}
         />
       )}
 
