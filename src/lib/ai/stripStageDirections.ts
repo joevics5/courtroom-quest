@@ -7,7 +7,11 @@ const ACTION_START = new RegExp(
   'smiles?|smiling|frowns?|frowning|laughs?|laughing|coughs?|coughing|hesitat\\w*|swallows?|swallowing|clears?|crosses|crossing|' +
   'wipes?|wiping|stares?|staring|squirms?|trembl\\w*|nervous\\w*|angr\\w*|quietly|softly|slowly|loudly|visibly|awkwardly|' +
   'uncomfortabl\\w*|defensive\\w*|tense\\w*|tears?|crying|whispers?|whispering|mutters?|muttering|leans?|leaning|folds?|folding|' +
-  'taps?|tapping|rubs?|rubbing|avoids?|avoiding|averts?|averting|eyes?|voice|beat)\\b', 'i'
+  'taps?|tapping|rubs?|rubbing|avoids?|avoiding|averts?|averting|eyes?|voice|beat|' +
+  // Spanish gestures: (mira hacia otro lado), (suspira), (se encoge de hombros)...
+  'mira\\w*|suspira\\w*|duda\\w*|titubea\\w*|traga\\w*|pausa\\w*|silencio|baja\\w*|aparta\\w*|niega\\w*|asiente|asintiendo|sonr[ií]e\\w*|' +
+  'frunce|fruncien\\w*|r[ií]e|riendo|tose|tosiendo|carraspea\\w*|susurra\\w*|murmura\\w*|se (?:inclina|encoge|remueve|mueve|toca|frota|queda|cruza|aclara)|' +
+  'cruza\\w*|evita\\w*|llora\\w*|nervios\\w*|tenso|tensa|en voz|con voz|lentamente|suavemente)\\b', 'i'
 );
 
 export function stripStageDirections(text: string): string {

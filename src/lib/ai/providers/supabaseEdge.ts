@@ -10,6 +10,14 @@ import { BaseAIProvider } from './base';
 import { supabase } from '@/integrations/supabase/client';
 import type { AIRequest, AIResponse, AIProvider } from '../types';
 import { getAiUsageContext } from '../usageContext';
+import i18n from '@/i18n';
+import { aiLanguageInstruction } from '@/i18n/languages';
+
+/** Adds the player's language instruction (nothing for English). */
+function withLanguage(system: string): string {
+  const note = aiLanguageInstruction(i18n.resolvedLanguage || i18n.language);
+  return note ? `${system}\n\n${note}` : system;
+}
 
 export class SupabaseEdgeProvider extends BaseAIProvider {
   name: AIProvider = 'gemini';
@@ -28,7 +36,7 @@ export class SupabaseEdgeProvider extends BaseAIProvider {
     const usage = getAiUsageContext();
     const { data, error } = await supabase.functions.invoke('ai-generate', {
       body: {
-        system: request.system,
+        system: withLanguage(request.system),
         user: request.user,
         maxTokens: request.maxTokens ?? 2048,
         temperature: request.temperature ?? 0.7,

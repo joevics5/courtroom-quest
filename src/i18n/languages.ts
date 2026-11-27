@@ -15,11 +15,32 @@ export interface LanguageInfo {
   englishName: string;
   htmlLang: string;
   dir: 'ltr' | 'rtl';
+  /**
+   * How to tell the AI which language to write in, plus the courtroom vocabulary to use.
+   * Left out for English (the prompts are already English).
+   */
+  ai?: { name: string; style: string };
 }
 
 export const LANGUAGES: LanguageInfo[] = [
   { code: 'en', nativeName: 'English', englishName: 'English', htmlLang: 'en', dir: 'ltr' },
-  { code: 'es', nativeName: 'Español (Latinoamérica)', englishName: 'Spanish (Latin America)', htmlLang: 'es-419', dir: 'ltr' }
+  {
+    code: 'es',
+    nativeName: 'Español (Latinoamérica)',
+    englishName: 'Spanish (Latin America)',
+    htmlLang: 'es-419',
+    dir: 'ltr',
+    ai: {
+      name: 'Latin American Spanish',
+      style:
+        'Write the way people speak in oral, adversarial courtrooms in Latin America (Mexico, Colombia, Peru, Chile). ' +
+        'Address the judge as "Su Señoría" and use "usted" in court. Use these terms: objeción; the judge rules "Ha lugar" ' +
+        '(sustained) or "No ha lugar" (overruled); interrogatorio directo; contrainterrogatorio; interrogatorio redirecto; ' +
+        'alegato de apertura; alegato de clausura; Fiscalía (prosecution); Defensa (defense); la persona acusada; ' +
+        'pregunta sugestiva; testimonio de oídas; prueba (evidence); veredicto "culpable" or "no culpable"; ' +
+        '"más allá de toda duda razonable"; "carga de la prueba". Avoid gendered wording when a person\'s gender is not known.'
+    }
+  }
   // Next: Arabic (right-to-left, needs a non-Latin heading font).
   // { code: 'ar', nativeName: 'العربية', englishName: 'Arabic', htmlLang: 'ar', dir: 'rtl' },
   // { code: 'fr', nativeName: 'Français', englishName: 'French', htmlLang: 'fr', dir: 'ltr' },
@@ -71,4 +92,21 @@ export function detectLanguage(): string {
   }
   const tags = typeof navigator !== 'undefined' ? (navigator.languages?.length ? navigator.languages : [navigator.language]) : [];
   return matchBrowserLanguage(tags.filter(Boolean)) ?? DEFAULT_LANGUAGE;
+}
+
+/**
+ * One extra instruction added to every game AI request so replies come back in the player's language.
+ * English players get nothing extra. Fixed labels the game reads (JSON keys, "sustained", "win", "GUILTY"...)
+ * must stay in English, and replies must never include stage directions.
+ */
+export function aiLanguageInstruction(code: string | null | undefined): string {
+  const ai = getLanguage(code)?.ai;
+  if (!ai) return '';
+  return (
+    `LANGUAGE: Write everything the players will read or hear (speech, testimony, questions, rulings, reasoning, summaries) in ${ai.name}. ` +
+    `${ai.style} ` +
+    'Keep every JSON key and every fixed label the instructions ask for exactly as written in English ' +
+    '(for example "sustained", "overruled", "win", "lose", "GUILTY", "NOT_GUILTY", action names). ' +
+    'Never add stage directions such as *sighs* or (looks away).'
+  );
 }

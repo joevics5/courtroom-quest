@@ -1256,9 +1256,13 @@ function parseObjectionRuling(text: string): ObjectionRuling {
   }
 
   const lowerText = text.toLowerCase();
-  const isSustained = lowerText.includes('sustained') || 
+  // "No ha lugar" (Spanish) means overruled, and it contains "ha lugar", so check it first.
+  const spanishOverruled = /no ha lugar|desestim|se rechaza/.test(lowerText);
+  const spanishSustained = !spanishOverruled && /ha lugar|se admite|se acepta/.test(lowerText);
+  const isSustained = lowerText.includes('sustained') ||
                       lowerText.includes('granted') ||
-                      lowerText.includes('objection is valid');
+                      lowerText.includes('objection is valid') ||
+                      spanishSustained;
 
   return {
     ruling: isSustained ? 'sustained' : 'overruled',

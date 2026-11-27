@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import en from './locales/en.json';
 import es from './locales/es.json';
 import i18n, { setLanguage } from './index';
-import { LANGUAGES, matchBrowserLanguage, detectLanguage, LANGUAGE_STORAGE_KEY } from './languages';
+import { LANGUAGES, matchBrowserLanguage, detectLanguage, LANGUAGE_STORAGE_KEY, aiLanguageInstruction } from './languages';
 
 type Tree = { [k: string]: string | string[] | Tree };
 
@@ -106,5 +106,28 @@ describe('shared helpers follow the language', () => {
     await setLanguage('en');
     expect(timeAgo(new Date(Date.now() - 2 * 24 * 3600000).toISOString())).toBe('2 days ago');
     expect(verdictText('win')).toBe('Guilty');
+  });
+});
+
+describe('AI language instruction', () => {
+  it('adds nothing for English', () => {
+    expect(aiLanguageInstruction('en')).toBe('');
+    expect(aiLanguageInstruction('xx')).toBe('');
+  });
+
+  it('asks for Latin American Spanish, keeps fixed English labels and bans stage directions', () => {
+    const note = aiLanguageInstruction('es');
+    expect(note).toContain('Latin American Spanish');
+    expect(note).toContain('Su Señoría');
+    expect(note).toContain('Ha lugar');
+    expect(note).toContain('"sustained"');
+    expect(note).toContain('"GUILTY"');
+    expect(note).toContain('Never add stage directions');
+  });
+
+  it('every enabled language that needs one has an AI style note', () => {
+    for (const lang of LANGUAGES) {
+      if (lang.code !== 'en') expect(lang.ai?.name, lang.code).toBeTruthy();
+    }
   });
 });

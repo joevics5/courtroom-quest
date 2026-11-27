@@ -20,4 +20,14 @@ describe('stripStageDirections', () => {
   it('never returns nothing', () => {
     expect(stripStageDirections('*nods*')).toBe('*nods*');
   });
+
+  it('removes Spanish stage directions too', () => {
+    expect(stripStageDirections('*suspira* Estaba en casa esa noche. (mira hacia otro lado) Creo que a las nueve.'))
+      .toBe('Estaba en casa esa noche. Creo que a las nueve.');
+    expect(stripStageDirections('(se encoge de hombros) No lo sé.')).toBe('No lo sé.');
+  });
+
+  it('keeps Spanish parentheses that are part of what is said', () => {
+    expect(stripStageDirections('Fue el martes (el 14 de mayo) por la tarde.')).toBe('Fue el martes (el 14 de mayo) por la tarde.');
+  });
 });
