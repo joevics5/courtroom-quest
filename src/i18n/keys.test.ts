@@ -33,7 +33,7 @@ describe('translation keys used in the code', () => {
       for (const m of text.matchAll(/(?<![\w.])(?:i18n\.)?t\(\s*'([a-zA-Z0-9_.]+)'/g)) {
         if (!has(m[1])) missing.push(`${file}: ${m[1]}`);
       }
-      for (const m of text.matchAll(/i18nKey=\"([a-zA-Z0-9_.]+)\"/g)) {
+      for (const m of text.matchAll(/i18nKey="([a-zA-Z0-9_.]+)"/g)) {
         if (!has(m[1])) missing.push(`${file}: ${m[1]}`);
       }
     }
