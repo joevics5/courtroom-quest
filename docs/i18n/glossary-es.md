@@ -45,3 +45,26 @@ This is a rewrite for how Spanish-speaking courts talk, not a word-for-word tran
 | Sidebar | — | Needs a check |
 
 Rank titles (player ladder) are written gender-neutral with a slash form where needed; review with a Spanish speaker.
+
+## Added while translating the screens (proposed, to confirm with a Spanish-speaking lawyer)
+
+| English | Spanish used in the game | Note |
+|---|---|---|
+| Rest (a side "rests") | concluir su presentación / "Concluir" (button) | proposed |
+| Mistrial (error screen) | Juicio nulo | proposed |
+| Bench trial / jury trial | Juicio ante juez / Juicio con jurado | proposed |
+| Counsel (both sides) | las partes / parte contraria | avoids a gendered "abogado" |
+| Opposing counsel | Parte contraria | proposed |
+| Case file | Expediente | proposed |
+| Exhibit | Prueba (Prueba A) | cases keep their own exhibit labels |
+| Request / relief granted | solicitud / concedida | proposed |
+| Opening / closing a hearing | Se abre la audiencia | source (Mexico protocols) |
+| Rank titles | Abogado/a junior ... Abogado/a legendario/a | slash forms avoid guessing gender |
+| Nickname | Apodo | proposed |
+
+## How the trial AI is told to speak Spanish
+
+`aiLanguageInstruction('es')` in `src/i18n/languages.ts` is added to every trial AI request. It asks for Latin American
+Spanish, "Su Señoría" and "usted", the terms above, and keeps JSON keys and fixed labels ("sustained", "overruled",
+"win", "lose", "GUILTY", "NOT_GUILTY") in English so the game can still read them.
+
