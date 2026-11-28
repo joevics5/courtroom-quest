@@ -17,6 +17,6 @@ describe('wrapLines', () => {
 
 describe('caption', () => {
   it('is the invitation under the image', () => {
-    expect(SHARE_CAPTION).toBe('Can you do better? >> Play Courtroom Quest www.courtroomquest.app');
+    expect(SHARE_CAPTION).toBe('Can you do better? >> Play Courtroom Gambit www.courtroomquest.app');
   });
 });

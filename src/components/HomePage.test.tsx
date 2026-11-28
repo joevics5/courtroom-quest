@@ -26,7 +26,7 @@ describe('HomePage', () => {
     expect(img.closest('[aria-hidden="true"]')).not.toBeNull();
     const title = screen.getByRole('heading', { level: 1 });
     expect(title).toHaveTextContent('COURTROOM');
-    expect(title).toHaveTextContent('QUEST');
+    expect(title).toHaveTextContent('GAMBIT');
     expect(screen.getByRole('button', { name: 'PLAY' })).toBeInTheDocument();
   });
 

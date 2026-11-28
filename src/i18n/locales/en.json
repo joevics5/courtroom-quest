@@ -647,7 +647,7 @@
     "verdict": "Verdict: {{word}}",
     "playedAs": "Played as {{role}}",
     "score": "Score {{n}}/100",
-    "caption": "Can you do better? >> Play Courtroom Quest www.courtroomquest.app"
+    "caption": "Can you do better? >> Play Courtroom Gambit www.courtroomquest.app"
   },
   "deliberation": {
     "judgeLines": [
@@ -805,7 +805,7 @@
     "notFoundTitle": "NOT FOUND",
     "notFoundH": "TRANSCRIPT NOT FOUND",
     "notFoundBody": "This trial either doesn't exist or isn't shared publicly.",
-    "play": "PLAY COURTROOM QUEST",
+    "play": "PLAY COURTROOM GAMBIT",
     "liveTrial": "LIVE TRIAL",
     "sharedTrial": "SHARED TRIAL",
     "live": "LIVE",
@@ -960,7 +960,7 @@
     "tiebreak": "Most wins first. Ties go to the most recent winner."
   },
   "shareLink": {
-    "title": "Courtroom Quest challenge",
+    "title": "Courtroom Gambit challenge",
     "aria": "Challenge link",
     "copied": "Copied",
     "copy": "Copy link"
@@ -1080,7 +1080,7 @@
     "change": "CHANGE",
     "browse": "BROWSE",
     "caseFallback": "Case",
-    "shareText": "I challenge you in Courtroom Quest{{title}}! You'd play the {{side}}. Accept here:"
+    "shareText": "I challenge you in Courtroom Gambit{{title}}! You'd play the {{side}}. Accept here:"
   },
   "avatarCreator": {
     "tabs": {

@@ -647,7 +647,7 @@
     "verdict": "Veredicto: {{word}}",
     "playedAs": "Jugó como {{role}}",
     "score": "Puntuación {{n}}/100",
-    "caption": "¿Puedes hacerlo mejor? >> Juega Courtroom Quest www.courtroomquest.app"
+    "caption": "¿Puedes hacerlo mejor? >> Juega Courtroom Gambit www.courtroomquest.app"
   },
   "deliberation": {
     "judgeLines": [
@@ -805,7 +805,7 @@
     "notFoundTitle": "NO ENCONTRADO",
     "notFoundH": "TRANSCRIPCIÓN NO ENCONTRADA",
     "notFoundBody": "Este juicio no existe o no se comparte públicamente.",
-    "play": "JUEGA COURTROOM QUEST",
+    "play": "JUEGA COURTROOM GAMBIT",
     "liveTrial": "JUICIO EN VIVO",
     "sharedTrial": "JUICIO COMPARTIDO",
     "live": "EN VIVO",
@@ -960,7 +960,7 @@
     "tiebreak": "Primero quienes tienen más victorias. En caso de empate, gana quien ganó más recientemente."
   },
   "shareLink": {
-    "title": "Reto de Courtroom Quest",
+    "title": "Reto de Courtroom Gambit",
     "aria": "Enlace del reto",
     "copied": "Copiado",
     "copy": "Copiar enlace"
@@ -1080,7 +1080,7 @@
     "change": "CAMBIAR",
     "browse": "EXPLORAR",
     "caseFallback": "Caso",
-    "shareText": "Te reto en Courtroom Quest{{title}}. Tú jugarías como {{side}}. Acepta aquí:"
+    "shareText": "Te reto en Courtroom Gambit{{title}}. Tú jugarías como {{side}}. Acepta aquí:"
   },
   "avatarCreator": {
     "tabs": {

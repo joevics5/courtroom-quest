@@ -44,7 +44,7 @@ describe('desktop layout switch', () => {
     render(<HomePage {...props} />);
     expect(screen.getAllByRole('button', { name: 'PLAY' })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('COURTROOM');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('QUEST');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('GAMBIT');
     expect(screen.getByText('PROVE IT IN COURT')).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
   });

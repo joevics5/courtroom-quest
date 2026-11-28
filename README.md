@@ -1,4 +1,4 @@
-# Courtroom Quest
+# Courtroom Gambit
 
 A courtroom game: pick a side, build your case, question witnesses, argue to a jury and win the verdict.
 Play against AI, online opponents, or a friend on the same device.

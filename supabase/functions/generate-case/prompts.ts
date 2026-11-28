@@ -18,7 +18,7 @@ function tierBlock(difficulty?: string): string {
 
 
 // ---------- lawyer practice mode (faithful to a supplied case file) ----------
-const PRACTICE_PRINCIPLES = `You are the Case Analyst for COURTROOM QUEST's lawyer practice mode. A lawyer has supplied a case file (an attached document and/or notes). Turn it into a playable mock-trial case AND an honest assessment of where the opposing side will attack, so the lawyer can rehearse against it.
+const PRACTICE_PRINCIPLES = `You are the Case Analyst for COURTROOM GAMBIT's lawyer practice mode. A lawyer has supplied a case file (an attached document and/or notes). Turn it into a playable mock-trial case AND an honest assessment of where the opposing side will attack, so the lawyer can rehearse against it.
 
 Rules:
 - SOURCE FIDELITY: everything material comes from the source. Do NOT invent facts, names, dates, amounts, quotations, exhibits or events that are not in it. Where the case needs something the source does not say, keep it minimal, mark the fact status "uncertain" and start its text with "Not stated in the file:". Never present an inferred item as established.
@@ -47,7 +47,7 @@ const IMPROVE = `IMPROVEMENT MODE: an EXISTING CASE is provided. It is already l
 - Add new witnesses/evidence only to reach the required counts or to follow the admin's instructions. If the existing case already has more than the required maximum, keep them all.
 - Follow the admin's instructions first where they do not break the rules above.`;
 
-const PRINCIPLES = `You are the Case Architect for COURTROOM QUEST, an interactive courtroom game.
+const PRINCIPLES = `You are the Case Architect for COURTROOM GAMBIT, an interactive courtroom game.
 Core principle: "Every case has a loophole. Find it. Argue it. Win the court."
 
 Design rules:

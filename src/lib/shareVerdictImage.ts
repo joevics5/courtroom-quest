@@ -1,7 +1,7 @@
 import i18n from '../i18n';
 /** The verdict card people share: a fixed template with the case details dropped into it, drawn on a canvas. */
 
-export const SHARE_CAPTION = 'Can you do better? >> Play Courtroom Quest www.courtroomquest.app';
+export const SHARE_CAPTION = 'Can you do better? >> Play Courtroom Gambit www.courtroomquest.app';
 
 export interface VerdictCardInfo {
   won: boolean;
@@ -91,7 +91,7 @@ export async function renderVerdictCard(info: VerdictCardInfo): Promise<Blob> {
   // logo
   ctx.fillStyle = '#FFD43B';
   ctx.font = `76px ${GAME_FONT}`;
-  ctx.fillText('COURTROOM QUEST', W / 2, 160);
+  ctx.fillText('COURTROOM GAMBIT', W / 2, 160);
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.fillRect(W / 2 - 120, 190, 240, 4);
 
@@ -175,7 +175,7 @@ export async function renderVerdictCard(info: VerdictCardInfo): Promise<Blob> {
  * Shares the card as a picture with the caption under it. Where the browser cannot share files, the picture is
  * downloaded and the caption copied. Returns what happened so the screen can say so.
  */
-export async function shareVerdictCard(blob: Blob, fileName = 'courtroom-quest-verdict.png'): Promise<'shared' | 'downloaded' | 'cancelled'> {
+export async function shareVerdictCard(blob: Blob, fileName = 'courtroom-gambit-verdict.png'): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const file = new File([blob], fileName, { type: 'image/png' });
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
   if (nav.share && nav.canShare?.({ files: [file] })) {

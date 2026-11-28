@@ -1,3 +1,4 @@
+import { newlineOnTab } from '../lib/textareaKeys';
 import { useTranslation } from 'react-i18next';
 import { phaseLabel } from '../lib/phaseLabel';
 import { verdictText } from '../lib/verdictUtils';
@@ -2987,6 +2988,7 @@ export default function Courtroom({ session, onComplete, onBack, playerWins = 0 
                          value={input}
                          onChange={(e) => { setInput(e.target.value); if (redirectHint) setRedirectHint(null); }}
                          onKeyDown={(e) => {
+                           if (newlineOnTab(e, input, setInput) !== null) return;
                            if (e.key === 'Enter' && !e.shiftKey) {
                              e.preventDefault();
                              handleSubmit();

@@ -91,7 +91,7 @@ export default function LoadingScreen({ authReady, onDone }: LoadingScreenProps)
     <div className="min-h-[100dvh] bg-[#0b0d14] flex flex-col items-center justify-center px-8">
       <h1 className="font-game text-center leading-[0.9] select-none">
         <span className="logo-gold block text-6xl sm:text-7xl">COURTROOM</span>
-        <span className="logo-gold block text-8xl sm:text-9xl">QUEST</span>
+        <span className="logo-gold block text-8xl sm:text-9xl">GAMBIT</span>
       </h1>
 
       <div className="mt-10 w-full max-w-xs h-3 rounded-full bg-white/10 overflow-hidden">

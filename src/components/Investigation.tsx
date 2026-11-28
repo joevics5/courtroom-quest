@@ -1,3 +1,4 @@
+import { newlineOnTab } from '../lib/textareaKeys';
 import { Trans, useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef } from 'react';
 import GameTip from './GameTip';
@@ -335,6 +336,7 @@ export default function Investigation({ session, onProceedToTrial, onBack, liveR
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   onKeyDown={(e) => {
+                    if (newlineOnTab(e, question, setQuestion) !== null) return;
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       handleAskQuestion();

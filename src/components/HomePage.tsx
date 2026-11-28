@@ -202,7 +202,7 @@ export default function HomePage({ onPlay, onOpenSettings, onSignIn, hasAccount,
         <div ref={logoRef} className="px-5 flex flex-col items-center" style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}>
           <h1 className="font-game leading-[0.9] select-none text-center">
             <span className="logo-gold block text-4xl sm:text-5xl">COURTROOM</span>
-            <span className="logo-gold block text-6xl sm:text-7xl">QUEST</span>
+            <span className="logo-gold block text-6xl sm:text-7xl">GAMBIT</span>
           </h1>
         </div>
 
@@ -400,7 +400,7 @@ function HomeDesktop({ soundOn, toggleSound, busy, signedIn, hasAccount, waiting
           <div className="w-full max-w-md">
             <h1 className="font-game leading-[0.9] select-none">
               <span className="logo-gold block text-6xl [@media(min-height:800px)]:text-7xl">COURTROOM</span>
-              <span className="logo-gold block text-8xl [@media(min-height:800px)]:text-9xl">QUEST</span>
+              <span className="logo-gold block text-8xl [@media(min-height:800px)]:text-9xl">GAMBIT</span>
             </h1>
             <p aria-label={t('home.taglineFull')} className={`mt-4 inline-block max-w-lg text-center text-xl font-black leading-tight tracking-[0.06em] ${TAGLINE_STYLE}`}>
               {taglineLines.map(line => (

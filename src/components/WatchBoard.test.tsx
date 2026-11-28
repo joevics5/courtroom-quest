@@ -56,7 +56,7 @@ describe('WatchBoard', () => {
   it('the back arrow and the Play button go home', async () => {
     renderAt();
     await screen.findByText('WATCH');
-    expect(screen.getByRole('link', { name: 'PLAY COURTROOM QUEST' }).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('link', { name: 'PLAY COURTROOM GAMBIT' }).getAttribute('href')).toBe('/');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await waitFor(() => expect(screen.getByText('home page')).toBeTruthy());
   });
@@ -68,6 +68,6 @@ describe('SharedTranscript', () => {
     // the session lookup uses .single(), which this fake does not provide, so it errors into the not-found path
     renderAt('/share/missing');
     expect(await screen.findByText('TRANSCRIPT NOT FOUND')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'PLAY COURTROOM QUEST' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'PLAY COURTROOM GAMBIT' })).toBeTruthy();
   });
 });
